@@ -18,6 +18,7 @@ words:
   - frameless
   - headlessly
   - llvmpipe
+  - libvips
   - rrggbb
   - toplevel
   - worktree
