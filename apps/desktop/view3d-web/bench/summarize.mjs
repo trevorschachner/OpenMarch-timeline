@@ -19,7 +19,7 @@ for (const file of process.argv.slice(2)) {
     console.log(`\n### ${file.split("/").pop()}`);
     console.log(
         `\nBuffer ${first?.drawingBuffer?.join(" × ")} at pixel ratio ${first?.pixelRatio}, ` +
-            `kit ${first?.kit}, quality ${first?.quality}, flags ${d.args.join(" ")}, ` +
+            `kit ${first?.kit}, quality ${first?.quality}, ${(d.args ? d.args.some((a) => a.includes("frame-rate-limit")) : d.uncapped) ? "uncapped" : "vsync"}, ` +
             `${d.seconds} s measured per run, ${Math.max(...d.results.map((r) => r.repeat)) + 1} repeat(s). ` +
             `Renderer: ${first?.renderer}.\n`,
     );
