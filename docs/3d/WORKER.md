@@ -18,7 +18,9 @@ Set by the project owner on 2026-10-04, until they lift it here:
 
 - **Scope is the MVP** in [README.md](README.md). Don't build post-MVP ideas
   (in-editor preview, imports, video export, analysis), even if they look
-  small.
+  small. Exception (owner, 2026-10-11): the customization track, `C1` to
+  `C5` in [phases/](phases/), is in scope, imports included, as specified in
+  [props-spec.md](props-spec.md) and ADR 0002 D-9 to D-22.
 - **Don't run the full `test:history` suite or the whole Playwright e2e
   suite.** Run focused tests for the files you change, for example
   `pnpm --dir apps/desktop exec vitest run src/view3d` or
@@ -56,7 +58,9 @@ Set by the project owner on 2026-10-04, until they lift it here:
   if its `Owner` is `human`.
 - **Without an ID:** take the first package that is `open` or stale, isn't
   `human`, and whose `Depends on` packages are `done`. Prefer lower phases,
-  then lower IDs.
+  then lower IDs. `P` (phases) and `C` (customization track) packages are
+  separate tracks: if the request names a track, stay in it; otherwise prefer
+  `P` packages, then `C`.
 - **Resuming your own package:** continue it without re-claiming.
 - If nothing is available, finish with `VIEW3D-STATUS: none` (step 7).
 
@@ -78,7 +82,8 @@ they got it first, go back to step 2.
 
 ## 4. Set up the code branch
 
-- Branch name: `3d/p<phase>-<short-name>`, such as `3d/p2-pro-dome`, based on
+- Branch name: `3d/p<phase>-<short-name>`, such as `3d/p2-pro-dome`, or
+  `3d/c<track>-<short-name>` for a `C` package, based on
   `<remote>/3d-async`. If it already exists on the remote, check it out.
 - Work in a separate git work tree unless your session already runs in one.
 - In a fresh work tree, run `pnpm install`, then build the workspace packages
@@ -107,7 +112,7 @@ Throughout:
   Fiber, drei, Electron or database imports there.
 - Build against `apps/desktop/src/view3d/core/types.ts`. If a contract there
   doesn't fit, log a blocker for the lead; don't change it on your own.
-- Don't edit other packages' lines. Use a `Cross-phase note from P<n>` log
+- Don't edit other packages' lines. Use a `Cross-phase note from P<n>` (or `C<n>`) log
   entry in the other phase's file instead.
 - A decision that changes the ADR, the schema, the file format, IPC or a shared
   contract stops the work: log it as a blocker.

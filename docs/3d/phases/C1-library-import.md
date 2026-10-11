@@ -51,7 +51,7 @@ Each field is on its own line so that concurrent claims merge cleanly. Edit only
 ### C1.1: Approve the amendments and open customization work
 
 - Owner: human
-- Status: open
+- Status: done
 - PR: none
 - Parallel: no
 - Depends on: —
@@ -300,3 +300,11 @@ Each field is on its own line so that concurrent claims merge cleanly. Edit only
 Nothing yet.
 
 ## Progress log
+
+- 2026-10-11, C1.1 done: the owner approved the ADR 0002 amendment, the ADR
+  0004 amendment draft, props-spec.md and the C track. WORKER.md's policy now
+  names the C track; README, WORKER.md, plan.md, the 3d-work skill and the
+  3d-worker agent accept `C<track>.<n>` IDs and `3d/c<track>-<name>`
+  branches. The ADR 0004 amendment draft stays here until the cue work lands
+  ADR 0004 on 3d-async, then merges into it (C3's tracker packages). The one
+  remaining open point, the import IPC channels, is package C1.9.
