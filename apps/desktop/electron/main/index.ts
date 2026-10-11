@@ -37,6 +37,10 @@ import {
 } from "./update";
 import { repairDatabase } from "../database/repair";
 import { choosePreviousDotsFile } from "./services/previous-dots-import-service";
+import {
+    SHARP_SELF_TEST_ENV,
+    writeSharpSelfTest,
+} from "./services/sharp-self-test";
 import { closeView3dWindow, initView3dWindow } from "./view3dWindow";
 import {
     initAuthBeforeReady,
@@ -418,6 +422,13 @@ function initIpcHandlers() {
 }
 
 void app.whenReady().then(async () => {
+    const sharpSelfTestOut = process.env[SHARP_SELF_TEST_ENV];
+    if (sharpSelfTestOut) {
+        // Packaging check only: run sharp, write the result, open nothing.
+        app.exit(await writeSharpSelfTest(sharpSelfTestOut));
+        return;
+    }
+
     app.setName("OpenMarch");
     console.log("NODE:", process.versions.node);
 
