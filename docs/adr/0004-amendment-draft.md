@@ -160,11 +160,11 @@ and item Placement changes under their page with their count. Behavior cues
 
 - The `channel` CHECK widens (in ADR 0004's migration if unshipped) and
   `equipment_state` is dropped.
-- `compileCues` and `traceCue` carry three more channels. If the Carry, Silk
-  and Uniform defaults are computed there, their input must also carry each
-  section's usual equipment and 2D color and each marcher's `isGuard`, a
-  public package API change under D-6. Where defaults are computed is not
-  decided.
+- `compileCues` and `traceCue` carry three more channels and compute the
+  Carry, Silk and Uniform defaults, so the why readout explains a default
+  where it explains a cue (owner, 2026-10-11 [26.26]). Their input also
+  carries each section's usual equipment and 2D color and each marcher's
+  `isGuard`, a public package API change under D-6.
 - Item Placement, geometry and artwork slot rows are not cues, so
   `compileCues` doesn't read them; the 3D View and the notes list resolve
   them on their own.

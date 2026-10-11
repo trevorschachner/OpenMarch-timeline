@@ -11,16 +11,14 @@ this file when the items below are answered and before the branch merges
 
 ## Still open
 
-1. **Import and Library IPC channels.** No ticket or review answer names the
-   channels for picking files, running imports and reading and writing the
-   local Library. Package C1.9 (human) decides them and records them in ADR
-   0002 D-13 before any import code.
-2. **Where the Carry, Silk and Uniform defaults are computed.** In
-   `compileCues`, whose input then also carries each section's usual
-   equipment and 2D color and each marcher's `isGuard` (a public package API
-   change under ADR 0004 D-6), or in the 3D View. The Silk default added in
-   review (a plain silk in the section's 2D color) adds the 2D color to that
-   input. Needed before C3.5 is claimed.
+1. **Import and Library IPC channels.** Decided when building starts, by the
+   human package C1.9, and recorded in ADR 0002 D-13 before any import code
+   (owner, 2026-10-11).
+
+Settled in the last review: Carry, Silk and Uniform defaults are computed in
+`compileCues` (ADR 0004 amendment draft); C2.1 depends on C3.1; C4.10 and
+C4.11 can be claimed before C1.1; the item slot picker reads "from the
+current count on".
 
 The phase order and gates diagram is in
 `docs/3d/phases/C1-library-import.md`.
