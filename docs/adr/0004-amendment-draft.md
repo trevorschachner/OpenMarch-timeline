@@ -7,8 +7,8 @@
 > beside the ADR 0002 amendment. Once approved, it moves into ADR 0004 as a
 > dated section, and this file is deleted.
 
-- Status: draft for the owner's approval; the owner's review answers of
-  2026-10-11 are applied
+- Status: approved by the owner on 2026-10-11; lands on ADR 0004's branch
+  with the cue work
 - Date: 2026-10-11
 - Amends: ADR 0004 D-1, D-5, D-6 and D-7; spec sections 2.3, 3, 7.1, 7.6,
   8.5, 10 and 11

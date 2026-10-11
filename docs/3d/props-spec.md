@@ -2,8 +2,7 @@
 
 <!-- cspell:words meshopt dedup unitard Headwear aussie pHYs CMYK Pantone rasterizing bptc BPTC ultralite playhead's MPFB -->
 
-- Status: draft for the owner's approval with the ADR amendments (package
-  C1.1)
+- Status: approved by the owner on 2026-10-11, with the ADR amendments
 - Date: 2026-10-11
 - Decisions: [ADR 0002](../adr/0002-3d-view.md) amendment of 2026-10-11
   (D-9 to D-22) and the [ADR 0004 amendment draft](../adr/0004-amendment-draft.md)
