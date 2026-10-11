@@ -1,5 +1,5 @@
 ---
-phase: 8
+phase: C1
 title: Customization, Library and import
 status: not-started
 owner: none
@@ -9,30 +9,46 @@ depends_on: [5]
 updated: 2026-10-11
 ---
 
-# Phase 8: Customization, Library and import
+# C1: Customization, Library and import
 
 <!-- cspell:words meshopt dedup CMYK -->
 
 Follow the protocol in [../README.md](../README.md). Claim a work package before you start, and append to the progress log as you go.
 
-> Draft for the owner's approval (2026-10-11). Phases 8 to 12 slice the 3D customization design (props, equipment, uniforms and artwork). No package here can be claimed until P8.1 is done.
+> Draft for the owner's approval (2026-10-11). The customization track, C1 to C5, slices the 3D customization design (props, equipment, uniforms and artwork). It is a separate track beside the numbered phases, with its own `C` prefix, because `docs/3d/fidelity.md` already plans Phases 6 to 8 (owner, ticket 26 review item 24). The early Phase 6 draft's two packages are folded in as C4.10 and C4.11. No package here can be claimed until C1.1 is done.
 
 ## Goal
 
 The approvals and outside gates the whole customization effort waits on, then the parts that don't need the timeline: real units and the size catalog, `sharp`, the local Library, the model and Artwork import pipelines, the import review, Artwork templates and the Starter kit. The show-side Library tables follow once the timeline is merged.
 
+## Track order and gates (C1 to C5)
+
+```text
+C1.1 approval ─┬─ P8 Library and import (no timeline needed)
+C1.2 legal ────┼──────────────────── gates C1.13 ship, C5.8, om-pose clips in a release
+C1.3 timeline ─┴─ C1.11 show tables
+ADR 0004 step 2 (C3.1) ─── C2.1 PR 1013 rebuilt ── P9 items on the timeline
+ADR 0004 steps 3, 8 (C3.2-3) ─── P10 Carry, Silk, Uniform cues; Items tab
+ADR 0004 step 4 (C4.1) ─── C4.5 props and platforms in 3D
+C4.10 Band/Guard defaults, C4.11 swing flags (early, no C1.1 needed)
+ADR 0004 step 6 built (C4.2) ─── C4.3 aLook + C4.4 silk wave, on step 6's branch
+C4.2 + C4.3 + C4.4 + C4.9 test Garment ─── C4.7 one integrated-GPU run (human)
+C4.7 ─── C4.8 step 6 merged, then C4.3, C4.4 ─── C4.6 held items
+C4.7 + C4.3 merged ─── P12 Artwork and uniforms
+```
+
 ## Read first
 
-- [ADR 0002](../../adr/0002-3d-view.md), amendment of 2026-10-11 (D-9 to D-22), and `DRAFT-NOTES.md` on the branch that drafted it
+- [../props-spec.md](../props-spec.md): the design spec. Ticket numbers on each package are the ones it cites; read those sections.
+- [ADR 0002](../../adr/0002-3d-view.md), amendment of 2026-10-11 (D-9 to D-22)
 - `CONTEXT.md` at the repo root: **Library**, **Library item**, **Version**, **Artwork**, **Artwork template**, **Starter kit**, **Credits**
-- The resolved tickets each package cites, in `.scratch/3d-customization/issues/` on `3d/architecture-props`, until the design spec lands in `docs/3d/`
 - Findings: `research/gltf-import`, `research/ktx2-wasm-sharp`, `task/ktx2-sharp-spike`, `research/size-standards`, `research/ip-licensing` (branch, file `research/<name>.md`)
 
 ## Work packages
 
 Each field is on its own line so that concurrent claims merge cleanly. Edit only the Owner, Status and PR lines of packages you own.
 
-### P8.1: Approve the amendments and open customization work
+### C1.1: Approve the amendments and open customization work
 
 - Owner: human
 - Status: open
@@ -42,15 +58,21 @@ Each field is on its own line so that concurrent claims merge cleanly. Edit only
 
 **Goal:** the owner approves the ADR 0002 amendment (D-9 to D-22), the ADR 0004 amendment draft, and these phase files, or asks for changes.
 
-**Scope:** answer or defer each item in `DRAFT-NOTES.md`; lift [../WORKER.md](../WORKER.md)'s "Scope is the MVP" policy for phases 8 to 12 (it forbids imports today); add phases 8 to 12 to [../plan.md](../plan.md) section 3.
+**Scope:** answer or defer what is left in `DRAFT-NOTES.md` (the review answers of 2026-10-11 are applied); lift [../WORKER.md](../WORKER.md)'s "Scope is the MVP" policy for the customization track, C1 to C5 (it forbids imports today); add the track to [../plan.md](../plan.md) section 3; make the worker docs accept `C<track>.<n>` IDs (below); move the ADR 0004 amendment draft onto the cue branch.
 
 **Tickets:** 26.
 
-**Done when:** the amendment's status line reads approved, WORKER.md's policy names phases 8 to 12, and the ADR 0004 text has a home on the cue branch.
+**Worker docs for `C` IDs.** Nothing parses phase IDs as numbers in code: `scripts/3d/run-worker.sh` passes the ID through and its `VIEW3D-STATUS` regex (`[A-Za-z0-9.]+`) accepts `C1.2`; `scripts/3d/coord.sh` doesn't read IDs; the `3d-work` skill and `3d-worker` agent only name `P<phase>.<n>` in their descriptions and defer to `WORKER.md`. The prose and one grep assume the `P` form and need these edits:
+
+- `docs/3d/README.md`: the status grep `^### P[0-9]+\.[0-9]+` becomes `^### [PC][0-9]+\.[0-9]+`; the ID convention reads "`P<phase>.<n>`, or `C<track>.<n>` for the customization track"; code branches for the track are `3d/c<track>-<short-name>`.
+- `docs/3d/WORKER.md`: the same ID and branch forms in steps 1, 3 and 4; step 2's "Prefer lower phases, then lower IDs" says how `P` and `C` packages order against each other; "Cross-phase note from P<n>" also allows `C<n>`.
+- `.claude/skills/3d-work/SKILL.md` and `.claude/agents/3d-worker.md`: the descriptions and argument hint name both forms.
+
+**Done when:** the amendment's status line reads approved, WORKER.md's policy names the C track and the ID changes below are in, the ADR 0004 text has a home on the cue branch, and `DRAFT-NOTES.md` is deleted.
 
 **Checks:** none (a human verdict).
 
-### P8.2: Legal gate for built-ins and the Starter kit
+### C1.2: Legal gate for built-ins and the Starter kit
 
 - Owner: human
 - Status: open
@@ -60,15 +82,15 @@ Each field is on its own line so that concurrent claims merge cleanly. Edit only
 
 **Goal:** counsel answers lawyer questions Q1 (CC0 art beside AGPL code; whether the CLA covers relicensing contributed assets), Q3 (om-pose clips derived from Cadets 2019 footage), Q4 (GPL vs AGPL `LICENSE` text) and Q5 (Terms §9.1's reach), from `research/ip-licensing.md` §7.
 
-**Scope:** blocks shipping built-ins (P12.8) and the Starter kit (P8.13), not building them. The Starter kit's reference bodies and v4 skeleton also wait for om-pose to adopt a license upstream. The `LICENSE` and Terms §9.1 fix ships as its own change outside this effort once Q4 and Q5 are answered.
+**Scope:** blocks shipping built-ins (C5.8), the Starter kit (C1.13) and any release that ships the om-pose clips (Q3; ADR 0002 D-7 correction), not building them. The Starter kit's reference bodies and v4 skeleton also wait for om-pose to adopt a license upstream. The `LICENSE` and Terms §9.1 fix ships as its own change outside this effort once Q4 and Q5 are answered.
 
-**Tickets:** 14, 16.
+**Tickets:** 14, 16, 26.6.
 
 **Done when:** the answers are recorded in `docs/3d/findings.md` and the owner says built-ins may ship.
 
 **Checks:** none (a human verdict).
 
-### P8.3: Timeline merged into 3d-async
+### C1.3: Timeline merged into 3d-async
 
 - Owner: human
 - Status: open
@@ -86,13 +108,13 @@ Each field is on its own line so that concurrent claims merge cleanly. Edit only
 
 **Checks:** the lead records the merge commit in the progress log.
 
-### P8.4: Real units and the size catalog
+### C1.4: Real units and the size catalog
 
 - Owner: none
 - Status: open
 - PR: none
 - Parallel: yes
-- Depends on: P8.1
+- Depends on: C1.1
 
 **Goal:** one platform-free module that every later package uses for sizes.
 
@@ -104,13 +126,13 @@ Each field is on its own line so that concurrent claims merge cleanly. Edit only
 
 **Checks:** unit tests for parsing, rounding and the catalog; type-check, lint, format, spellcheck.
 
-### P8.5: `sharp` in the packaged app
+### C1.5: `sharp` in the packaged app
 
 - Owner: none
 - Status: open
 - PR: none
 - Parallel: yes
-- Depends on: P8.1
+- Depends on: C1.1
 
 **Goal:** `sharp` runs in main in packaged builds on every release platform.
 
@@ -122,13 +144,13 @@ Each field is on its own line so that concurrent claims merge cleanly. Edit only
 
 **Checks:** the three packaged runs, recorded; type-check, lint, format.
 
-### P8.6: Local Library store
+### C1.6: Local Library store
 
 - Owner: none
 - Status: open
 - PR: none
 - Parallel: yes
-- Depends on: P8.1
+- Depends on: C1.1
 
 **Goal:** the user's Library on disk, shaped like a future cloud cache.
 
@@ -140,13 +162,13 @@ Each field is on its own line so that concurrent claims merge cleanly. Edit only
 
 **Checks:** unit tests over a temp directory; type-check, lint, format, spellcheck.
 
-### P8.7: Model import pipeline
+### C1.7: Model import pipeline
 
 - Owner: none
 - Status: open
 - PR: none
 - Parallel: yes
-- Depends on: P8.4, P8.5, P8.6
+- Depends on: C1.4, C1.5, C1.6
 
 **Goal:** a GLB or glTF in, a normalized GLB plus sidecar and an import report out, in Node.
 
@@ -158,13 +180,13 @@ Each field is on its own line so that concurrent claims merge cleanly. Edit only
 
 **Checks:** fixture tests; type-check, lint, format, spellcheck.
 
-### P8.8: Artwork import pipeline
+### C1.8: Artwork import pipeline
 
 - Owner: none
 - Status: open
 - PR: none
 - Parallel: yes
-- Depends on: P8.4, P8.5, P8.6
+- Depends on: C1.4, C1.5, C1.6
 
 **Goal:** PNG, JPG, SVG and PDF in, an Artwork Version (original plus display texture) out.
 
@@ -176,15 +198,15 @@ Each field is on its own line so that concurrent claims merge cleanly. Edit only
 
 **Checks:** fixture tests; type-check, lint, format, spellcheck.
 
-### P8.9: Import and Library IPC contract
+### C1.9: Import and Library IPC contract
 
 - Owner: human
 - Status: open
 - PR: none
 - Parallel: no
-- Depends on: P8.1
+- Depends on: C1.1
 
-**Goal:** the channel list for picking files, running imports and reading and writing the local Library, recorded in ADR 0002 D-13 before code (the tickets don't name it).
+**Goal:** the channel list for picking files, running imports and reading and writing the local Library, recorded in ADR 0002 D-13 before code (no ticket or review answer names it).
 
 **Scope:** decided by the owner or the lead with the owner; follows D-4's rules (hard-coded names, main validates, the editor is the only writer).
 
@@ -194,35 +216,35 @@ Each field is on its own line so that concurrent claims merge cleanly. Edit only
 
 **Checks:** none (a decision).
 
-### P8.10: Import review modal
+### C1.10: Import review modal
 
 - Owner: none
 - Status: open
 - PR: none
 - Parallel: no
-- Depends on: P8.7, P8.8, P8.9
+- Depends on: C1.7, C1.8, C1.9
 
 **Goal:** the one-screen import review.
 
-**Scope:** Library Import… and an Import… inside each picker (pre-fills kind, slot and size); `dialog.showOpenDialog` in main with the "3D model", "Artwork" and "All Files" filters; an editor modal with its own code-split three.js canvas built from `view3d/core/` builders; the report on the right with pre-selected choices; manual grip and slot setting when `extras` are missing, with the "re-export with the OpenMarch preset" hint; kind asked unless the kit stamp pre-selects it; the Artwork size step (template chips, locked-aspect fields, "From file", live effective DPI); optional, collapsed author, license and source fields pre-filled from file metadata, with "Only import artwork and models you have the rights to use"; re-import matching (kit `itemId`, else filename); rejections on the same screen with a pointer to the Starter kit, never an `AlertModal`. The 3D window stays read-only.
+**Scope:** Library Import… and an Import… inside each picker (pre-fills kind, slot and size); `dialog.showOpenDialog` in main with the "3D model", "Artwork" and "All Files" filters; every import lands in the local Library (opened from the Library side panel in Visuals mode) and the show embeds a copy; an editor modal with its own code-split three.js canvas built from `view3d/core/` builders; the report on the right with pre-selected choices; manual grip and slot setting when `extras` are missing, with the "re-export with the OpenMarch preset" hint; kind asked unless the kit stamp pre-selects it; the Artwork size step (template chips, locked-aspect fields, "From file", live effective DPI); optional, collapsed author, license and source fields pre-filled from file metadata, with "Only import artwork and models you have the rights to use"; re-import matching (kit `itemId`, else filename); rejections on the same screen with a pointer to the Starter kit, never an `AlertModal`. The 3D window stays read-only.
 
-**Tickets:** 08, 11, 16.
+**Tickets:** 08, 11, 16, 26.16.
 
 **Done when:** a clean kit export imports in one click, and each "Needs your choice" item shows pre-selected.
 
 **Checks:** component tests; a focused e2e for one clean import and one rejection; screenshots; type-check, lint, format, spellcheck.
 
-### P8.11: Show embedding and `library_blobs`
+### C1.11: Show embedding and `library_blobs`
 
 - Owner: none
 - Status: open
 - PR: none
 - Parallel: yes
-- Depends on: P8.3, P8.6
+- Depends on: C1.3, C1.6
 
 **Goal:** a show carries copies of everything it uses.
 
-**Scope:** a migration (after the timeline's) for `library_blobs` (hash key, bytes, deduped) and the show item table (item id, kind, name, Version hash, metadata snapshot, sidecar JSON), both outside undo history; built-ins embedded too; prune on save (items nothing references, then orphan blobs); item table loaded at open, blobs read lazily by hash with a small cache, never originals for rendering; "update available" per item, never silent, including metadata-only updates; "Add to my Library"; opening a show never writes to the Library.
+**Scope:** a migration (after the timeline's) for `library_blobs` (hash key, bytes, deduped) and the show Library item table (item id, kind, name, Version hash, metadata snapshot, sidecar JSON), both outside undo history; built-ins embedded too; prune on save (Library items nothing references, then orphan blobs; a Library item a cue or Item table names is never pruned); the table loaded at open, blobs read lazily by hash with a small cache, never originals for rendering; "update available" per Library item, never silent, including metadata-only updates; "Add to my Library"; opening a show never writes to the Library.
 
 **Tickets:** 06, 11, 16.
 
@@ -230,13 +252,13 @@ Each field is on its own line so that concurrent claims merge cleanly. Edit only
 
 **Checks:** schema and migration tests (page-mode and converted files); history tests showing both tables outside history; type-check, lint, format, spellcheck.
 
-### P8.12: Artwork template downloads
+### C1.12: Artwork template downloads
 
 - Owner: none
 - Status: open
 - PR: none
 - Parallel: yes
-- Depends on: P8.4
+- Depends on: C1.4
 
 **Goal:** people can author Artwork that fits.
 
@@ -248,27 +270,27 @@ Each field is on its own line so that concurrent claims merge cleanly. Edit only
 
 **Checks:** unit tests on generated sizes; type-check, lint, format, spellcheck.
 
-### P8.13: Starter kit
+### C1.13: Starter kit
 
 - Owner: none
 - Status: open
 - PR: none
 - Parallel: yes
-- Depends on: P8.7, P8.12
+- Depends on: C1.7, C1.12
 
 **Goal:** the official Blender kit, bundled in the app.
 
-**Scope:** template `.blend` files per kind; Artwork templates (the same files as P8.12); clean examples; a one-page guide; a glTF export preset; the "OpenMarch Tools" add-on (GPL-3.0-or-later): set kind, mark `OM_grip_*` and other `OM_*` points, declare artwork slots with real sizes, set stretch zones, stamp `itemId`, `kind`, `kitVersion` and the export license ("All rights reserved" pre-selected), pre-flight checks, and "Export for OpenMarch" (GLB, Y-up, custom properties on, modifiers applied, no quantization on skinned meshes, no Draco); Help ‣ Get the Blender starter kit saves a zip; `LICENSE` files (CC0 for templates, GPL for the add-on). The reference scene and uniform section (seven v4u bodies, v4 rig, `_PART` palette) are derived from upstream om-pose and wait for P8.2 and om-pose's license.
+**Scope:** template `.blend` files per kind; Artwork templates (the same files as C1.12); clean examples; a one-page guide; a glTF export preset; the "OpenMarch Tools" add-on (GPL-3.0-or-later): set kind, mark `OM_grip_*` and other `OM_*` points, declare artwork slots with real sizes, set stretch zones, stamp `itemId`, `kind`, `kitVersion` and the export license ("All rights reserved" pre-selected), pre-flight checks, and "Export for OpenMarch" (GLB, Y-up, custom properties on, modifiers applied, no quantization on skinned meshes, no Draco); Help ‣ Get the Blender starter kit saves a zip; `LICENSE` files (CC0 for templates, GPL for the add-on). The reference scene and uniform section (seven v4u bodies, v4 rig, `_PART` palette) are derived from upstream om-pose and wait for C1.2 and om-pose's license.
 
 **Tickets:** 11, 16.
 
-**Done when:** each template exported with the add-on imports through P8.7 with no "Needs your choice" items. Shipping waits for P8.2.
+**Done when:** each template exported with the add-on imports through C1.7 with no "Needs your choice" items. Shipping waits for C1.2.
 
 **Checks:** round-trip tests on committed exports; the minimum Blender version confirmed upstream; type-check, lint, format, spellcheck.
 
 ## Exit gate
 
-- [ ] P8.1 and P8.3 done; P8.2 answered or still open with shipping held.
+- [ ] C1.1 and C1.3 done; C1.2 answered or still open with shipping held.
 - [ ] Import fixtures pass for models and Artwork; packaged `sharp` runs on macOS, Windows and Linux.
 - [ ] A show with embedded items opens with an empty local Library.
 - [ ] Type-check, lint, format and spellcheck pass on `3d-async`.
