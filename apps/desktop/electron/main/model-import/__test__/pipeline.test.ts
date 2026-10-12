@@ -15,9 +15,11 @@ import { OUTPUT_EXTENSIONS, TRIANGLE_CAPS } from "../rules";
 import {
     ModelSidecarSchema,
     type ChoiceRow,
+    type ModelFileInput,
     type FixRow,
     type ModelImportOptions,
     type ModelImportResult,
+    type ModelImportStage,
     type NoteRow,
     type Rejection,
 } from "../types";
@@ -669,5 +671,112 @@ describe("Garments", () => {
             choices: { unitConversion: "none", rotateToYUp: false },
         });
         expect(rejection(raw, "garmentRestPoseMismatch")).toBeDefined();
+    });
+});
+
+describe("stages", () => {
+    const ALL: ModelImportStage[] = [
+        "reading",
+        "validating",
+        "decoding",
+        "checking",
+        "converting",
+        "writing",
+    ];
+
+    async function stagesOf(
+        go: (options: ModelImportOptions) => Promise<ModelImportResult>,
+    ) {
+        const stages: ModelImportStage[] = [];
+        const result = await go({ onStage: (s) => stages.push(s) });
+        return { stages, result };
+    }
+
+    it("reports every stage once, in order, for a ready file", async () => {
+        const { stages, result } = await stagesOf((o) =>
+            run("equipment-clean-kit.glb", o),
+        );
+        expect(result.report.status).toBe("ready");
+        expect(stages).toEqual(ALL);
+    });
+
+    it("reports the same stages from importModel on bytes", async () => {
+        const bytes = new Uint8Array(
+            await readFile(fixture("equipment-clean-kit.glb")),
+        );
+        const { stages } = await stagesOf((o) =>
+            importModel({ filename: "kit.glb", bytes }, o),
+        );
+        expect(stages).toEqual(ALL);
+    });
+
+    it.each<[string, () => Promise<ModelFileInput | string>, ModelImportStage]>(
+        [
+            [
+                "an unreadable container",
+                async () => ({
+                    filename: "notes.glb",
+                    bytes: new TextEncoder().encode("hello"),
+                }),
+                "reading",
+            ],
+            [
+                "a missing resource",
+                async () => ({
+                    filename: "model.gltf",
+                    bytes: new Uint8Array(
+                        await readFile(fixture("model.gltf")),
+                    ),
+                }),
+                "reading",
+            ],
+            ["validator errors", async () => "invalid.glb", "validating"],
+            [
+                "a disallowed required extension",
+                async () => "prop-required-extension.glb",
+                "validating",
+            ],
+            [
+                "over 4× the triangle cap",
+                async () => "equipment-over-4x.glb",
+                "checking",
+            ],
+            ["a rig on a prop", async () => "prop-rigged.glb", "checking"],
+        ],
+    )("stops at the stage that rejects %s", async (_, file, last) => {
+        const source = await file();
+        const { stages, result } = await stagesOf((o) =>
+            typeof source === "string"
+                ? run(source, o)
+                : importModel(source, o),
+        );
+        expectRejected(result);
+        expect(stages).toEqual(ALL.slice(0, ALL.indexOf(last) + 1));
+    });
+
+    it("stops after decoding when the kind is needed", async () => {
+        const { stages, result } = await stagesOf((o) =>
+            run("prop-no-extras.glb", o),
+        );
+        expect(result.report.status).toBe("needs-kind");
+        expect(stages).toEqual(["reading", "validating", "decoding"]);
+    });
+
+    it("imports the same when the callback throws or rejects", async () => {
+        const plain = await run("equipment-clean-kit.glb");
+        const thrown = await run("equipment-clean-kit.glb", {
+            onStage: () => {
+                throw new Error("progress broke");
+            },
+        });
+        const rejecting = await run("equipment-clean-kit.glb", {
+            onStage: async () => {
+                throw new Error("progress broke");
+            },
+        });
+        for (const r of [thrown, rejecting]) {
+            expect(r.report).toEqual(plain.report);
+            expect(r.output!.glb).toEqual(plain.output!.glb);
+        }
     });
 });

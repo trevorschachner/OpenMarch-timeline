@@ -51,6 +51,7 @@ import {
     ContainerError,
     parseContainer,
     readModelFile,
+    resourcesByPath,
     type RawGltf,
 } from "./container";
 import { checkGarment, normalizeGarment } from "./garment";
@@ -91,6 +92,7 @@ import {
     type ModelImportOptions,
     type ModelImportReport,
     type ModelImportResult,
+    type ModelImportStage,
     type ModelKind,
     type ModelSidecar,
     type NoteRow,
@@ -129,16 +131,44 @@ export async function importModelFile(
     filePath: string,
     options: ModelImportOptions = {},
 ): Promise<ModelImportResult> {
-    return importModel(await readModelFile(filePath), options);
+    const stage = stageReporter(options.onStage);
+    stage("reading");
+    return run(await readModelFile(filePath), options, stage);
 }
 
 export async function importModel(
     input: ModelFileInput,
     options: ModelImportOptions = {},
 ): Promise<ModelImportResult> {
+    const stage = stageReporter(options.onStage);
+    stage("reading");
+    return run(input, options, stage);
+}
+
+type StageReporter = (stage: ModelImportStage) => void;
+
+/** Calls `onStage`, ignoring whatever it throws or rejects with. */
+function stageReporter(onStage: ModelImportOptions["onStage"]): StageReporter {
+    return (stage) => {
+        if (!onStage) return;
+        try {
+            const returned: unknown = onStage(stage);
+            if (returned instanceof Promise) returned.catch(() => {});
+        } catch {
+            // Progress is best effort: never fail an import over it.
+        }
+    };
+}
+
+async function run(
+    input: ModelFileInput,
+    options: ModelImportOptions,
+    stage: StageReporter,
+): Promise<ModelImportResult> {
     const report = emptyReport();
-    const opened = await openFile(input, report);
+    const opened = await openFile(input, report, stage);
     if (!opened) return rejected(report);
+    stage("decoding");
     const ctx = await decode(input, opened, report);
     if (!ctx) return rejected(report);
 
@@ -147,12 +177,15 @@ export async function importModel(
         report.status = "needs-kind";
         return { report, output: null };
     }
+    stage("checking");
     const plan = planConversion(ctx, kind, options.choices ?? {});
     if (report.cantImport.length) return rejected(report);
 
+    stage("converting");
     await convert(ctx, plan);
     const described = describe(ctx, plan);
     await clean(ctx, kind);
+    stage("writing");
     return write(ctx, plan, described);
 }
 
@@ -220,14 +253,20 @@ function rejected(report: ModelImportReport): ModelImportResult {
 async function openFile(
     input: ModelFileInput,
     report: ModelImportReport,
+    stage: StageReporter,
 ): Promise<OpenedFile | null> {
     let format: "glb" | "gltf";
     let json: RawGltf;
-    const resources = input.resources ?? {};
+    let resources = input.resources ?? {};
     try {
         ({ format, json } = parseContainer(input.bytes));
         if (format === "gltf") {
             checkResources(json, resources, input.refusedResources);
+            resources = resourcesByPath(
+                json,
+                resources,
+                input.refusedResources,
+            );
         }
     } catch (error) {
         if (!(error instanceof ContainerError)) throw error;
@@ -243,6 +282,7 @@ async function openFile(
         copyright: stringOrNull(json.asset?.copyright),
     };
 
+    stage("validating");
     // Required extensions, from the raw JSON: r186 GLTFLoader only warns.
     const disallowed = stringList(json.extensionsRequired).filter(
         (e) => !ALLOWED_REQUIRED_EXTENSIONS.has(e),
