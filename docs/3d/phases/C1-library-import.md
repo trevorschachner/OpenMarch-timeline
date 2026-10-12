@@ -465,3 +465,28 @@ Nothing yet.
   still cancels its sessions and calls `closeAllPdfRenderers()` on the
   editor's `closed` (this also covers macOS, where the app stays open), and
   `open-win`'s `getAllWindows()` loop must skip hidden windows if it stays.
+
+### 2026-10-12 · 3d worker (3d/c1-import-ipc) · C1.9
+
+- **Done:** the import and Library IPC from the approved C1.9 design, on the
+  integration branch `3d/c1-import-ipc` (C1.4 to C1.8 and C1.12 merged).
+  `src/view3d/library/protocol.ts` (channels, payload types, zod schemas,
+  `Result`), `electron/main/library-ipc/` (session token map, dialogs,
+  handlers, thumbnail cache, worker client, Electron bindings),
+  `electron/main/import-worker/` (the `utilityProcess` for models and
+  templates, a Vite entry beside main), `window.electron.library` in the
+  editor preload only, and `src/view3d/library/importClient.ts`.
+- **Decisions inside the design:** `ImportStage` includes C1.7's `checking`;
+  a mixed or two-model pick answers `invalid-request` with a
+  `mixed-selection:` message (no dedicated code in the approved list); size
+  preset writes don't push `library:changed`; `add-from-show` refuses
+  Uniforms until a Uniform sidecar schema exists; a cancel also stops a model
+  job that hasn't reached the worker yet; `activate` skips hidden PDF
+  windows (`open-win` has no `getAllWindows()` loop).
+- **Checks:** type-check; focused vitest; desktop format, lint and
+  spellcheck; `OPENMARCH_LIBRARY_IPC_SELF_TEST` in dev Electron and in an
+  unsigned packaged `--mac --dir` build (worker, Draco WASM, `sharp` in the
+  utility process and pdf.js all from the asar).
+- **Next:** C1.10 builds the review on `importClient`; record the channel
+  table in D-13; signed packaged runs on macOS, Windows and Linux.
+- **Resume from:** nothing pushed; local commits on `3d/c1-import-ipc`.
