@@ -8,7 +8,7 @@
  * not import React, React Three Fiber, drei, Electron or the database.
  */
 import { formatFeetInches, fromMeters } from "../sizes/units";
-import type { Point, ResolvedTemplate } from "./policy";
+import { CUT_PENDING_NOTE, type Point, type ResolvedTemplate } from "./policy";
 import type { TemplateSurface } from "./surfaces";
 
 export type Ring = readonly Point[];
@@ -115,6 +115,18 @@ function wrap(text: string, max: number): string[] {
     return lines;
 }
 
+/** The safe-area line, with its inset when every side has the same one. */
+function safeAreaLine(t: ResolvedTemplate): string {
+    const { top, right, bottom, left } = t.safeM;
+    const base = "Keep important content inside the dashed safe area";
+    if (!(top === right && top === bottom && top === left)) return `${base}.`;
+    const inset =
+        t.surface.unit === "in"
+            ? formatFeetInches(top)
+            : `${round(top * 1000, 1)} mm`;
+    return `${base}, ${inset} from the trim.`;
+}
+
 const ORIENTATION_LABEL = {
     poleLeft: "POLE SIDE (HEADER)",
     audienceBottom: "AUDIENCE SIDE",
@@ -138,10 +150,11 @@ export function templateInfoLines(t: ResolvedTemplate): string[] {
         t.bleedM > 0
             ? `Bleed: ${formatFeetInches(t.bleedM)} (${round(t.bleedM * 1000, 3)} mm) past the trim on every side, download only`
             : "Bleed: none",
-        "Keep important content inside the dashed safe area.",
+        safeAreaLine(t),
         `Resolution: ${s.dpi.minimum} DPI minimum (${px(s.dpi.minimum)}), ${s.dpi.recommended} DPI recommended (${px(s.dpi.recommended)})`,
     ];
     if (s.sleeve) lines.push(`Sleeve: ${sizeText(s.sleeve)}`);
+    if (t.cutPending) lines.push(...wrap(CUT_PENDING_NOTE, 60));
     if (s.kind === "uniformFront")
         lines.push("As worn, the wearer's right is on your left.");
     if (s.kind === "uniformBack")

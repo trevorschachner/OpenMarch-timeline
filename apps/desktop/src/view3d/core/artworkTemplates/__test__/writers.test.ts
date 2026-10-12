@@ -424,8 +424,9 @@ describe("templatePng", () => {
 describe("artworkTemplateFiles", () => {
     it("makes all three formats for every surface", () => {
         for (const s of TEMPLATE_SURFACES) {
-            const files = artworkTemplateFiles(s, TEST_POLICY, {
-                dpi: testDpi(s),
+            const files = artworkTemplateFiles(s, {
+                policy: TEST_POLICY,
+                pngDpi: testDpi(s),
                 deflate,
             });
             expect(files.map((f) => f.name)).toEqual([

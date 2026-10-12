@@ -16,6 +16,7 @@
  */
 // cspell:words rasterizes ihdr plte idat iend
 import { METERS_PER_INCH } from "../sizes/units";
+import { FLOOR_PNG_MAX_PX } from "./surfaces";
 import {
     TEMPLATE_COLORS,
     lineSegments,
@@ -28,6 +29,20 @@ export interface PngOptions {
     readonly dpi: number;
     /** zlib-wrapped deflate (RFC 1950), such as Node's `zlib.deflateSync`. */
     readonly deflate: (data: Uint8Array) => Uint8Array;
+    /** Written as a `tEXt` "Comment"; printable ASCII only. */
+    readonly comment?: string;
+}
+
+/**
+ * The DPI a template's PNG is written at (Q31): the surface's minimum print
+ * DPI, except that a floor or Floor prop is capped so the page's long edge
+ * is at most `FLOOR_PNG_MAX_PX` pixels.
+ */
+export function templatePngDpi(d: TemplateDrawing): number {
+    const dpi = d.surface.dpi.minimum;
+    if (d.surface.process !== "floor") return dpi;
+    const longIn = Math.max(d.widthM, d.heightM) / METERS_PER_INCH;
+    return Math.min(dpi, FLOOR_PNG_MAX_PX / longIn);
 }
 
 const PALETTE = Object.keys(TEMPLATE_COLORS) as TemplateColor[];
@@ -174,6 +189,14 @@ function u32s(...values: number[]): Uint8Array {
     return out;
 }
 
+/** A `tEXt` chunk's data: the "Comment" keyword, a null, then the text. */
+function textData(text: string): Uint8Array {
+    if (!/^[\x20-\x7e]*$/.test(text))
+        throw new Error("PNG comment must be printable ASCII");
+    const body = `Comment\0${text}`;
+    return Uint8Array.from(body, (c) => c.charCodeAt(0));
+}
+
 export function templatePng(
     d: TemplateDrawing,
     options: PngOptions,
@@ -206,6 +229,7 @@ export function templatePng(
         chunk("IHDR", ihdr),
         chunk("PLTE", plte),
         chunk("pHYs", phys),
+        ...(options.comment ? [chunk("tEXt", textData(options.comment))] : []),
         chunk("IDAT", options.deflate(raw)),
         chunk("IEND", new Uint8Array(0)),
     ];

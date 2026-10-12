@@ -9,7 +9,8 @@
  * recommended DPI, print process, the bleed the spec gives (⅛ in for flags,
  * ½ in for sublimation), its cut family and its orientation. The safe area,
  * the bleed of floors and props, and the outline of arc, teardrop and swing
- * cuts aren't fixed yet; they come from a `TemplatePolicy` (./policy).
+ * cuts come from a `TemplatePolicy` (./policy); `DEFAULT_TEMPLATE_POLICY`
+ * holds the owner's figures.
  *
  * Plain TypeScript only: this module lives under `view3d/core/`, so it must
  * not import React, React Three Fiber, drei, Electron or the database.
@@ -137,6 +138,15 @@ export function silkSurface(entry: CatalogEntryOf<"silk">): TemplateSurface {
 
 // ---------------------------------------------------------------- floors
 
+/**
+ * The longest edge a floor's PNG may have (Q31): a floor at its minimum DPI
+ * would be tens of thousands of pixels, so its PNG is a capped preview and
+ * the PDF or SVG is the print master.
+ */
+export const FLOOR_PNG_MAX_PX = 8192;
+
+export const FLOOR_PRINT_MASTER_NOTE = `The PNG is capped at ${FLOOR_PNG_MAX_PX} px on the long edge; print from the PDF or SVG, the print master.`;
+
 /** A Base floor template, audience side at the bottom. */
 export function baseFloorSurface(
     entry: CatalogEntryOf<"floor">,
@@ -153,7 +163,7 @@ export function baseFloorSurface(
         process: "floor",
         cut: "rectangle",
         orientation: "audienceBottom",
-        notes: [],
+        notes: [FLOOR_PRINT_MASTER_NOTE],
         catalogId: entry.id,
     };
 }
@@ -178,7 +188,7 @@ export function floorPropSurface(
         process: "floor",
         cut: "rectangle",
         orientation: "audienceBottom",
-        notes: [],
+        notes: [FLOOR_PRINT_MASTER_NOTE],
     };
 }
 

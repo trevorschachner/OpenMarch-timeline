@@ -5,10 +5,14 @@
  */
 import { layoutTemplate } from "./layout";
 import { templatePdf } from "./pdf";
-import { resolveTemplate, type TemplatePolicy } from "./policy";
-import { templatePng, type PngOptions } from "./png";
+import {
+    DEFAULT_TEMPLATE_POLICY,
+    resolveTemplate,
+    type TemplatePolicy,
+} from "./policy";
+import { templatePng, templatePngDpi, type PngOptions } from "./png";
 import { templateSvg } from "./svg";
-import type { TemplateSurface } from "./surfaces";
+import { FLOOR_PRINT_MASTER_NOTE, type TemplateSurface } from "./surfaces";
 
 export * from "./surfaces";
 export * from "./uniformPanels";
@@ -24,13 +28,27 @@ export interface TemplateFile {
     readonly data: string | Uint8Array;
 }
 
-/** A surface's template as SVG, PDF and PNG, named after the surface. */
+export interface TemplateFileOptions {
+    /** zlib-wrapped deflate (RFC 1950), such as Node's `zlib.deflateSync`. */
+    readonly deflate: PngOptions["deflate"];
+    /** Defaults to `DEFAULT_TEMPLATE_POLICY`. */
+    readonly policy?: TemplatePolicy;
+    /** The PNG's DPI; defaults to `templatePngDpi` (Q31). */
+    readonly pngDpi?: number;
+}
+
+/**
+ * A surface's template as SVG, PDF and PNG, named after the surface. A
+ * floor's PNG carries the note that the PDF or SVG is the print master.
+ */
 export function artworkTemplateFiles(
     surface: TemplateSurface,
-    policy: TemplatePolicy,
-    png: PngOptions,
+    options: TemplateFileOptions,
 ): TemplateFile[] {
+    const policy = options.policy ?? DEFAULT_TEMPLATE_POLICY;
     const drawing = layoutTemplate(resolveTemplate(surface, policy));
+    const comment =
+        surface.process === "floor" ? FLOOR_PRINT_MASTER_NOTE : undefined;
     return [
         {
             name: `${surface.id}.svg`,
@@ -45,7 +63,11 @@ export function artworkTemplateFiles(
         {
             name: `${surface.id}.png`,
             mimeType: "image/png",
-            data: templatePng(drawing, png),
+            data: templatePng(drawing, {
+                dpi: options.pngDpi ?? templatePngDpi(drawing),
+                deflate: options.deflate,
+                ...(comment ? { comment } : {}),
+            }),
         },
     ];
 }

@@ -308,3 +308,19 @@ Nothing yet.
   branches. The ADR 0004 amendment draft stays here until the cue work lands
   ADR 0004 on 3d-async, then merges into it (C3's tracker packages). The one
   remaining open point, the import IPC channels, is package C1.9.
+- 2026-10-11, C1.12 in progress (branch `3d/c1-artwork-templates`): the
+  owner set the missing template values, now `DEFAULT_TEMPLATE_POLICY` in
+  `view3d/core/artworkTemplates/policy.ts`. Q29 safe area: 1 in on silks,
+  props and uniform panels, 6 in on floors and Floor props. Q30 bleed: 2 in
+  on floors and Floor props, ½ in on prop panels; silks keep ⅛ in and
+  uniform panels keep the spec's ½ in sublimation bleed. Q31 PNG: silks,
+  props and uniform panels at their minimum print DPI; floors and Floor props
+  capped at 8192 px on the long edge, with a note in the template and in the
+  PNG's `tEXt` comment that the PDF or SVG is the print master. Q32 confirmed
+  as built: uniform panels from the median body, Floor props on the floor DPI
+  guide (30/60), silk pole side on the left (fly wide × header tall), uniform
+  front/back split at z = 0 in rest pose. Remaining: Q28 cut outlines for
+  arc, teardrop and swing (templates show the full rectangle, marked
+  "outline pending"), and the download menu, which waits on C1.9's IPC.
+  Resume from: wire Q28's outlines into `DEFAULT_TEMPLATE_POLICY.cutOutline`
+  once researched.
