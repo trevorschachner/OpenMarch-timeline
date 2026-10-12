@@ -528,3 +528,57 @@ Nothing yet.
   request, an IPC change); move the menu into the Library side panel when it
   lands; surface names come from the English catalog names.
 - **Resume from:** nothing pushed; local commits on `3d/c1-import-ipc`.
+
+### 2026-10-12 · 3d worker (3d/c1-import-ipc) · C1.10
+
+- **Done:** the import review, layout B (Q60–Q64), in
+  `apps/desktop/src/components/library/import/`. `ImportPanel` (the Library
+  side panel's import state): files, "New version of …" / Update or Add as
+  new, the kind picker, the report (Can't import with the starter kit
+  pointer, Needs your choice pre-selected, Fixed for you collapsed, Notes),
+  one artwork size step per aspect with its pages beside it (Q62), template
+  chips, "From file", locked-aspect ft/in fields, a "Prints on" surface row
+  and live effective DPI with "not print-ready", then name, tags and the
+  collapsed author, license and source with the rights line; Cancel and Add
+  pinned. Add reads "Add new version" or "Add N to Library" (Q64).
+  `ImportPreviewStage` (the Visuals mode stage): a code-split
+  (`import()`) React Three Fiber canvas built from `createEnvironment` and
+  `createEnvironmentMap` with a 1.8 m reference figure, showing the
+  reviewed GLB from a `blob:` URL; front, side and top views; before/after
+  for simplify; click-to-set grip when `OM_grip_R` is missing; artwork shows
+  the 1024 px `renderArtworkPreview` page. `importReview.ts` is one zustand
+  store driving the C1.9 client: it re-inspects on every choice (the client
+  drops stale replies; preview bytes from a superseded inspect are dropped
+  too), captures a 256 px model thumbnail at commit (Q50), and shows IPC
+  errors inline with Try again / Choose files again; progress has Cancel.
+- **TODO(Visuals mode):** Visuals mode doesn't exist yet, so "Import to
+  Library…" in the File tab (`ImportToLibraryButton`) opens a temporary
+  full-window host (`ImportReviewHost`) laying the panel and stage out as
+  layout B. Moving them: mount `ImportPanel` in the Library side panel and
+  `ImportPreviewStage` in the stage, both given the same
+  `createImportReview` store, then delete the host and the button.
+- **Decisions (for the lead):** the artwork surface (display cap and DPI
+  thresholds) is asked per aspect group as a "Prints on" chip row, defaulting
+  to the picker's surface, else the chosen chip's kind (silk Cut → Silk,
+  floor → Base floor, flat prop → Prop), else Prop; a size with no file
+  metadata pre-selects the first matching template chip; a filename match
+  pre-selects Update, like a kit match; a batch of files keeps each file's
+  name (one name field only for a single file); `asset.copyright`
+  pre-fills Author; a picked kind resets the choices to the pipeline's
+  pre-selection.
+- **Not built:** manual artwork slot setting (picking a material and giving
+  it a size) — the report has no material list and the preview GLB's
+  material indices differ from the source's that `slots` takes, so it needs
+  an IPC/report addition; the Import… inside pickers (no pickers yet; the
+  store takes `purpose` and `context`); the committed focused e2e spec (the
+  run below is a scratch Playwright script).
+- **Checks:** type-check; vitest `src/components/library`, `src/view3d`,
+  `electron/main/library-ipc`, `electron/main/import-worker` (1077 passed,
+  12 skipped); prettier on tracked desktop files; eslint (no warnings in the
+  new files); desktop spellcheck. End to end in a `vite build` driven by
+  Playwright `_electron` with its own user data dir and
+  `dialog.showOpenDialog` stubbed: a GLB needing kind, units, rotate,
+  simplify and grip; a re-import ("Add new version"); a rejection; a mixed
+  pick; a PNG under print DPI; a 2-page PDF with two aspects. Screenshots
+  not committed.
+- **Resume from:** nothing pushed; local commits on `3d/c1-import-ipc`.
