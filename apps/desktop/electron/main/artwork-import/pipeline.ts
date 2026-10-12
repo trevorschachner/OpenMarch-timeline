@@ -80,7 +80,7 @@ export interface ArtworkFile {
 
 export interface ArtworkPipelineOptions {
     /**
-     * Renders PDF pages. The app has none yet (see `pdf.ts`), so PDFs are
+     * Renders PDF pages: `createElectronPdfRenderer()` in the app. PDFs are
      * refused with `pdf-unavailable` while this is left out.
      */
     readonly pdfRenderer?: PdfRenderer | null;

@@ -46,6 +46,14 @@ describe("displaySize", () => {
         });
     });
 
+    it("caps Uniform part artwork at 1024 on the long edge, like prop slots", () => {
+        expect(
+            displaySize("uniformPart", { width: 2000, height: 3000 }),
+        ).toEqual({ width: 683, height: 1024 });
+        expect(printReadiness("uniformPart", 149)).toBe("not-print-ready");
+        expect(printReadiness("uniformPart", 300)).toBe("recommended");
+    });
+
     it("never enlarges a raster, but renders a vector at the cap", () => {
         expect(displaySize("propSlot", { width: 300, height: 200 })).toEqual({
             width: 300,

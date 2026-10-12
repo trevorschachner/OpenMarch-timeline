@@ -1,11 +1,9 @@
 /**
  * The PDF seam. The `sharp` build the app ships (libvips with librsvg, no
- * PDFium or poppler) reads SVG but not PDF, so PDF pages need a renderer
- * that isn't in the app yet. Choosing one is a new dependency, which the
- * spec doesn't name; until it is chosen, PDF imports are refused with
- * `pdf-unavailable` and the rest of the PDF path (page picker, one Artwork
- * per page, page size as the physical size, "vector" DPI) runs against
- * whatever implements this interface.
+ * PDFium or poppler) reads SVG but not PDF, so PDF pages go through this
+ * interface. The app's implementation is `createElectronPdfRenderer`
+ * (pdf.js in a hidden window, owner decision Q33); tests use a stand-in.
+ * Without a renderer, PDF imports are refused with `pdf-unavailable`.
  */
 // cspell:words librsvg PDFium poppler
 

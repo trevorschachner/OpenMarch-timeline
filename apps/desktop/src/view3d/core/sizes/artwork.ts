@@ -15,16 +15,13 @@
 import { catalogDims, catalogEntries } from "./catalog";
 import { METERS_PER_INCH, type Length } from "./units";
 
-/**
- * The surface kinds an Artwork's display texture is sized for. Uniform part
- * front/back is missing on purpose: no ticket or review answer gives its
- * display cap yet.
- */
+/** The surface kinds an Artwork's display texture is sized for. */
 export const ARTWORK_SURFACES = [
     "silk",
     "baseFloor",
     "floorProp",
     "propSlot",
+    "uniformPart",
 ] as const;
 export type ArtworkSurface = (typeof ARTWORK_SURFACES)[number];
 
@@ -63,6 +60,13 @@ export const ARTWORK_SURFACE_SPECS: Readonly<
     },
     // Prop Artwork slots (top, front, back) and Equipment textures.
     propSlot: {
+        displayCap: { long: 1024, short: 1024 },
+        minDpi: 150,
+        recommendedDpi: 300,
+    },
+    // Uniform part front/back: 1024 on the long edge like prop slots (owner
+    // decision Q34, 2026-10-11); uniforms print at 150 DPI minimum (§3).
+    uniformPart: {
         displayCap: { long: 1024, short: 1024 },
         minDpi: 150,
         recommendedDpi: 300,
