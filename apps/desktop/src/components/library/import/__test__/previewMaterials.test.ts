@@ -54,12 +54,19 @@ describe("preview materials", () => {
         const silkMaterial = byMesh("Silk")!;
         const poleMaterial = byMesh("Pole")!;
         const before = silkMaterial.emissive.getHex();
+        const baseColor = silkMaterial.color.getHex();
 
         highlightMaterials(scene, silk.outputIndex, accent);
         expect(silkMaterial.emissive.getHex()).toBe(accent.getHex());
+        expect(silkMaterial.color.getHex()).not.toBe(baseColor);
         expect(poleMaterial.emissive.getHex()).toBe(before);
+        // Lighting it again doesn't tint it twice.
+        const tinted = silkMaterial.color.getHex();
+        highlightMaterials(scene, silk.outputIndex, accent);
+        expect(silkMaterial.color.getHex()).toBe(tinted);
 
         highlightMaterials(scene, null, accent);
         expect(silkMaterial.emissive.getHex()).toBe(before);
+        expect(silkMaterial.color.getHex()).toBe(baseColor);
     });
 });
