@@ -582,3 +582,52 @@ Nothing yet.
   pick; a PNG under print DPI; a 2-page PDF with two aspects. Screenshots
   not committed.
 - **Resume from:** nothing pushed; local commits on `3d/c1-import-ipc`.
+
+### 2026-10-12 · 3d worker (3d/c1-import-ipc) · C1.9
+
+- **Done:** Q67 (owner, 2026-10-12): `ModelImportReport.materials` lists the
+  source file's materials (`MaterialInfo`: source `index`, `name`,
+  `outputIndex` in the normalized GLB, `sizeM` and `areaM2` of the geometry
+  it's on, `hasUVs`, and `fileSlot` when the file already declares an
+  `artworkSlot` on it or its mesh). Measured at decode (file units), again
+  in output meters after converting; `outputIndex` is filled once the GLB
+  is written. It rides the existing worker message and `import-inspect` /
+  `import-commit` replies (re-exported as `MaterialInfo` from
+  `protocol.ts`); requests are unchanged, since `choices.slots` already took
+  a source material index. Output bytes are unchanged, so no pipeline
+  version bump.
+- **Checks:** pipeline tests (listing, output meters, needs-kind, a picked
+  slot lands on its output index, unread file lists none); worker clone
+  test; service test (inspect lists, a bad slot id is `invalid-request`, the
+  committed sidecar holds the slot); protocol schema test.
+
+### 2026-10-12 · 3d worker (3d/c1-import-ipc) · C1.10
+
+- **Done:** Q67: when the kind is known, the file marks no slot and it isn't
+  a Garment, Needs your choice adds "Artwork surface": None (default) or
+  each drawn material with "About W × H" (and "no UVs" where artwork can't
+  map). Hovering lights it in the preview, else the picked one stays lit;
+  the stage tags it "Artwork surface: …". Picking writes `choices.slots`
+  (id `artwork`, sized from the two larger sides of its bounds: upright
+  width × height, lying flat x × z). The preview finds the material by
+  `outputIndex` through `GLTFLoader`'s `parser.associations`
+  (`previewMaterials.ts`), so no `extras` go into the GLB.
+- **Done:** Q68 (a): "Prints on" defaults to the kind of the catalog
+  template a "From file" size equals (sides within 0.2 %; 36 × 54 in →
+  Silk), at first inspect and when "From file" is picked again; the
+  picker's surface still wins; else as before. (b) the committed e2e spec
+  `apps/desktop/e2e/tests/library-import.spec.mts` (fixtures made at test
+  time, `dialog.showOpenDialog` stubbed in main, own user data dir):
+  model choices, clicked grip and Add; re-import as a new version; the
+  artwork surface pick; a rejection; a mixed pick then Choose files again;
+  a PNG under print DPI; a two-aspect PDF on Silk. (c) with
+  `IMPORT_REVIEW_SCREENSHOTS=<dir>` the spec saves dark-theme screenshots
+  of each state (not committed).
+- **Checks:** type-check; vitest `src/components/library`, `src/view3d`,
+  `electron/main/library-ipc`, `electron/main/import-worker`,
+  `electron/main/model-import` (1200 passed, 12 skipped); the one e2e spec
+  against a `vite build`; desktop format, lint and spellcheck.
+- **Still not built:** the Import… inside pickers (no pickers yet); editing
+  a picked slot's size by hand; clicking a surface in the preview to pick
+  it.
+- **Resume from:** nothing pushed; local commits on `3d/c1-import-ipc`.
