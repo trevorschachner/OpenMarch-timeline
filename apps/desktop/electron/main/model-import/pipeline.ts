@@ -68,6 +68,7 @@ import {
 import {
     ALLOWED_REQUIRED_EXTENSIONS,
     FLAT_RATIO,
+    GARMENT_BODY_TYPES,
     MODEL_KINDS,
     MODEL_PIPELINE_VERSION,
     OUTPUT_EXTENSIONS,
@@ -575,13 +576,19 @@ async function write(
     let garment: ModelSidecar["garment"] = null;
     if (plan.nodesByFit) {
         const meshes = root.listMeshes();
-        const meshesByFit: Record<string, number[]> = {};
-        for (const [fit, nodes] of plan.nodesByFit) {
+        const fits = GARMENT_BODY_TYPES.filter((t) => plan.nodesByFit!.has(t));
+        const meshesByFit: NonNullable<ModelSidecar["garment"]>["meshesByFit"] =
+            {};
+        for (const fit of fits) {
             meshesByFit[fit] = [
-                ...new Set(nodes.map((n) => meshes.indexOf(n.getMesh()!))),
+                ...new Set(
+                    plan.nodesByFit
+                        .get(fit)!
+                        .map((n) => meshes.indexOf(n.getMesh()!)),
+                ),
             ].filter((i) => i >= 0);
         }
-        garment = { fits: [...plan.nodesByFit.keys()], meshesByFit };
+        garment = { fits, meshesByFit };
     }
 
     const sidecar = ModelSidecarSchema.parse({
@@ -799,7 +806,8 @@ function attachPoint(node: Node): AttachPoint {
 /**
  * The pre-selected grip when a model has no `OM_grip_R`: on the longest side,
  * a quarter of the way from its low end, centered across. The review lets
- * the user click a better point (C1.10).
+ * the user click a better point (C1.10). Grips live in the sidecar; the
+ * model is never re-centered on them (owner decision Q37, 2026-10-11).
  */
 function fallbackGrip(bounds: {
     min: Vec3;

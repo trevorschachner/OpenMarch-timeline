@@ -10,7 +10,7 @@
  */
 import { z } from "zod";
 import type { ModelKind } from "@/view3d/core/sizes";
-import { MODEL_KINDS } from "./rules";
+import { GARMENT_BODY_TYPES, MODEL_KINDS } from "./rules";
 
 export type { ModelKind };
 
@@ -110,7 +110,13 @@ export type Rejection =
     | { code: "garmentQuantized"; meshes: string[] }
     | { code: "garmentTransformsNotApplied"; nodes: string[] }
     | { code: "garmentNoPartPaint"; meshes: string[] }
-    | { code: "garmentNoMedianFit"; fits: string[] };
+    | { code: "garmentNoMedianFit"; fits: string[] }
+    /**
+     * A mesh's `extras.openmarch.fit` names no body type in
+     * `GARMENT_BODY_TYPES` (a typo, or not a string). Not guessed: treating it
+     * as the median could hide a second median fit.
+     */
+    | { code: "garmentUnknownFit"; meshes: { node: string; fit: string }[] };
 
 /** Needs your choice: each pre-selected, so a one-click import applies it. */
 export type ChoiceRow =
@@ -188,6 +194,11 @@ export type NoteRow =
     | { code: "invalidOpenMarchData"; where: string; reason: string }
     | { code: "unknownStampKind"; value: string }
     | { code: "missingFits"; bodyTypes: string[] }
+    /**
+     * More than one mesh node has the same fit (untagged meshes count as the
+     * median). Imported together as that fit; usually a forgotten tag.
+     */
+    | { code: "duplicateFits"; fits: { bodyType: string; nodes: string[] }[] }
     | { code: "wgi"; wgi: "equipmentUnderMinimum" | "floorOverMaximum" };
 
 /** Lasting states, shown as badges on the Library item. */
@@ -303,10 +314,17 @@ export const ModelSidecarSchema = z.object({
     }),
     garment: z
         .object({
-            /** Body types with a fit; the median is always present. */
-            fits: z.array(z.string()).min(1),
+            /**
+             * Body types with a fit, in `GARMENT_BODY_TYPES` order; the median
+             * is always present. Read from `extras.openmarch.fit` on each mesh
+             * node or its mesh; an untagged mesh is the median fit.
+             */
+            fits: z.array(z.enum(GARMENT_BODY_TYPES)).min(1),
             /** Mesh indices in the normalized GLB per fit. */
-            meshesByFit: z.record(z.string(), z.array(z.number().int())),
+            meshesByFit: z.partialRecord(
+                z.enum(GARMENT_BODY_TYPES),
+                z.array(z.number().int()),
+            ),
         })
         .nullable(),
     metadata: z.object({

@@ -1,4 +1,10 @@
 /**
+ * License gate: these numbers are copied from om-pose, so shipping them falls
+ * under the om-pose license gate, package C1.2 in
+ * `docs/3d/phases/C1-library-import.md` (owner decision Q37, 2026-10-11).
+ * Building against them is fine; a release that ships them waits for C1.2
+ * and for om-pose to adopt a license upstream.
+ *
  * om-pose's v4 skeleton ("openmarch-body-v4"): the 23 joints every v4u body
  * shares, in skin order, with their inverse bind matrices (column-major, as
  * glTF stores them). A rigged Garment joins the shared bake only on exactly

@@ -800,6 +800,14 @@ async function garmentFixtures() {
     await write("garment-transforms.glb", garment({ nodeScale: 2 }));
     await write("garment-no-part.glb", garment({ part: false }));
     await write("garment-no-median.glb", garment({ fits: ["neutral-slim"] }));
+    await write(
+        "garment-unknown-fit.glb",
+        garment({ fits: [null, "neutral-wide"] }),
+    );
+    await write(
+        "garment-duplicate-fit.glb",
+        garment({ fits: [null, null, "neutral-broad"] }),
+    );
     await write("garment-influences.glb", garment({ extraInfluences: true }));
     // Exported in centimeters with Y-up off: converting by ×0.01 and
     // rotating to Y-up lands exactly on the v4 rest pose.

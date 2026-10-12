@@ -11,8 +11,11 @@
  * 5. its positions are not quantized, and
  * 6. every skinned primitive carries `_PART` paint.
  *
- * Any other rig is rejected, never given its own bake. The median fit is
- * required (ticket 09).
+ * Any other rig is rejected, never given its own bake. A mesh marks its fit
+ * with `extras.openmarch.fit: "<body type>"` (the Starter kit add-on writes
+ * exactly this; owner decision Q36, 2026-10-11); an untagged mesh is the
+ * median fit, which is required (ticket 09). An unknown body type is
+ * rejected; a body type on more than one mesh is noted.
  */
 import {
     Accessor,
@@ -72,6 +75,8 @@ export function checkGarment(
 ): GarmentCheck {
     const meshNodes = sceneNodes(scene).filter((n) => n.getMesh());
     const skinned = meshNodes.filter((n) => n.getSkin());
+    // A mesh with no skin rejects the whole Garment (owner decision Q37,
+    // 2026-10-11): it would float in place while the body moves.
     if (skinned.length === 0 || skinned.length !== meshNodes.length) {
         return {
             rejections: [{ code: "garmentNotRigged" }],
@@ -210,7 +215,11 @@ function checkPrimitives(skinned: Node[]): Rejection[] {
     return out;
 }
 
-/** Fits by body type; the median is required, the others noted when absent. */
+/**
+ * Fits by body type (`extras.openmarch.fit`; an untagged mesh is the median
+ * fit). An unknown body type is rejected and the median is required; a body
+ * type claimed by more than one mesh node is noted, and absent ones are noted.
+ */
 function groupFits(
     skinned: Node[],
     fitOf: (node: Node) => string | undefined,
@@ -218,27 +227,40 @@ function groupFits(
     const notes: NoteRow[] = [];
     const known = new Set<string>(GARMENT_BODY_TYPES);
     const nodesByFit = new Map<string, Node[]>();
+    const unknown: { node: string; fit: string }[] = [];
     for (const node of skinned) {
-        let fit = fitOf(node) ?? MEDIAN_BODY_TYPE;
+        const fit = fitOf(node) ?? MEDIAN_BODY_TYPE;
         if (!known.has(fit)) {
-            notes.push({
-                code: "invalidOpenMarchData",
-                where: node.getName() || "(unnamed node)",
-                reason: `unknown fit ${fit}; treated as ${MEDIAN_BODY_TYPE}`,
-            });
-            fit = MEDIAN_BODY_TYPE;
+            unknown.push({ node: node.getName() || "(unnamed)", fit });
+            continue;
         }
         nodesByFit.set(fit, [...(nodesByFit.get(fit) ?? []), node]);
     }
-    if (!nodesByFit.has(MEDIAN_BODY_TYPE)) {
-        return {
-            rejections: [
-                { code: "garmentNoMedianFit", fits: [...nodesByFit.keys()] },
-            ],
-            notes,
-            nodesByFit,
-        };
+    const rejections: Rejection[] = [];
+    if (unknown.length) {
+        rejections.push({ code: "garmentUnknownFit", meshes: unknown });
     }
+    if (!nodesByFit.has(MEDIAN_BODY_TYPE)) {
+        rejections.push({
+            code: "garmentNoMedianFit",
+            fits: [...nodesByFit.keys()],
+        });
+    }
+    const duplicates = GARMENT_BODY_TYPES.flatMap((bodyType) => {
+        const nodes = nodesByFit.get(bodyType) ?? [];
+        return nodes.length > 1
+            ? [
+                  {
+                      bodyType,
+                      nodes: nodes.map((n) => n.getName() || "(unnamed)"),
+                  },
+              ]
+            : [];
+    });
+    if (duplicates.length) {
+        notes.push({ code: "duplicateFits", fits: duplicates });
+    }
+    if (rejections.length) return { rejections, notes, nodesByFit };
     const absent = GARMENT_BODY_TYPES.filter((t) => !nodesByFit.has(t));
     if (absent.length) notes.push({ code: "missingFits", bodyTypes: absent });
     return { rejections: [], notes, nodesByFit };

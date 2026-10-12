@@ -11,10 +11,11 @@
  *   axis `[a, b]` in meters or null), and the Starter kit stamps `itemId`,
  *   `kind` and `kitVersion`. Read from the default scene, its root nodes and
  *   `asset`, where Blender writes scene and object custom properties.
- * - Garment fits: `extras.openmarch.fit` naming a body type on a mesh node or
- *   mesh. **Provisional**: no ticket fixes how the add-on names fits (ticket
- *   11 says only "named by body type through the add-on"); a mesh with no
- *   `fit` is the median fit.
+ * - Garment fits: `extras.openmarch.fit: "<body type>"` on a mesh node or its
+ *   mesh (the node's wins); a mesh with no `fit` is the median fit (owner
+ *   decision Q36, 2026-10-11). The Starter kit add-on writes exactly this
+ *   tag. Body-type names are checked against `GARMENT_BODY_TYPES` in
+ *   `garment.ts`, which rejects unknown ones.
  *
  * Pure: no gltf-transform, so the rules are easy to test on hand-written JSON.
  */
@@ -237,22 +238,30 @@ function readSlots(json: RawGltf, notes: NoteRow[]): RawSlot[] {
     return slots;
 }
 
-/** Garment fits (provisional convention), by raw node index. */
+/**
+ * Garment fits, by raw node index. A value that isn't a string is kept as its
+ * JSON text, so the Garment check rejects it as an unknown body type.
+ */
 function readFits(json: RawGltf, notes: NoteRow[]): Map<number, string> {
     const meshes = list(json.meshes);
     const fitsByNode = new Map<number, string>();
     list(json.nodes).forEach((node, index) => {
         if (!isObj(node) || typeof node.mesh !== "number") return;
-        const fit =
-            openmarchOf(node)?.fit ?? openmarchOf(meshes[node.mesh])?.fit;
+        const onNode = openmarchOf(node)?.fit;
+        const onMesh = openmarchOf(meshes[node.mesh])?.fit;
+        const fit = onNode ?? onMesh;
         if (fit === undefined) return;
-        if (typeof fit === "string") fitsByNode.set(index, fit);
-        else
+        if (onNode !== undefined && onMesh !== undefined && onNode !== onMesh) {
             notes.push({
                 code: "invalidOpenMarchData",
                 where: `nodes/${index}`,
-                reason: "fit is not a string",
+                reason: `fit ${JSON.stringify(onNode)} on the node overrides ${JSON.stringify(onMesh)} on its mesh`,
             });
+        }
+        fitsByNode.set(
+            index,
+            typeof fit === "string" ? fit : JSON.stringify(fit),
+        );
     });
     return fitsByNode;
 }

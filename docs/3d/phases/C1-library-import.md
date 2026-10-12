@@ -308,3 +308,46 @@ Nothing yet.
   branches. The ADR 0004 amendment draft stays here until the cue work lands
   ADR 0004 on 3d-async, then merges into it (C3's tracker packages). The one
   remaining open point, the import IPC channels, is package C1.9.
+
+### 2026-10-11 · 3d worker (3d/c1-model-import) · C1.7
+
+- **Done:** the pipeline in `apps/desktop/electron/main/model-import/`
+  (commit e48d022e, plus the follow-up recording these decisions). Owner
+  decisions of 2026-10-11, now the rule in code and comments, not
+  provisional:
+  - Q36 (adopted): a Garment mesh marks its fit with
+    `extras.openmarch.fit: "<body type>"` on the mesh node or its mesh (the
+    node's wins, with a note when they differ); an untagged mesh is the median
+    fit. Names are checked against `GARMENT_BODY_TYPES` (kept equal to
+    `BODY_TYPES` by a test). An unknown name, or a value that isn't a string,
+    is **Can't import** (`garmentUnknownFit`), like every other Garment rule
+    break; it isn't a Needs-your-choice row because there's no safe
+    pre-selection (guessing the median could hide a second median). A body
+    type on more than one mesh node is a quiet note (`duplicateFits`), since
+    several objects per fit are legal. The sidecar's `garment.fits` and
+    `garment.meshesByFit` record the fits in body-type order, typed as body
+    types.
+  - Q37 (confirmed as built): Floor prop triangle cap 5k; Garment texture cap
+    1024; default grip a quarter along the longest side when `OM_grip_R` is
+    missing; the Z-up heuristic (Z largest and over 1.25 × Y; floors get the
+    rotation offered but unchecked); grips stored in the sidecar, never
+    re-centering; a Garment with any mesh lacking a skin is rejected; the v4
+    skeleton numbers in `v4-skeleton.ts` fall under the om-pose license gate
+    (C1.2), noted at the top of that file.
+- **Checks:** see the commit; type-check, focused vitest for model-import,
+  and desktop-scoped format, lint and spellcheck.
+- **Next:** C1.9 decides the IPC channels and whether the pipeline runs in
+  main or a `utilityProcess`. Draco's WASM decoder inside the packaged asar
+  is unverified; check it on a packaged build.
+- **Blockers:** none for C1.7's code; the two items above stay open.
+- **Resume from:** open a PR from `3d/c1-model-import` into `3d-async` when
+  the lead asks; nothing pushed yet.
+
+### 2026-10-11 · Cross-phase note from C1.7 for C1.13
+
+- The "OpenMarch Tools" add-on must write each Garment fit as exactly
+  `extras.openmarch.fit: "<body type>"` (a custom property `openmarch` with
+  key `fit`) on the mesh object, using one of the seven body-type names in
+  `GARMENT_BODY_TYPES` (`apps/desktop/electron/main/model-import/rules.ts`),
+  and may leave the median fit (`neutral-average`) untagged. C1.7 rejects any
+  other name (owner decision Q36, 2026-10-11).

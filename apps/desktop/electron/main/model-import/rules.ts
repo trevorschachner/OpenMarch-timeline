@@ -1,8 +1,9 @@
 // cspell:words meshopt
 /**
  * The numbers and lists the model import pipeline enforces (ADR 0002 D-13,
- * D-15, D-16 and D-19; props-spec.md sections 2, 3 and 9). All caps are
- * provisional until the integrated-GPU run (C4.7) says otherwise.
+ * D-15, D-16 and D-19; props-spec.md sections 2, 3 and 9). The caps are the
+ * spec's numbers plus the owner's decisions of 2026-10-11 (Q37); the
+ * integrated-GPU run (C4.7) may revise them.
  */
 import type { BodyType } from "@/view3d/core/marchers/looks";
 import type { ModelKind } from "@/view3d/core/sizes";
@@ -20,9 +21,9 @@ export const MODEL_KINDS = [
 ] as const satisfies readonly ModelKind[];
 
 /**
- * Triangles per kind (D-16). Garments are counted per body-type fit. The spec
- * gives no Floor prop number; a Floor prop is a flat Prop, so it takes the
- * Base floor's 5k, the other flat surface.
+ * Triangles per kind (D-16). Garments are counted per body-type fit. A Floor
+ * prop is a flat Prop, so it takes the Base floor's 5k (owner decision Q37,
+ * 2026-10-11).
  */
 export const TRIANGLE_CAPS: Readonly<Record<ModelKind, number>> = {
     equipment: 2_000,
@@ -39,7 +40,7 @@ export const TRIANGLE_REJECT_FACTOR = 4;
  * Longest texture edge per kind, in pixels (D-19 display sizes): Equipment
  * textures and prop Artwork slots 1024, Base floor and Floor props 2048.
  * Garments are painted by `_PART`, so their (rare) textures take the 1024 of
- * the other held and worn kinds.
+ * the other held and worn kinds (owner decision Q37, 2026-10-11).
  */
 export const TEXTURE_CAPS: Readonly<Record<ModelKind, number>> = {
     equipment: 1024,
@@ -120,7 +121,8 @@ export const FLAT_RATIO = 0.05;
 /**
  * Z-up is suspected when the Z extent is strictly the largest and exceeds the
  * Y extent by this factor (or, for flat kinds, when the thinnest side is Z
- * rather than Y).
+ * rather than Y; floors get the rotation offered but unchecked). Owner
+ * decision Q37, 2026-10-11.
  */
 export const Z_UP_FACTOR = 1.25;
 

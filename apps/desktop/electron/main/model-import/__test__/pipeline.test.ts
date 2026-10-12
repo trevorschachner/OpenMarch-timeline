@@ -280,6 +280,15 @@ describe("Can't import", () => {
         ]);
     });
 
+    it("rejects a Garment whose fit names no body type", async () => {
+        const r = await run("garment-unknown-fit.glb");
+        expectRejected(r);
+        expect(rejection(r, "garmentUnknownFit")?.meshes).toEqual([
+            { node: "Jacket1", fit: "neutral-wide" },
+        ]);
+        expect(rejection(r, "garmentNoMedianFit")).toBeUndefined();
+    });
+
     it("rejects a file with no triangles", async () => {
         const json = JSON.parse(await readFile(fixture("model.gltf"), "utf8"));
         delete json.meshes;
@@ -598,6 +607,13 @@ describe("Garments", () => {
             "neutral-average",
             "neutral-broad",
         ]);
+        expect(Object.keys(sidecar.garment!.meshesByFit)).toEqual([
+            "neutral-average",
+            "neutral-broad",
+        ]);
+        expect(sidecar.garment!.meshesByFit["neutral-average"]).toHaveLength(1);
+        expect(sidecar.garment!.meshesByFit["neutral-broad"]).toHaveLength(1);
+        expect(note(r, "duplicateFits")).toBeUndefined();
         expect(sidecar.stretch).toBeNull();
         expect(note(r, "noStretchZones")).toBeUndefined();
 
@@ -624,6 +640,18 @@ describe("Garments", () => {
         expect(
             json.skins[0].joints.map((j: number) => json.nodes[j].name),
         ).toEqual([...V4_JOINT_NAMES]);
+    });
+
+    it("notes a body type claimed by more than one mesh", async () => {
+        const r = await run("garment-duplicate-fit.glb");
+        expect(r.report.cantImport).toEqual([]);
+        expect(note(r, "duplicateFits")?.fits).toEqual([
+            { bodyType: "neutral-average", nodes: ["Jacket0", "Jacket1"] },
+        ]);
+        const { garment } = r.output!.sidecar;
+        expect(garment!.fits).toEqual(["neutral-average", "neutral-broad"]);
+        expect(garment!.meshesByFit["neutral-average"]).toHaveLength(2);
+        await expectLoadsBare(r);
     });
 
     it("converts a centimeter, Z-up Garment onto the v4 rest pose", async () => {

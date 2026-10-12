@@ -106,6 +106,24 @@ describe("readOpenMarchMetadata", () => {
         ]);
     });
 
+    it("keeps a non-string fit as text and notes a node overriding its mesh", () => {
+        const meta = readOpenMarchMetadata({
+            meshes: [{ extras: { openmarch: { fit: "neutral-slim" } } }],
+            nodes: [
+                { mesh: 0, extras: { openmarch: { fit: 3 } } },
+                { mesh: 0, extras: { openmarch: { fit: "neutral-broad" } } },
+            ],
+        });
+        expect([...meta.fitsByNode]).toEqual([
+            [0, "3"],
+            [1, "neutral-broad"],
+        ]);
+        expect(meta.notes.map((n) => n.code)).toEqual([
+            "invalidOpenMarchData",
+            "invalidOpenMarchData",
+        ]);
+    });
+
     it("tells openmarch extras from custom properties the app ignores", () => {
         expect(
             readOpenMarchMetadata({ nodes: [{ name: "Box" }] }),
