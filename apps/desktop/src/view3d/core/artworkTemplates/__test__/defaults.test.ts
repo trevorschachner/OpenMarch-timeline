@@ -1,15 +1,20 @@
-// cspell:words teardrop
-import { deflateSync } from "node:zlib";
+// cspell:words teardrop demoulin styleplus ihdr plte idat
+import { deflateSync, inflateSync } from "node:zlib";
 import { describe, expect, it } from "vitest";
 import { lengthOf, toMeters } from "../../sizes/units";
+import { catalogEntries } from "../../sizes/catalog";
+import { distanceToPolygonEdge, pointInPolygon } from "../../sizes/cutGeometry";
+import { catalogSilkCutPath, sampleCutPath } from "../../sizes/silkCuts";
 import {
     artworkTemplateFiles,
-    CUT_PENDING_NOTE,
     DEFAULT_TEMPLATE_POLICY,
     DPI_GUIDE,
     FLOOR_PNG_MAX_PX,
     FLOOR_PRINT_MASTER_NOTE,
     floorPropSurface,
+    OUTLINE_SAMPLES_PER_CURVE,
+    sleeveGuide,
+    TEMPLATE_COLORS,
     layoutTemplate,
     pngSize,
     propSurface,
@@ -36,6 +41,27 @@ const ALL = [...TEMPLATE_SURFACES, floorProp, propTop, propFront];
 const byProcess = (process: TemplateSurface["process"]) =>
     ALL.filter((s) => s.process === process);
 
+/** An indexed PNG's pixels as RGB (the writer's 8-bit palette format). */
+function decodePalettePng(png: Uint8Array) {
+    const buf = Buffer.from(png);
+    const chunks: Record<string, Buffer[]> = {};
+    for (let at = 8; at < buf.length; ) {
+        const len = buf.readUInt32BE(at);
+        const type = buf.toString("latin1", at + 4, at + 8);
+        (chunks[type] ??= []).push(buf.subarray(at + 8, at + 8 + len));
+        at += 12 + len;
+    }
+    const width = chunks.IHDR[0].readUInt32BE(0);
+    const plte = chunks.PLTE[0];
+    const raw = inflateSync(Buffer.concat(chunks.IDAT));
+    return {
+        pixel: (x: number, y: number) => {
+            const i = raw[y * (width + 1) + 1 + x];
+            return [...plte.subarray(i * 3, i * 3 + 3)];
+        },
+    };
+}
+
 /** The `tEXt` chunks of a PNG, as keyword to text. */
 function pngText(png: Uint8Array): Record<string, string> {
     const buf = Buffer.from(png);
@@ -56,6 +82,36 @@ function pngText(png: Uint8Array): Record<string, string> {
 describe("DEFAULT_TEMPLATE_POLICY (owner, 2026-10-11)", () => {
     it("resolves every surface", () => {
         for (const s of ALL) expect(() => resolved(s), s.id).not.toThrow();
+    });
+
+    it("shrinks the safe area of a small item to a quarter of its shorter side, with a note (Q38)", () => {
+        const tiny = propSurface(
+            "front",
+            lengthOf(3, "in"),
+            lengthOf(1.5, "in"),
+        );
+        const t = resolved(tiny);
+        const q = inches(1.5) / 4;
+        expect(t.safeM).toEqual({ top: q, right: q, bottom: q, left: q });
+        expect(t.safeShrunk).toBe(true);
+        expect(templateInfoLines(t)).toContain(
+            'Safe area reduced to 3/8" from the trim for this small size.',
+        );
+        const mm = resolved(
+            propSurface("top", lengthOf(40, "mm"), lengthOf(30, "mm")),
+        );
+        expect(mm.safeM.top).toBeCloseTo(0.0075, 12);
+        expect(templateInfoLines(mm)).toContain(
+            "Safe area reduced to 7.5 mm from the trim for this small size.",
+        );
+        // Normal sizes are unchanged and carry no note.
+        for (const s of ALL) {
+            expect(resolved(s).safeShrunk, s.id).toBeUndefined();
+            expect(templateInfoLines(resolved(s)).join(" ")).not.toContain(
+                "reduced",
+            );
+        }
+        expect(() => drawingOf(tiny)).not.toThrow();
     });
 
     it("puts the safe area 1 in inside the trim on silks, props and uniform panels (Q29)", () => {
@@ -97,27 +153,176 @@ describe("DEFAULT_TEMPLATE_POLICY (owner, 2026-10-11)", () => {
         expect(byProcess("prop").length).toBeGreaterThan(0);
     });
 
-    it("leaves arc, teardrop and swing outlines pending, without inventing one (Q28)", () => {
+    it("draws every shaped Cut's own outline as its mask (Q42)", () => {
         const masked = ALL.filter((s) => s.cut !== "rectangle");
         expect(new Set(masked.map((s) => s.cut))).toEqual(
-            new Set(["arc", "teardrop", "swing"]),
+            new Set(["arc", "teardrop", "swing", "superSwing", "hangingSwing"]),
         );
         for (const s of masked) {
             const t = resolved(s);
-            expect(t.outlineM, s.id).toBeUndefined();
-            expect(t.cutPending, s.id).toBe(true);
-            const text = templateInfoLines(t).join(" ");
-            expect(text, s.id).toContain(CUT_PENDING_NOTE);
-            // Drawn as the full rectangle: no mask area.
-            expect(
-                drawingOf(s).shapes.some(
-                    (shape) => shape.type === "area" && shape.fill === "mask",
-                ),
-                s.id,
-            ).toBe(false);
+            const entry = catalogEntries("silk").find(
+                (e) => e.id === s.catalogId,
+            )!;
+            const expected = sampleCutPath(
+                catalogSilkCutPath(entry),
+                OUTLINE_SAMPLES_PER_CURVE,
+            );
+            expect(t.outlineM, s.id).toEqual(expected);
+            const mask = drawingOf(s).shapes.find(
+                (shape) => shape.type === "area" && shape.fill === "mask",
+            );
+            expect(mask, s.id).toBeDefined();
         }
         for (const s of ALL.filter((s) => s.cut === "rectangle"))
-            expect(resolved(s).cutPending, s.id).toBeUndefined();
+            expect(resolved(s).outlineM, s.id).toBeUndefined();
+    });
+
+    it("clips to the cut: the mask covers the trim outside the outline only", () => {
+        for (const s of ALL.filter((s) => s.cut !== "rectangle")) {
+            const d = drawingOf(s);
+            const t = resolved(s);
+            const mask = d.shapes.find(
+                (shape) => shape.type === "area" && shape.fill === "mask",
+            );
+            if (mask?.type !== "area") throw new Error(s.id);
+            // Trim plus outline, filled even-odd: masked means inside the
+            // trim and outside the cut.
+            const masked = (p: readonly [number, number]) =>
+                mask.rings.filter((ring) => pointInPolygon(ring, p)).length %
+                    2 ===
+                1;
+            const outline = t.outlineM!;
+            const b = d.bleedM;
+            let inside = 0;
+            let outside = 0;
+            const n = 40;
+            for (let i = 0; i < n; i++)
+                for (let j = 0; j < n; j++) {
+                    const p: [number, number] = [
+                        ((i + 0.5) / n) * t.trimM.width,
+                        ((j + 0.5) / n) * t.trimM.height,
+                    ];
+                    const inCut = pointInPolygon(outline, p);
+                    expect(masked([p[0] + b, p[1] + b]), `${s.id} ${p}`).toBe(
+                        !inCut,
+                    );
+                    if (inCut) inside++;
+                    else outside++;
+                }
+            expect(inside, s.id).toBeGreaterThan(0);
+            expect(outside, s.id).toBeGreaterThan(0);
+        }
+    });
+
+    it("paints the mask outside the teardrop and paper inside it", () => {
+        const s = templateSurface("silk-teardrop-44x74")!;
+        const png = decodePalettePng(
+            templatePng(drawingOf(s), { dpi: 8, deflate }),
+        );
+        const px = (xIn: number, yIn: number) =>
+            png.pixel(
+                Math.round((xIn + 0.125) * 8),
+                Math.round((yIn + 0.125) * 8),
+            );
+        // Below the pole end, near the pole: outside the cut.
+        expect(px(4, 75)).toEqual([...TEMPLATE_COLORS.mask]);
+        // Top right corner: outside the cut.
+        expect(px(73, 1)).toEqual([...TEMPLATE_COLORS.mask]);
+        // Well inside, clear of lines and text.
+        expect(px(55, 35)).toEqual([...TEMPLATE_COLORS.paper]);
+    });
+
+    it("draws the safe area inside the cut on shaped Cuts", () => {
+        for (const s of ALL.filter((s) => s.cut !== "rectangle")) {
+            const t = resolved(s);
+            expect(t.safeRingM, s.id).toBeDefined();
+            for (const p of t.safeRingM!) {
+                expect(pointInPolygon(t.outlineM!, p), s.id).toBe(true);
+                expect(
+                    distanceToPolygonEdge(t.outlineM!, p),
+                    s.id,
+                ).toBeGreaterThanOrEqual(inches(1) * (1 - 1e-6));
+            }
+            expect(templateInfoLines(t), s.id).toContain(
+                'Keep important content inside the dashed safe area, 1" inside the cut.',
+            );
+        }
+    });
+
+    it("says which shapes come from a vendor photo (Q42)", () => {
+        const fromPhoto = [
+            "silk-swing-44x66",
+            "silk-arc-45x96",
+            "silk-narrow-arc-44x94",
+            "silk-super-arc-54x100",
+        ];
+        for (const s of ALL.filter((s) => s.kind === "silk")) {
+            const text = templateInfoLines(resolved(s)).join(" ");
+            if (fromPhoto.includes(s.id))
+                expect(text, s.id).toContain("Shape from vendor photo");
+            else expect(text, s.id).not.toContain("vendor photo");
+        }
+    });
+
+    it("keeps vendor names off templates (Q44)", () => {
+        for (const s of ALL.filter((s) => s.kind === "silk"))
+            for (const shape of drawingOf(s).shapes)
+                if (shape.type === "text")
+                    expect(shape.text, s.id).not.toMatch(
+                        /miller|demoulin|band shoppe|field & floor|mccormick|drill company|styleplus|fjm/i,
+                    );
+    });
+
+    it("marks the pole sleeve with a dashed guide 3 in from the pole edge (Q43)", () => {
+        for (const s of ALL) {
+            const d = drawingOf(s);
+            const guides = d.shapes.filter(
+                (shape) => shape.type === "line" && shape.stroke === "guide",
+            );
+            if (s.kind !== "silk") {
+                expect(guides, s.id).toHaveLength(0);
+                continue;
+            }
+            expect(guides, s.id).toHaveLength(1);
+            const g = guides[0];
+            if (g.type !== "line") throw new Error(s.id);
+            expect(g.dashM, s.id).toBeGreaterThan(0);
+            const [[x0, y0], [x1, y1]] = g.points;
+            const b = d.bleedM;
+            expect(x0 - b).toBeCloseTo(inches(3), 12);
+            expect(x1 - b).toBeCloseTo(inches(3), 12);
+            const header = s.header?.m ?? s.height.m;
+            expect(y0 - b, s.id).toBeGreaterThanOrEqual(-1e-9);
+            expect(y0 - b, s.id).toBeLessThan(inches(1));
+            // Down the header, or to where the cut's edge crosses first.
+            expect(y1 - b, s.id).toBeLessThanOrEqual(header + 1e-9);
+            expect(y1 - b, s.id).toBeGreaterThan(header - inches(0.5));
+            expect(templateInfoLines(resolved(s)).join(" ")).toContain(
+                "hidden on the pole",
+            );
+        }
+        expect(
+            sleeveGuide(
+                resolved(templateSurface("silk-6ft-36x54")!),
+                inches(36),
+            ),
+        ).toEqual([
+            [inches(3), 0],
+            [inches(3), inches(36)],
+        ]);
+    });
+
+    it("puts a hanging Cut's pole marker halfway down its header", () => {
+        const s = templateSurface("silk-oversized-swing-56x84")!;
+        const d = drawingOf(s);
+        const tri = d.shapes.find(
+            (shape) => shape.type === "area" && shape.fill === "marker",
+        );
+        if (tri?.type !== "area") throw new Error("no marker");
+        expect(tri.rings[0][0][1] - d.bleedM).toBeCloseTo(inches(21), 12);
+        expect(templateInfoLines(resolved(s))).toContain(
+            "Trim: 56 in fly x 84 in deep, 42 in header",
+        );
     });
 
     it("names the safe-area inset in the template", () => {

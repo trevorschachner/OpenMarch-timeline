@@ -2,8 +2,9 @@ import { lengthOf } from "../../sizes/units";
 import type { TemplatePolicy } from "../policy";
 
 /**
- * Stand-in values for tests only. The real safe area, floor and prop bleed
- * and cut outlines are undecided (see ../policy.ts).
+ * Stand-in values for tests only, distinct from the owner's figures in
+ * `DEFAULT_TEMPLATE_POLICY` (../policy.ts), with a simple four-point outline
+ * for every shaped cut.
  */
 export const TEST_POLICY: TemplatePolicy = {
     safeArea: (surface) => {

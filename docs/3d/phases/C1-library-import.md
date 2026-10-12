@@ -324,3 +324,36 @@ Nothing yet.
   "outline pending"), and the download menu, which waits on C1.9's IPC.
   Resume from: wire Q28's outlines into `DEFAULT_TEMPLATE_POLICY.cutOutline`
   once researched.
+- 2026-10-12, C1.12 in progress (branch `3d/c1-artwork-templates`): the cut
+  outlines (Q28) are in, from `research/silk-cuts.md`, with the owner's
+  decisions of 2026-10-12. Outlines are a typed module,
+  `view3d/core/sizes/silkCuts.ts` (lines and cubic Bezier curves, exact bounds, a
+  polygon sampler), with polygon helpers in `sizes/cutGeometry.ts`
+  (inside test, safe-area inset, `boxOutsideCut` for "content outside cut").
+  Templates draw each shaped Cut's own outline as the mask and replace the
+  "cut outline pending" note. Q38: a safe area that doesn't fit shrinks to
+  ¼ of the shorter side, with a quiet note; the "safe area is empty" error is
+  gone. Q39: silks have a `depth` (omitted, it equals the header; presets
+  accept `depth` and `sag`, with depth at least the header); the oversized
+  swing is 42 header × 56 fly × 84 deep, the super swing 44 × 68 × 84, the
+  regular arc 45 × 78⅝ × 96; ids keep the vendor figures. Silk templates are
+  fly wide by overall depth, with the header named and the pole marker
+  halfway down it. Q40: pole silks are true rectangles; `sag` is a per-silk
+  field, default 0, with `recommendedSilkSag` (a quarter of the header) as a
+  preset. Q41: the swing has a flat bottom; the sagging bottom is the
+  `sagging-bottom` alternative. Q42: the traced outlines are the starting
+  set, and the swing and the three arcs carry "Shape from vendor photo" on
+  their templates. Q43: a dashed sleeve guide 3 in from the pole edge, with a
+  note. Q44: vendor names are only `aliases` on catalog silks (searchable
+  through `catalogEntryMatches`), never labels. Worker's own calls: the
+  teardrop (79⅝), narrow arc (56) and super arc (87) also get a depth from
+  the trace so every outline fits its box; traced figures round to ⅛ in so
+  they re-display without drift (teardrop tip 79.6 to 79⅝, arc fly 78.6 to
+  78⅝); each traced outline is stretched by under 0.1 % so its widest point
+  lands exactly on the fly; a shaped Cut's safe area is its outline inset by
+  1 in, drawn as a dashed ring; the trim line is capped at half the bleed so
+  it never covers the bleed band. The C4 file has a cross-phase note: the
+  silk renderer must adopt these outlines and the depth field (C1.12 did not
+  change its mesh). Remaining: the download menu, which waits on C1.9's IPC;
+  custom-size presets carry no Cut shape yet (they draw as rectangles).
+  Resume from: wire the download menu once C1.9 lands its channels.

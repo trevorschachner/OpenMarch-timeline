@@ -60,11 +60,19 @@ export const sizePresetSchema = z.discriminatedUnion("kind", [
     z.object({
         ...presetBase,
         kind: z.literal("silk"),
-        dims: z.object({
-            header: lengthSchema,
-            fly: lengthSchema,
-            sleeve: lengthSchema.optional(),
-        }),
+        dims: z
+            .object({
+                header: lengthSchema,
+                fly: lengthSchema,
+                depth: lengthSchema.optional(),
+                sleeve: lengthSchema.optional(),
+                sag: lengthSchema.optional(),
+            })
+            // A silk can't be shallower than its pole edge.
+            .refine((d) => d.depth === undefined || d.depth.m >= d.header.m, {
+                message: "depth must be at least the header",
+                path: ["depth"],
+            }),
     }),
     z.object({
         ...presetBase,

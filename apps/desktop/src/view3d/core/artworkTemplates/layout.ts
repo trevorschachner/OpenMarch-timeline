@@ -7,8 +7,12 @@
  * Plain TypeScript only: this module lives under `view3d/core/`, so it must
  * not import React, React Three Fiber, drei, Electron or the database.
  */
-import { formatFeetInches, fromMeters } from "../sizes/units";
-import { CUT_PENDING_NOTE, type Point, type ResolvedTemplate } from "./policy";
+import { formatFeetInches, fromMeters, lengthOf } from "../sizes/units";
+import {
+    safeAreaShrunkNote,
+    type Point,
+    type ResolvedTemplate,
+} from "./policy";
 import type { TemplateSurface } from "./surfaces";
 
 export type Ring = readonly Point[];
@@ -21,6 +25,7 @@ export type TemplateColor =
     | "trim"
     | "safe"
     | "marker"
+    | "guide"
     | "text";
 
 export const TEMPLATE_COLORS: Readonly<
@@ -32,6 +37,7 @@ export const TEMPLATE_COLORS: Readonly<
     trim: [0, 0, 0],
     safe: [36, 99, 235],
     marker: [220, 38, 38],
+    guide: [120, 120, 120],
     text: [40, 40, 40],
 };
 
@@ -120,12 +126,23 @@ function safeAreaLine(t: ResolvedTemplate): string {
     const { top, right, bottom, left } = t.safeM;
     const base = "Keep important content inside the dashed safe area";
     if (!(top === right && top === bottom && top === left)) return `${base}.`;
-    const inset =
-        t.surface.unit === "in"
-            ? formatFeetInches(top)
-            : `${round(top * 1000, 1)} mm`;
-    return `${base}, ${inset} from the trim.`;
+    if (t.safeRingM) return `${base}, ${insetText(t, top)} inside the cut.`;
+    return `${base}, ${insetText(t, top)} from the trim.`;
 }
+
+function insetText(t: ResolvedTemplate, m: number): string {
+    return t.surface.unit === "in"
+        ? formatFeetInches(m)
+        : `${round(m * 1000, 1)} mm`;
+}
+
+/**
+ * The pole sleeve guide on silk templates (Q43): fabric this far from the
+ * pole edge wraps around the pole, so art there is hidden.
+ */
+export const SLEEVE_GUIDE = lengthOf(3, "in");
+
+export const SLEEVE_GUIDE_NOTE = `The dashed line ${formatFeetInches(SLEEVE_GUIDE.m)} from the pole edge marks the sleeve: art between it and the pole is hidden on the pole.`;
 
 const ORIENTATION_LABEL = {
     poleLeft: "POLE SIDE (HEADER)",
@@ -139,9 +156,11 @@ export function templateInfoLines(t: ResolvedTemplate): string[] {
     const s = t.surface;
     const { width, height } = t.trimM;
     const dims =
-        s.kind === "silk"
-            ? `${sizeText(s.width)} fly x ${sizeText(s.height)} header`
-            : `${sizeText(s.width)} x ${sizeText(s.height)}`;
+        s.kind !== "silk"
+            ? `${sizeText(s.width)} x ${sizeText(s.height)}`
+            : s.header
+              ? `${sizeText(s.width)} fly x ${sizeText(s.height)} deep, ${sizeText(s.header)} header`
+              : `${sizeText(s.width)} fly x ${sizeText(s.height)} header`;
     const px = (dpi: number) =>
         `${pixelsAt(width, dpi)} x ${pixelsAt(height, dpi)} px`;
     const lines = [
@@ -151,10 +170,11 @@ export function templateInfoLines(t: ResolvedTemplate): string[] {
             ? `Bleed: ${formatFeetInches(t.bleedM)} (${round(t.bleedM * 1000, 3)} mm) past the trim on every side, download only`
             : "Bleed: none",
         safeAreaLine(t),
+        ...(t.safeShrunk ? [safeAreaShrunkNote(t.safeM.top, s.unit)] : []),
         `Resolution: ${s.dpi.minimum} DPI minimum (${px(s.dpi.minimum)}), ${s.dpi.recommended} DPI recommended (${px(s.dpi.recommended)})`,
     ];
     if (s.sleeve) lines.push(`Sleeve: ${sizeText(s.sleeve)}`);
-    if (t.cutPending) lines.push(...wrap(CUT_PENDING_NOTE, 60));
+    if (s.kind === "silk") lines.push(...wrap(SLEEVE_GUIDE_NOTE, 60));
     if (s.kind === "uniformFront")
         lines.push("As worn, the wearer's right is on your left.");
     if (s.kind === "uniformBack")
@@ -223,6 +243,78 @@ function infoText(
     }));
 }
 
+/**
+ * The info block's text size. On a silk the block must end above the pole
+ * marker, halfway down the header, so its text shrinks when the block is long.
+ */
+function infoTextSize(
+    t: ResolvedTemplate,
+    short: number,
+    marker: number,
+    header: number,
+): number {
+    if (t.surface.orientation !== "poleLeft") return short / 48;
+    const lineCount = templateInfoLines(t).length;
+    const room = header / 2 - marker / 2 - t.safeM.top;
+    return Math.max(
+        short / 200,
+        Math.min(short / 48, room / (1.4 * lineCount + 1.5)),
+    );
+}
+
+/** The cut mask (trim minus outline, even-odd), the trim line and the cut line. */
+function trimAndCut(
+    trimRing: Ring,
+    outline: Ring | undefined,
+    line: number,
+): Shape[] {
+    const trim: Shape = {
+        type: "line",
+        points: trimRing,
+        closed: true,
+        stroke: "trim",
+        widthM: line,
+    };
+    if (!outline) return [trim];
+    return [
+        { type: "area", rings: [trimRing, outline], fill: "mask" },
+        trim,
+        {
+            type: "line",
+            points: outline,
+            closed: true,
+            stroke: "trim",
+            widthM: line * 2,
+        },
+    ];
+}
+
+/** The dashed safe area: the cut's inset ring, else the inset trim. */
+function safeAreaShape(
+    t: ResolvedTemplate,
+    line: number,
+    dashM: number,
+): Shape {
+    const b = t.bleedM;
+    const { width: w, height: h } = t.trimM;
+    const safe = t.safeM;
+    return {
+        type: "line",
+        points: t.safeRingM
+            ? t.safeRingM.map(([x, y]): Point => [x + b, y + b])
+            : rect(
+                  b + safe.left,
+                  b + safe.top,
+                  w - safe.left - safe.right,
+                  h - safe.top - safe.bottom,
+              ),
+        closed: true,
+        stroke: "safe",
+        widthM: line,
+        dashM,
+    };
+}
+
 export function layoutTemplate(t: ResolvedTemplate): TemplateDrawing {
     const s = t.surface;
     const b = t.bleedM;
@@ -230,9 +322,11 @@ export function layoutTemplate(t: ResolvedTemplate): TemplateDrawing {
     const pageW = w + 2 * b;
     const pageH = h + 2 * b;
     const short = Math.min(w, h);
-    const line = short / 500;
-    const textSize = short / 48;
+    // Thin enough that the trim line never covers the bleed band.
+    const line = b > 0 ? Math.min(short / 500, b / 2) : short / 500;
     const marker = short / 12;
+    const header = s.header?.m ?? h;
+    const textSize = infoTextSize(t, short, marker, header);
     const at = (p: Point): Point => [p[0] + b, p[1] + b];
     const trimRing = rect(b, b, w, h);
     const shapes: Shape[] = [
@@ -246,45 +340,28 @@ export function layoutTemplate(t: ResolvedTemplate): TemplateDrawing {
             fill: "bleed",
         });
 
-    const outline = t.outlineM?.map(at);
-    if (outline)
-        shapes.push({ type: "area", rings: [trimRing, outline], fill: "mask" });
-
-    shapes.push({
-        type: "line",
-        points: trimRing,
-        closed: true,
-        stroke: "trim",
-        widthM: line,
-    });
-    if (outline)
-        shapes.push({
-            type: "line",
-            points: outline,
-            closed: true,
-            stroke: "trim",
-            widthM: line * 2,
-        });
+    shapes.push(...trimAndCut(trimRing, t.outlineM?.map(at), line));
 
     const safe = t.safeM;
-    shapes.push({
-        type: "line",
-        points: rect(
-            b + safe.left,
-            b + safe.top,
-            w - safe.left - safe.right,
-            h - safe.top - safe.bottom,
-        ),
-        closed: true,
-        stroke: "safe",
-        widthM: line,
-        dashM: short / 60,
-    });
+    shapes.push(safeAreaShape(t, line, short / 60));
 
+    // Q43: the pole sleeve, a dashed guide along the pole edge.
+    const guide = s.kind === "silk" ? sleeveGuide(t, header) : undefined;
+    if (guide)
+        shapes.push({
+            type: "line",
+            points: guide.map(at),
+            closed: false,
+            stroke: "guide",
+            widthM: line,
+            dashM: short / 120,
+        });
+
+    // A silk's marker sits halfway down its pole edge, not its full depth.
     const { tri, labelAt, label } = orientationMarker(
         s.orientation,
         w,
-        h,
+        s.orientation === "poleLeft" ? header : h,
         marker,
         textSize,
     );
@@ -303,13 +380,10 @@ export function layoutTemplate(t: ResolvedTemplate): TemplateDrawing {
         s.orientation === "upTop"
             ? Math.max(safe.top, marker * 1.2 + textSize)
             : safe.top;
+    // Right of the sleeve guide on silks.
+    const left = guide ? Math.max(safe.left, SLEEVE_GUIDE.m) : safe.left;
     shapes.push(
-        ...infoText(
-            t,
-            b + safe.left + textSize,
-            b + top + textSize * 1.5,
-            textSize,
-        ),
+        ...infoText(t, b + left + textSize, b + top + textSize * 1.5, textSize),
     );
 
     return {
@@ -320,6 +394,41 @@ export function layoutTemplate(t: ResolvedTemplate): TemplateDrawing {
         trim: { x: b, y: b, width: w, height: h },
         shapes,
     };
+}
+
+/**
+ * The sleeve guide's ends: the vertical line `SLEEVE_GUIDE` from the pole
+ * edge, between where it enters and leaves the cut (the whole header on a
+ * rectangle), or undefined if it misses the cut.
+ */
+export function sleeveGuide(
+    t: ResolvedTemplate,
+    header: number,
+): [Point, Point] | undefined {
+    const x = SLEEVE_GUIDE.m;
+    if (!(x < t.trimM.width)) return undefined;
+    const sleeve = t.surface.sleeve?.m ?? header;
+    const outline = t.outlineM;
+    if (!outline)
+        return [
+            [x, 0],
+            [x, Math.min(sleeve, t.trimM.height)],
+        ];
+    // The vertical line's crossings with the closed outline, top first.
+    const ys: number[] = [];
+    for (let i = 0, j = outline.length - 1; i < outline.length; j = i++) {
+        const [x0, y0] = outline[j];
+        const [x1, y1] = outline[i];
+        const right0 = x0 > x;
+        const right1 = x1 > x;
+        if (right0 !== right1) ys.push(y0 + ((x - x0) * (y1 - y0)) / (x1 - x0));
+    }
+    ys.sort((a, c) => a - c);
+    if (ys.length < 2) return undefined;
+    return [
+        [x, ys[0]],
+        [x, Math.min(ys[1], Math.max(ys[0], sleeve))],
+    ];
 }
 
 /**

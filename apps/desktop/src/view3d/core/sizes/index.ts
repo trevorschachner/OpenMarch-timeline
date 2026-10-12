@@ -7,3 +7,5 @@ export * from "./units";
 export * from "./catalog";
 export * from "./checks";
 export * from "./presets";
+export * from "./silkCuts";
+export * from "./cutGeometry";

@@ -86,7 +86,7 @@ describe("resolveTemplate", () => {
         expect(asked).toBe(1);
     });
 
-    it("rejects an outline outside the trim and an empty safe area", () => {
+    it("rejects an outline outside the trim or missing", () => {
         const arc = templateSurface("silk-arc-45x96")!;
         expect(() =>
             resolveTemplate(arc, {
@@ -98,18 +98,32 @@ describe("resolveTemplate", () => {
                 ],
             }),
         ).toThrow(/leaves the trim/);
-        const huge = lengthOf(100, "in");
         expect(() =>
             resolveTemplate(arc, {
                 ...TEST_POLICY,
-                safeArea: () => ({
-                    top: huge,
-                    right: huge,
-                    bottom: huge,
-                    left: huge,
-                }),
+                cutOutline: () => undefined,
             }),
-        ).toThrow(/safe area is empty/);
+        ).toThrow(/no cut outline/);
+    });
+
+    it("shrinks a safe area that doesn't fit to a quarter of the shorter side (Q38)", () => {
+        const huge = lengthOf(100, "in");
+        const policy: TemplatePolicy = {
+            ...TEST_POLICY,
+            safeArea: () => ({
+                top: huge,
+                right: huge,
+                bottom: huge,
+                left: huge,
+            }),
+        };
+        const six = resolveTemplate(templateSurface("silk-6ft-36x54")!, policy);
+        const q = toMeters(36, "in") / 4;
+        expect(six.safeM).toEqual({ top: q, right: q, bottom: q, left: q });
+        expect(six.safeShrunk).toBe(true);
+        const arc = resolveTemplate(templateSurface("silk-arc-45x96")!, policy);
+        expect(arc.safeShrunk).toBe(true);
+        expect(arc.safeRingM?.length).toBeGreaterThan(2);
     });
 });
 

@@ -1,19 +1,19 @@
 /**
  * The template values docs/3d/props-spec.md §3 names but gives no figures
  * for: the safe area, the bleed of surfaces that are neither flags nor
- * sublimation (floors and props), and the outline of the arc, teardrop and
- * swing cuts. The outline is also what 3D clips to, so it must match the silk
- * geometry.
+ * sublimation (floors and props), and how a cut's outline is drawn. The
+ * outline is also what 3D clips to, so the default policy draws the silk
+ * Cut's own outline (`../sizes/silkCuts`), the one the silk renderer uses.
  *
  * `DEFAULT_TEMPLATE_POLICY` holds the owner's figures (2026-10-11, Q29 and
- * Q30). The cut outlines (Q28) are still being researched, so the default
- * policy gives none: those templates show the full rectangle and say the
- * outline is pending, rather than an invented shape.
+ * Q30; 2026-10-12, Q38 and Q42).
  *
  * Plain TypeScript only: this module lives under `view3d/core/`, so it must
  * not import React, React Three Fiber, drei, Electron or the database.
  */
-import { lengthOf, type Length } from "../sizes/units";
+import { insetPolygon } from "../sizes/cutGeometry";
+import { sampleCutPath } from "../sizes/silkCuts";
+import { formatFeetInches, lengthOf, type Length } from "../sizes/units";
 import { FIXED_BLEED, type TemplateSurface } from "./surfaces";
 
 /** A point in meters, from the trim's top-left corner, y down. */
@@ -34,8 +34,7 @@ export interface TemplatePolicy {
     /**
      * The cut's outline, inside the trim, for any cut other than a
      * rectangle: at least three points, in order, not closed. `undefined`
-     * when the outline isn't known yet: the template is then drawn as the
-     * full rectangle and marked as pending.
+     * only for a surface without an outline, which `resolveTemplate` rejects.
      */
     cutOutline(surface: TemplateSurface): readonly Point[] | undefined;
 }
@@ -56,9 +55,23 @@ export const POLICY_BLEED: Readonly<Record<"floor" | "prop", Length>> = {
     prop: lengthOf(0.5, "in"),
 };
 
-/** Shown on a masked cut's template while its outline is pending (Q28). */
-export const CUT_PENDING_NOTE =
-    "Cut outline pending: the full rectangle is shown until the shape is confirmed.";
+/**
+ * How small items get a safe area (Q38): when the policy's inset leaves no
+ * room, every side's inset becomes this fraction of the trim's shorter side.
+ */
+export const SMALL_ITEM_SAFE_FRACTION = 0.25;
+
+/** The quiet note on a template whose safe area was shrunk (Q38). */
+export function safeAreaShrunkNote(insetM: number, unit: "in" | "mm"): string {
+    const inset =
+        unit === "in"
+            ? formatFeetInches(insetM)
+            : `${Math.round(insetM * 10000) / 10} mm`;
+    return `Safe area reduced to ${inset} from the trim for this small size.`;
+}
+
+/** Chords per cubic when a cut outline is flattened for a template. */
+export const OUTLINE_SAMPLES_PER_CURVE = 48;
 
 /** The owner's template values (2026-10-11). */
 export const DEFAULT_TEMPLATE_POLICY: TemplatePolicy = {
@@ -69,7 +82,10 @@ export const DEFAULT_TEMPLATE_POLICY: TemplatePolicy = {
     },
     bleed: (surface) =>
         surface.process === "floor" ? POLICY_BLEED.floor : POLICY_BLEED.prop,
-    cutOutline: () => undefined,
+    cutOutline: (surface) =>
+        surface.cutPath
+            ? sampleCutPath(surface.cutPath, OUTLINE_SAMPLES_PER_CURVE)
+            : undefined,
 };
 
 /** A surface with every value resolved to meters. */
@@ -78,10 +94,15 @@ export interface ResolvedTemplate {
     readonly trimM: { readonly width: number; readonly height: number };
     readonly bleedM: number;
     readonly safeM: Insets<number>;
-    /** Present for every cut other than a rectangle whose outline is known. */
+    /** Present for every cut other than a rectangle. */
     readonly outlineM?: readonly Point[];
-    /** Set for a cut other than a rectangle whose outline is still pending. */
-    readonly cutPending?: true;
+    /**
+     * The safe area of a cut other than a rectangle: its outline inset by
+     * the safe-area inset (the insets' largest side).
+     */
+    readonly safeRingM?: readonly Point[];
+    /** Set when the policy's inset didn't fit and was shrunk (Q38). */
+    readonly safeShrunk?: true;
 }
 
 const EPS = 1e-9;
@@ -99,7 +120,7 @@ export function resolveTemplate(
     if (!(bleedM >= 0)) throw new Error(`${surface.id}: negative bleed`);
 
     const s = policy.safeArea(surface);
-    const safeM = {
+    let safeM: Insets<number> = {
         top: s.top.m,
         right: s.right.m,
         bottom: s.bottom.m,
@@ -107,25 +128,47 @@ export function resolveTemplate(
     };
     if (Object.values(safeM).some((v) => !(v >= 0)))
         throw new Error(`${surface.id}: negative safe-area inset`);
-    if (safeM.left + safeM.right >= width || safeM.top + safeM.bottom >= height)
-        throw new Error(`${surface.id}: safe area is empty`);
+    // Q38: a small item gets a quarter of its shorter side on every side.
+    const shrinkTo = Math.min(width, height) * SMALL_ITEM_SAFE_FRACTION;
+    const shrink = (): Insets<number> => ({
+        top: shrinkTo,
+        right: shrinkTo,
+        bottom: shrinkTo,
+        left: shrinkTo,
+    });
+    let safeShrunk =
+        safeM.left + safeM.right >= width || safeM.top + safeM.bottom >= height;
+    if (safeShrunk) safeM = shrink();
 
-    if (surface.cut === "rectangle")
-        return { surface, trimM: { width, height }, bleedM, safeM };
+    const base = {
+        surface,
+        trimM: { width, height },
+        bleedM,
+        ...(safeShrunk ? { safeShrunk: true as const } : {}),
+    };
+    if (surface.cut === "rectangle") return { ...base, safeM };
 
     const outlineM = policy.cutOutline(surface);
-    if (!outlineM)
-        return {
-            surface,
-            trimM: { width, height },
-            bleedM,
-            safeM,
-            cutPending: true,
-        };
+    if (!outlineM) throw new Error(`${surface.id}: no cut outline`);
     if (outlineM.length < 3)
         throw new Error(`${surface.id}: cut outline needs three points`);
     for (const [x, y] of outlineM)
         if (x < -EPS || y < -EPS || x > width + EPS || y > height + EPS)
             throw new Error(`${surface.id}: cut outline leaves the trim`);
-    return { surface, trimM: { width, height }, bleedM, safeM, outlineM };
+
+    const insetOf = (i: Insets<number>) =>
+        Math.max(i.top, i.right, i.bottom, i.left);
+    let safeRingM = insetPolygon(outlineM, insetOf(safeM));
+    if (safeRingM.length === 0 && !safeShrunk) {
+        safeShrunk = true;
+        safeM = shrink();
+        safeRingM = insetPolygon(outlineM, shrinkTo);
+    }
+    return {
+        ...base,
+        ...(safeShrunk ? { safeShrunk: true as const } : {}),
+        safeM,
+        outlineM,
+        ...(safeRingM.length > 0 ? { safeRingM } : {}),
+    };
 }
