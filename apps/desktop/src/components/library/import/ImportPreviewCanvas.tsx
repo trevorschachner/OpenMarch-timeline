@@ -102,6 +102,9 @@ function useGltf(url: string | null, onError?: () => void): Object3D | null {
             .then((gltf) => {
                 if (cancelled) return;
                 loaded = gltf.scene;
+                // Measured now, before it joins the placed group: measuring
+                // later would include the previous model's offset.
+                gltf.scene.userData.importBounds = measure(gltf.scene);
                 setScene(gltf.scene);
             })
             .catch((error) => {
@@ -351,7 +354,9 @@ function PreviewScene(props: ImportPreviewCanvasProps) {
 
     useEffect(() => {
         // Measure the after model; before shares its placement.
-        const b = after ? measure(after) : null;
+        const b = after
+            ? ((after.userData.importBounds as Bounds | null) ?? null)
+            : null;
         setBounds(b);
         props.onBounds?.(b);
         invalidate();
