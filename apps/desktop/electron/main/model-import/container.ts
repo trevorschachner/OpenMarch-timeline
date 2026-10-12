@@ -196,6 +196,30 @@ export function checkResources(
 }
 
 /**
+ * The resources keyed both by the URI as written and by its normalized path
+ * (`textures/./logo.png` is also `textures/logo.png`), since gltf-transform
+ * looks a resource up by the URI as written and the validator by the
+ * normalized path. Call after `checkResources`: only URIs that pass
+ * `resourcePathOf` and aren't refused get a normalized key. When two URIs
+ * normalize to the same path, the first one's bytes win that key; a key
+ * written exactly always keeps its own bytes.
+ */
+export function resourcesByPath(
+    json: RawGltf,
+    resources: Readonly<Record<string, Uint8Array>>,
+    refused: readonly string[] = [],
+): Record<string, Uint8Array> {
+    const byPath: Record<string, Uint8Array> = {};
+    for (const uri of externalUris(json)) {
+        const resolved = resourcePathOf(uri);
+        if (!resolved.ok || refused.includes(uri)) continue;
+        const data = resources[uri];
+        if (data && !(resolved.path in byPath)) byPath[resolved.path] = data;
+    }
+    return { ...byPath, ...resources };
+}
+
+/**
  * Reads a picked file from disk, with a `.gltf`'s relative resources from
  * beside it. Each resource's real path (symlinks resolved) must be inside the
  * picked file's real folder; one that isn't is never read and is listed in

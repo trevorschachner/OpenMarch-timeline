@@ -22,6 +22,7 @@ import {
     checkResources,
     readModelFile,
     resourcePathOf,
+    resourcesByPath,
     sourceFileOf,
     type RawGltf,
 } from "../container";
@@ -158,6 +159,23 @@ describe("resources outside the picked folder", () => {
         expect(r.report.cantImport).toEqual([]);
         expect(r.report.status).toBe("ready");
     });
+
+    it("imports resources whose URIs aren't written in normal form", async () => {
+        await mkdir(path.join(folder, "textures"));
+        await copyFile(
+            path.join(FIXTURES, "logo.png"),
+            path.join(folder, "textures", "logo.png"),
+        );
+        const file = await writeGltf("./model.bin", "textures/./logo.png");
+        const input = await readModelFile(file);
+        expect(Object.keys(input.resources!).sort()).toEqual([
+            "./model.bin",
+            "textures/./logo.png",
+        ]);
+        const r = await importModelFile(file);
+        expect(r.report.cantImport).toEqual([]);
+        expect(r.report.status).toBe("ready");
+    });
 });
 
 describe("resourcePathOf", () => {
@@ -211,5 +229,31 @@ describe("resourcePathOf", () => {
         expect(() =>
             checkResources(json, { "../secret.bin": new Uint8Array(1) }),
         ).toThrow(/outside the picked folder/);
+    });
+
+    it("keys resources by normalized path, never for a refused URI", () => {
+        const json = {
+            buffers: [{ uri: "./model.bin" }, { uri: "link.bin" }],
+            images: [{ uri: "my%20textures/./logo.png" }],
+        } as RawGltf;
+        const bin = new Uint8Array([1]);
+        const link = new Uint8Array([2]);
+        const png = new Uint8Array([3]);
+        const keyed = resourcesByPath(
+            json,
+            {
+                "./model.bin": bin,
+                "link.bin": link,
+                "my%20textures/./logo.png": png,
+            },
+            ["link.bin"],
+        );
+        expect(keyed).toEqual({
+            "./model.bin": bin,
+            "model.bin": bin,
+            "link.bin": link,
+            "my%20textures/./logo.png": png,
+            "my textures/logo.png": png,
+        });
     });
 });

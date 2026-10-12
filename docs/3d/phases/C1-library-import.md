@@ -383,3 +383,17 @@ Nothing yet.
   in a signed packaged app on macOS, Windows and Linux.
   Resume from: C1.9's channel list; then pass `createElectronPdfRenderer()`
   as `pdfRenderer` and run the packaged checks.
+
+- 2026-10-12, C1.7 follow-ups for C1.9: `importModel` and `importModelFile`
+  take an optional `onStage` callback, called once as each stage starts, in
+  order: `reading`, `validating`, `decoding`, `checking`, `converting`,
+  `writing` (type `ModelImportStage`). A rejection stops after the stage that
+  found it; `needs-kind` stops after `decoding`; whatever the callback throws
+  or rejects with is ignored. C1.9's `ImportStage` lacks `checking`: add it
+  there or map it to `converting`. The module has no `electron` import and no
+  top-level side effects beyond constants (the NodeIO and `sharp` load on
+  first use); it loads and imports a fixture in plain Node, so it can run in
+  a `utilityProcess` as is. Bug fix: a resource URI not in normal form
+  (`textures/./logo.png`, `./model.bin`) was read but then failed the
+  validator, which looks resources up by normalized path; after the
+  containment check, resources are also keyed by their normalized path.

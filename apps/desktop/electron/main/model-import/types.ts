@@ -1,4 +1,4 @@
-// cspell:words meshopt
+// cspell:words khronos meshopt
 /**
  * Types of the model import pipeline (package C1.7; ADR 0002 D-13,
  * props-spec.md section 2 "Import pipeline"): what goes in, the import report
@@ -76,7 +76,29 @@ export interface ModelImportOptions {
      */
     kind?: ModelKind;
     choices?: ModelImportChoices;
+    /**
+     * Called once as each stage starts, in pipeline order, for coarse
+     * progress. A rejection stops after the stage that found it. Whatever the
+     * callback throws (or an async one rejects with) is ignored.
+     */
+    onStage?: (stage: ModelImportStage) => void;
 }
+
+/**
+ * The pipeline's coarse stages, in order: `reading` the file (and a
+ * `.gltf`'s resources) and its container; `validating` with the extension
+ * allow-list and the Khronos validator; `decoding` Draco and meshopt,
+ * stripping and measuring; `checking` the kind's rules (rigs, Garments,
+ * triangle caps) and planning the conversions; `converting`, then cleaning
+ * up; `writing` the GLB and sidecar.
+ */
+export type ModelImportStage =
+    | "reading"
+    | "validating"
+    | "decoding"
+    | "checking"
+    | "converting"
+    | "writing";
 
 // ------------------------------------------------------------------ report
 
