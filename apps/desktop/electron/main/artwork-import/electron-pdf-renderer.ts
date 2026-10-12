@@ -64,6 +64,11 @@ export function closeAllPdfRenderers(): number {
     return hiddenWindows.destroyAll();
 }
 
+/** Whether `win` is one of the hidden PDF renderer windows, which callers of `getAllWindows()` skip. */
+export function isPdfRendererWindow(win: BrowserWindow): boolean {
+    return hiddenWindows.has(win);
+}
+
 /** How many hidden PDF renderer windows are alive. */
 export function livePdfRendererCount(): number {
     return hiddenWindows.size;
