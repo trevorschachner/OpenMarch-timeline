@@ -187,7 +187,7 @@ describe("ImportPanel: artwork", () => {
         await renderArtwork();
         expect(screen.getByTestId("import-size-0")).toBeVisible();
         expect(screen.getByTestId("import-size-1")).toBeVisible();
-        expect(screen.getByText("From file: 36 in × 54 in")).toBeVisible();
+        expect(screen.getByText("From file: 36 × 54 in")).toBeVisible();
         expect(
             screen.getAllByText("Vector: prints sharp at any size."),
         ).toHaveLength(2);

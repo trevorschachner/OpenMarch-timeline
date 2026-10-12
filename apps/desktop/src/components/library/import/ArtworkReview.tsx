@@ -18,7 +18,6 @@ import { T, useTranslate } from "@tolgee/react";
 import {
     ARTWORK_SURFACES,
     ARTWORK_SURFACE_SPECS,
-    formatLength,
     fromMeters,
     toMeters,
     type Length,
@@ -30,7 +29,7 @@ import {
     type GroupSize,
     type ImportReviewActions,
 } from "./importReview";
-import { Chip, Label, ReportGroup, Row } from "./parts";
+import { Chip, Label, ReportGroup, Row, sizeText } from "./parts";
 
 type Actions = Pick<
     ImportReviewActions,
@@ -40,12 +39,6 @@ type Actions = Pick<
     | "setGroupSize"
     | "setGroupSurface"
 >;
-
-const sizeText = (w: Length, h: Length) => {
-    const a = formatLength(w, "imperial");
-    const b = formatLength(h, "imperial");
-    return `${a} × ${b}`;
-};
 
 /** Splits meters into whole feet and inches (to ⅛ in). */
 export function feetAndInches(m: number): { ft: number; in: number } {
@@ -265,6 +258,13 @@ function SizeStep({
         };
     });
     const selected = selectedMembers(artwork, group).length;
+    // Pages sit beside their size question whenever there is a choice of
+    // pages to make (Q62): several files, or a file with several pages.
+    const showPages =
+        artwork.inspection.files.length > 1 ||
+        artwork.inspection.files.some(
+            (f) => f.inspection.ok && f.inspection.pages.length > 1,
+        );
     const ratio =
         g.aspect >= 1
             ? `${g.aspect.toFixed(2)} : 1`
@@ -285,7 +285,7 @@ function SizeStep({
                     · {ratio}
                 </span>
             </p>
-            {members.length > 1 || artwork.inspection.files.length > 1 ? (
+            {showPages ? (
                 <div className="flex flex-wrap gap-6">
                     {members.map((m) => (
                         <PageThumb

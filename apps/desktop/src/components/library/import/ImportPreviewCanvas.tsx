@@ -78,8 +78,10 @@ function cssColor(name: string, fallback: string): Color {
                   .getPropertyValue(name)
                   .trim()
             : "";
+    // Tokens may carry alpha (`#rrggbbaa`); three.js colors take none.
+    const hex = /^#[0-9a-f]{8}$/i.test(value) ? value.slice(0, 7) : value;
     try {
-        return new Color(value || fallback);
+        return new Color(hex || fallback);
     } catch {
         return new Color(fallback);
     }

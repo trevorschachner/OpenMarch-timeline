@@ -22,6 +22,7 @@ import type {
     ImportProgress,
     LibraryIpcErrorCode,
 } from "@/view3d/library/protocol";
+import { formatLength, fromMeters, type Length } from "@/view3d/core/sizes";
 import type { ReviewError } from "./importReview";
 import type { RowText } from "./reportText";
 
@@ -333,4 +334,22 @@ export function ProgressBlock({
             )}
         </div>
     );
+}
+
+/**
+ * A physical size as people say it: "36 × 54 in" or "4 × 8 ft" when both
+ * sides are whole (to ⅛ in, or whole feet from 10 ft up), else ft-in.
+ */
+export function sizeText(width: Length, height: Length): string {
+    const eighths = [width.m, height.m].map((m) =>
+        Math.round(fromMeters(m, "in") * 8),
+    );
+    const inches = eighths.map((e) => e / 8);
+    if (inches.every((i) => i % 12 === 0 && i >= 48)) {
+        return `${inches[0] / 12} × ${inches[1] / 12} ft`;
+    }
+    if (inches.every((i) => i < 120)) {
+        return `${inches[0]} × ${inches[1]} in`;
+    }
+    return `${formatLength(width, "imperial")} × ${formatLength(height, "imperial")}`;
 }

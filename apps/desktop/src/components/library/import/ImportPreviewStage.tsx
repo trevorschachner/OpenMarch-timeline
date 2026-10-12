@@ -19,6 +19,7 @@ import {
 import { T, useTranslate } from "@tolgee/react";
 import { formatLength } from "@/view3d/core/sizes/units";
 import type { ArtworkReview, ImportReviewStore } from "./importReview";
+import { sizeText } from "./parts";
 import {
     boundsSize,
     PREVIEW_VIEWS,
@@ -290,9 +291,7 @@ function ArtworkStage({
             </span>
             <span className={clsx(tag, "absolute bottom-8 left-10")}>
                 {[
-                    size
-                        ? `${formatLength(size.width, "imperial")} × ${formatLength(size.height, "imperial")}`
-                        : null,
+                    size ? sizeText(size.width, size.height) : null,
                     page?.vector
                         ? t("library.import.stage.vector")
                         : page?.pixels

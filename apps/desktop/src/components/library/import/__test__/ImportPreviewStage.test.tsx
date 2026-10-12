@@ -173,6 +173,6 @@ describe("ImportPreviewStage", () => {
             expect.objectContaining({ page: 0, maxPx: 1024 }),
         );
         expect(screen.getByText("silks.pdf · Page 1")).toBeVisible();
-        expect(screen.getByText("36 in × 54 in · vector")).toBeVisible();
+        expect(screen.getByText("36 × 54 in · vector")).toBeVisible();
     });
 });
