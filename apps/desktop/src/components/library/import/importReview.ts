@@ -627,7 +627,8 @@ export function createImportReview(
                 const { session, model } = get();
                 if (!session || !model) return;
                 const gen = ++inspectGen;
-                const kind = model.kind ?? session.context?.kind;
+                const kind =
+                    model.kind ?? session.context?.kind ?? get().context?.kind;
                 patchModel({ inspecting: true, pickingGrip: false });
                 const result = await client.inspectModel({
                     sessionId: session.sessionId,
@@ -808,7 +809,8 @@ export function createImportReview(
                 if (!session || !model || model.inspecting) return;
                 const gen = inspectGen;
                 patchModel({ loadingBefore: true });
-                const kind = model.kind ?? session.context?.kind;
+                const kind =
+                    model.kind ?? session.context?.kind ?? get().context?.kind;
                 const result = await client.inspectModel({
                     sessionId: session.sessionId,
                     fileId: model.file.fileId,

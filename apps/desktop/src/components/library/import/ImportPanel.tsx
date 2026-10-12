@@ -402,7 +402,10 @@ export default function ImportPanel({ store }: { store: ImportReviewStore }) {
                     <>
                         <KindPicker
                             model={model}
-                            contextKind={state.session?.context?.kind}
+                            contextKind={
+                                state.session?.context?.kind ??
+                                state.context?.kind
+                            }
                             actions={state}
                         />
                         <ModelReportView model={model} actions={state} />
