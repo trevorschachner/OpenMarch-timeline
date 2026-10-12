@@ -41,6 +41,11 @@ import {
     SHARP_SELF_TEST_ENV,
     writeSharpSelfTest,
 } from "./services/sharp-self-test";
+import {
+    LIBRARY_IPC_SELF_TEST_ENV,
+    LIBRARY_IPC_SELF_TEST_FILES_ENV,
+    writeLibraryIpcSelfTest,
+} from "./services/library-ipc-self-test";
 import { closeView3dWindow, initView3dWindow } from "./view3dWindow";
 import { initLibraryIpc, watchEditorWindow } from "./library-ipc";
 import { isPdfRendererWindow } from "./artwork-import";
@@ -429,6 +434,18 @@ void app.whenReady().then(async () => {
     if (sharpSelfTestOut) {
         // Packaging check only: run sharp, write the result, open nothing.
         app.exit(await writeSharpSelfTest(sharpSelfTestOut));
+        return;
+    }
+    const libraryIpcSelfTestOut = process.env[LIBRARY_IPC_SELF_TEST_ENV];
+    if (libraryIpcSelfTestOut) {
+        // Packaging check only: run the import IPC on given files, open nothing.
+        app.exit(
+            await writeLibraryIpcSelfTest(
+                libraryIpcSelfTestOut,
+                join(__dirname, "import-worker.js"),
+                process.env[LIBRARY_IPC_SELF_TEST_FILES_ENV] ?? "",
+            ),
+        );
         return;
     }
 

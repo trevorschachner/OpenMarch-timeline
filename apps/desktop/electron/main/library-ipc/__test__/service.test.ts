@@ -491,6 +491,22 @@ describe("model import", () => {
         expect(spawner.children[0].killed).toBe(true);
     });
 
+    it("cancel before the job reaches the worker still answers cancelled", async () => {
+        const { session, fileId } = await modelSession();
+        const pending = call(C.importInspect, {
+            sessionId: session.sessionId,
+            fileId,
+            type: "model",
+            choices: {},
+        });
+        value(await call(C.importCancel, { sessionId: session.sessionId }));
+        expect(await pending).toMatchObject({
+            ok: false,
+            error: { code: "cancelled" },
+        });
+        expect(spawner.children).toHaveLength(0);
+    });
+
     it("refuses another editor's session and expired or made-up ids", async () => {
         const { session, fileId } = await modelSession();
         const request = {

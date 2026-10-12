@@ -280,6 +280,13 @@ export function createLibraryIpcService(
         }
     }
 
+    function checkCancelled(session: Session, cancelAt: number) {
+        requireOpen(session);
+        if (session.cancelSeq !== cancelAt) {
+            throw new IpcFailure("cancelled", "Cancelled");
+        }
+    }
+
     async function modelBytes(file: SessionFile): Promise<ModelFileInput> {
         if (file.model) return file.model;
         if (file.type !== "model") {
@@ -515,12 +522,14 @@ export function createLibraryIpcService(
         );
         const progress = progressFor(sender, session);
         const seq = ++file!.inspectSeq;
+        const cancelAt = session.cancelSeq;
         progress({
             fileId: file!.fileId,
             stage: "reading",
             fraction: null,
         });
         const input = await modelBytes(file!);
+        checkCancelled(session, cancelAt);
         const result = await runModel(
             session,
             file!,
@@ -529,7 +538,7 @@ export function createLibraryIpcService(
             request.choices,
             progress,
         );
-        requireOpen(session);
+        checkCancelled(session, cancelAt);
         if (!file!.lastResult || seq > file!.lastResult.seq) {
             file!.lastResult = {
                 seq,
@@ -641,7 +650,9 @@ export function createLibraryIpcService(
             );
             throw new IpcFailure(
                 pdfMissing ? "pdf-unavailable" : "unreadable",
-                rendered.notes.map((n) => n.code).join(", ") || "no preview",
+                rendered.notes
+                    .map((n) => `${n.code}: ${n.message}`)
+                    .join("; ") || "no preview",
             );
         }
         file!.previews.set(key, rendered.png);
@@ -670,7 +681,9 @@ export function createLibraryIpcService(
             request.fileId,
         );
         const progress = progressFor(sender, session);
+        const cancelAt = session.cancelSeq;
         const input = await modelBytes(file!);
+        checkCancelled(session, cancelAt);
         const key = canonical(request.choices);
         const last = file!.lastResult;
         // Reuse the reviewed result when it ran with these choices and
@@ -687,7 +700,7 @@ export function createLibraryIpcService(
             request.choices,
             progress,
         );
-        requireOpen(session);
+        checkCancelled(session, cancelAt);
         if (result.report.status !== "ready" || !result.output) {
             return { type: "model", report: result.report, saved: null };
         }
@@ -829,6 +842,7 @@ export function createLibraryIpcService(
     async function cancel(sender: IpcSender, payload: unknown): Promise<void> {
         const request = ImportCancelRequestSchema.parse(payload);
         const { session } = lookup(sender, request.sessionId, request.fileId);
+        session.cancelSeq++;
         session.artworkJob?.abort();
         deps.worker.cancel(session.sessionId);
     }

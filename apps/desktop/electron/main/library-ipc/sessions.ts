@@ -42,6 +42,8 @@ export interface Session {
     lastUsed: number;
     /** Set while an artwork inspect or commit runs. */
     artworkJob: AbortController | null;
+    /** Bumped by `import-cancel`, so a model job that hadn't reached the worker yet stops too. */
+    cancelSeq: number;
     closed: boolean;
 }
 
@@ -87,6 +89,7 @@ export class ImportSessionRegistry {
             files: new Map(),
             lastUsed: this.now(),
             artworkJob: null,
+            cancelSeq: 0,
             closed: false,
         };
         for (const file of files) {
