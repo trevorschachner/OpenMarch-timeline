@@ -88,10 +88,7 @@ export default defineConfig(({ command }) => {
                             outDir: "dist-electron/main",
                             emptyOutDir: false,
                             rollupOptions: {
-                                external: [
-                                    "electron",
-                                    "node",
-                                ].concat(
+                                external: ["electron", "node"].concat(
                                     Object.keys(
                                         "dependencies" in pkg
                                             ? pkg.dependencies
