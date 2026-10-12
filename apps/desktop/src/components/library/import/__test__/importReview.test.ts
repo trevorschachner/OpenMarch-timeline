@@ -5,8 +5,13 @@ import {
     choicesKey,
     createImportReview,
     displayName,
+    asksArtworkSurface,
     groupReadiness,
+    litMaterial,
+    slotSizeFor,
+    surfaceForSize,
     surfaceForTemplate,
+    templateMatchingSize,
 } from "../importReview";
 import {
     ART_FILE_A,
@@ -25,6 +30,7 @@ import {
     pngInspection,
     session,
     SESSION,
+    surfaceReport,
 } from "./fakeLibrary";
 
 let urlCount = 0;
@@ -69,6 +75,77 @@ describe("helpers", () => {
         );
         expect(surfaceForTemplate("flat-prop-4x8ft")).toBe("propSlot");
         expect(surfaceForTemplate(null)).toBeNull();
+    });
+});
+
+describe("artwork surface helpers (Q67)", () => {
+    it("sizes a slot from the two larger sides of where it's drawn", () => {
+        // Upright, thin in z: width × height.
+        expect(slotSizeFor({ sizeM: [1.2, 0.9, 0.02] })).toEqual({
+            widthM: 1.2,
+            heightM: 0.9,
+        });
+        // Upright, thin in x: depth × height.
+        expect(slotSizeFor({ sizeM: [0.02, 1, 2] })).toEqual({
+            widthM: 2,
+            heightM: 1,
+        });
+        // Lying flat: x × z.
+        expect(slotSizeFor({ sizeM: [3, 0.01, 2] })).toEqual({
+            widthM: 3,
+            heightM: 2,
+        });
+        expect(slotSizeFor({ sizeM: null })).toBeNull();
+    });
+
+    it("asks only when the kind is known, nothing is marked and it isn't a Garment", () => {
+        const report = surfaceReport();
+        expect(asksArtworkSurface(report)).toBe(true);
+        expect(asksArtworkSurface({ ...report, kind: null })).toBe(false);
+        expect(asksArtworkSurface({ ...report, kind: "garment" })).toBe(false);
+        expect(asksArtworkSurface({ ...report, status: "rejected" })).toBe(
+            false,
+        );
+        expect(
+            asksArtworkSurface({
+                ...report,
+                materials: report.materials.map((m, i) => ({
+                    ...m,
+                    fileSlot: i === 0 ? "silk" : null,
+                })),
+            }),
+        ).toBe(false);
+        expect(asksArtworkSurface(modelReport())).toBe(false);
+    });
+});
+
+describe("From file sizes (Q68)", () => {
+    const inch = (n: number) => ({ m: (n * 254) / 10000 });
+    const group = pdfInspection().aspectGroups[0];
+
+    it("matches a file size to the catalog template it equals", () => {
+        expect(templateMatchingSize(group, inch(36), inch(54))).toBe(
+            "silk-6ft-36x54",
+        );
+        // A 300 dpi PNG's pixels-per-meter rounding still matches.
+        expect(
+            templateMatchingSize(group, { m: 10800 / 11811 }, inch(54)),
+        ).toBe("silk-6ft-36x54");
+        expect(templateMatchingSize(group, inch(30), inch(45))).toBeNull();
+    });
+
+    it("gives From file the matched template's surface, a typed size none", () => {
+        const fromFile = {
+            width: inch(36),
+            height: inch(54),
+            source: "file" as const,
+            templateId: null,
+        };
+        expect(surfaceForSize(group, fromFile)).toBe("silk");
+        expect(surfaceForSize(group, { ...fromFile, source: "user" })).toBe(
+            null,
+        );
+        expect(surfaceForSize(group, null)).toBeNull();
     });
 });
 
@@ -215,6 +292,45 @@ describe("createImportReview: a model", () => {
         expect(model.showBefore).toBe(true);
         expect(model.beforeUrl).toMatch(/^blob:test\//);
         expect(model.glbUrl).toBe(afterUrl);
+    });
+
+    it("puts artwork on a picked material, lights the hovered one, and commits it (Q67)", async () => {
+        const lib = modelFake(surfaceReport(), []);
+        const store = createImportReview(lib.client, urls);
+        await store.getState().pick("model", { kind: "prop" });
+        const model = () => store.getState().model!;
+        expect(litMaterial(model())).toBeNull();
+
+        store.getState().hoverMaterial(1);
+        expect(litMaterial(model())?.outputIndex).toBe(1);
+        store.getState().hoverMaterial(null);
+
+        store.getState().setArtworkSurface(0);
+        await tick();
+        const slots = [
+            { material: 0, id: "artwork", widthM: 2.4, heightM: 0.6 },
+        ];
+        expect(lib.calls.importInspect.at(-1)).toMatchObject({
+            choices: { slots },
+        });
+        // Picked and not hovered: the picked one stays lit.
+        expect(litMaterial(model())?.name).toBe("Front");
+
+        lib.on("importCommit", () =>
+            ok({ type: "model", report: surfaceReport(), saved: null }),
+        );
+        await store.getState().commit();
+        expect(lib.calls.importCommit[0]).toMatchObject({
+            kind: "prop",
+            choices: { slots },
+        });
+
+        store.getState().setArtworkSurface(null);
+        await tick();
+        expect(model().choices).toEqual({});
+        expect(
+            (lib.calls.importInspect.at(-1) as { choices: object }).choices,
+        ).toEqual({});
     });
 
     it("sets the grip from a clicked point", async () => {
@@ -383,6 +499,41 @@ describe("createImportReview: artwork", () => {
         expect(addBlocker(store.getState())).toBeNull();
     });
 
+    it("prints a From file size that equals a template on its kind (Q68)", async () => {
+        const lib = artworkFake();
+        const store = createImportReview(lib.client, urls);
+        await store.getState().pick("any");
+        const groups = () => store.getState().artwork!.groups;
+        // 36 × 54 in is the silk template; 4 × 8 ft has no chip here.
+        expect(groups().map((g) => g.surface)).toEqual(["silk", "propSlot"]);
+        const fileSize = groups()[0].size!;
+        store.getState().setGroupSize(0, {
+            ...fileSize,
+            width: { m: 1 },
+            source: "user",
+        });
+        expect(groups()[0].surface).toBe("silk");
+        store.getState().setGroupSize(0, fileSize);
+        expect(groups()[0].surface).toBe("silk");
+    });
+
+    it("lets the picker's surface win over a matched template (Q68)", async () => {
+        const lib = artworkFake();
+        lib.on("importPick", () =>
+            ok(
+                session([fileRef(ART_FILE_A, "silks.pdf", "artwork")], {
+                    surface: "floorProp",
+                }),
+            ),
+        );
+        const store = createImportReview(lib.client, urls);
+        await store.getState().pick("artwork", { surface: "floorProp" });
+        expect(store.getState().artwork!.groups.map((g) => g.surface)).toEqual([
+            "floorProp",
+            "floorProp",
+        ]);
+    });
+
     it("commits one entry per surface, each page with its size", async () => {
         const lib = artworkFake();
         const store = createImportReview(lib.client, urls);
@@ -392,7 +543,7 @@ describe("createImportReview: artwork", () => {
         expect(files).toEqual([
             {
                 fileId: ART_FILE_A,
-                surface: "propSlot",
+                surface: "silk",
                 pages: [0],
                 pageSizes: { "0": "file" },
                 meta: { name: "silks" },

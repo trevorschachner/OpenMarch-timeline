@@ -310,6 +310,45 @@ export function surfaceForTemplate(
     return entry ? (SURFACE_FOR_CHIP_KIND[entry.kind] ?? null) : null;
 }
 
+/** Sides within 0.2 % count as equal (PNG pixels-per-meter rounding). */
+const SAME_SIZE = 0.002;
+
+/**
+ * The catalog template among a group's chips whose size the file's equals
+ * (36 × 54 in → the 36 × 54 silk), else null. Chips are already turned to
+ * the image's orientation.
+ */
+export function templateMatchingSize(
+    group: Pick<AspectGroup, "chips">,
+    width: Length,
+    height: Length,
+): string | null {
+    const same = (a: number, b: number) =>
+        Math.abs(a - b) <= SAME_SIZE * Math.max(a, b);
+    return (
+        group.chips.find(
+            (c) => same(c.width.m, width.m) && same(c.height.m, height.m),
+        )?.catalogId ?? null
+    );
+}
+
+/**
+ * The surface a size implies (Q68): its template's kind, and for "From
+ * file" the kind of the template it equals; null when neither says.
+ */
+export function surfaceForSize(
+    group: Pick<AspectGroup, "chips">,
+    size: GroupSize | null,
+): ArtworkSurface | null {
+    if (!size) return null;
+    const templateId =
+        size.templateId ??
+        (size.source === "file"
+            ? templateMatchingSize(group, size.width, size.height)
+            : null);
+    return surfaceForTemplate(templateId);
+}
+
 function plainLength(length: Length): Length {
     return length.typed !== undefined
         ? { m: length.m, typed: length.typed }
@@ -350,10 +389,7 @@ function initialGroup(
     }
     return {
         size,
-        surface:
-            context?.surface ??
-            surfaceForTemplate(size?.templateId ?? null) ??
-            "propSlot",
+        surface: context?.surface ?? surfaceForSize(group, size) ?? "propSlot",
         surfaceChosen: context?.surface !== undefined,
     };
 }
@@ -1214,12 +1250,17 @@ export function createImportReview(
                     if (!artwork?.groups[group]) return;
                     const groups = [...artwork.groups];
                     const current = groups[group];
+                    const aspectGroup = artwork.inspection.aspectGroups[
+                        group
+                    ] ?? {
+                        chips: [],
+                    };
                     groups[group] = {
                         ...current,
                         size,
                         surface: current.surfaceChosen
                             ? current.surface
-                            : (surfaceForTemplate(size.templateId) ??
+                            : (surfaceForSize(aspectGroup, size) ??
                               current.surface),
                     };
                     set({ artwork: { ...artwork, groups } });
