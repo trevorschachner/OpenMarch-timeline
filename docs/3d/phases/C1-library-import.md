@@ -361,3 +361,25 @@ Nothing yet.
   `resourceOutsideFolder` naming the URI; any scheme, `file:` included, stays
   `externalUri`. Refused files are never read, so their bytes can't reach the
   stored source. Tests in `model-import/__test__/container.test.ts`.
+
+- 2026-10-12, C1.8 (branch `3d/c1-artwork-import`, not yet in review):
+  owner decisions of 2026-10-11. Q33: PDFs are read by pdf.js
+  (`pdfjs-dist` 6.3.289, Apache-2.0, its legacy build) in a hidden
+  BrowserWindow with the sandbox on, owned by main. Built as
+  `createElectronPdfRenderer` in `electron/main/artwork-import`: no
+  preload and no IPC; the window loads a private origin served only inside
+  its own in-memory session (allow-listed pdf.js files read from the asar,
+  the page script, the one PDF), and main calls it with
+  `executeJavaScript`. pdfjs-dist's optional `@napi-rs/canvas` is ignored
+  in `pnpm-workspace.yaml`, so no native module comes with it. Q34: Uniform
+  part Artwork is a `uniformPart` surface, 1024 on the long edge, 150/300
+  DPI. Q35 confirmed as built (sidecar third part, PNG-only resolution
+  metadata, single-page SVG, floor DPI for Floor props, all pages
+  pre-selected, aspect mismatch refused, 1.5-gigapixel input limit).
+  Checked in dev Electron 40.8.5 on macOS arm64 (open, transparent render,
+  corrupt PDF, full `importArtwork`), and with pdf.js served from a
+  packaged `--dir` build's `app.asar`. Remaining: C1.9 wires the renderer
+  into the import IPC (nothing calls it in the app yet), then a PDF import
+  in a signed packaged app on macOS, Windows and Linux.
+  Resume from: C1.9's channel list; then pass `createElectronPdfRenderer()`
+  as `pdfRenderer` and run the packaged checks.
