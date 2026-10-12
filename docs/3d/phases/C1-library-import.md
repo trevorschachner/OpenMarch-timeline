@@ -490,3 +490,41 @@ Nothing yet.
 - **Next:** C1.10 builds the review on `importClient`; record the channel
   table in D-13; signed packaged runs on macOS, Windows and Linux.
 - **Resume from:** nothing pushed; local commits on `3d/c1-import-ipc`.
+
+### 2026-10-12 · 3d worker (3d/c1-import-ipc) · C1.9
+
+- **Done:** Q59 (owner, 2026-10-12): `LibraryIpcError` has a
+  `mixed-selection` code. `library:import-pick` returns it, instead of
+  `invalid-request` with a `mixed-selection:` message prefix, when a pick
+  mixes models and artwork or holds two models. The client documents it on
+  `pick`; the handler test checks the code and message.
+- **Also:** `library:template-save` now resolves `surfaceId` against
+  `TEMPLATE_DOWNLOADS` (`view3d/core/artworkTemplates/downloads.ts`), a
+  superset of `TEMPLATE_SURFACES` with the C1.12 menu's variants. The payload
+  is unchanged; for the lead to confirm against D-13's wording.
+- **Checks:** type-check; focused vitest (library-ipc, import-worker,
+  `src/view3d`); desktop format, lint and spellcheck.
+
+### 2026-10-12 · 3d worker (3d/c1-import-ipc) · C1.12
+
+- **Done:** the template download menu, `components/library/ArtworkTemplatesMenu.tsx`,
+  behind an "Artwork templates" button in the editor's File tab (beside
+  Export). The docs don't place it (the Library side panel, its likely home,
+  doesn't exist yet), so it's self-contained and moves with one import. Five
+  submenus (Silk Cuts, Base floors, Floor props, Prop panels, Uniform panels);
+  each row shows the template's size in its own unit and PNG, SVG and PDF
+  items, one file per click (Q53), through `importClient.saveTemplate` and
+  `library:template-save`. Toasts on save and on failure.
+- **Menu catalog:** `TEMPLATE_DOWNLOADS` adds to the fixed-size surfaces each
+  curve-family Cut at the recommended sag (a quarter of the header, Q40), the
+  swing's sagging bottom (Q41), and a Floor prop and a prop top at the default
+  4 × 8 ft sheet, since neither has a catalog size.
+- **Checks:** unit tests for the download list (unique ids, schema-safe,
+  every format for every entry); component tests (groups, labels, one save
+  per click with the right `surfaceId` and format); type-check; desktop
+  format, lint and spellcheck. Screenshots from a built app driven by
+  Playwright (not committed).
+- **Next:** custom sizes for Floor props and prop panels (needs a size in the
+  request, an IPC change); move the menu into the Library side panel when it
+  lands; surface names come from the English catalog names.
+- **Resume from:** nothing pushed; local commits on `3d/c1-import-ipc`.
