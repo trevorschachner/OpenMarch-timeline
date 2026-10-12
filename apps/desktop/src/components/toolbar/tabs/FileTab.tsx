@@ -12,6 +12,7 @@ import { RegisteredActionsObjects } from "@/utilities/RegisteredActionsHandler";
 import RegisteredActionButton from "@/components/RegisteredActionButton";
 import ExportCoordinatesModal from "@/components/exporting/ExportCoordinatesModal";
 import ArtworkTemplatesMenu from "@/components/library/ArtworkTemplatesMenu";
+import ImportToLibraryButton from "@/components/library/import/ImportToLibraryButton";
 import { useFullscreenStore } from "@/stores/FullscreenStore";
 import SettingsModal from "../SettingsModal";
 import { T } from "@tolgee/react";
@@ -93,6 +94,8 @@ export function FileTab() {
                 <ExportCoordinatesModal />
             </ToolbarSection>
             <ToolbarSection>
+                {/* TODO(Visuals mode): both move to the Library side panel. */}
+                <ImportToLibraryButton />
                 <ArtworkTemplatesMenu />
             </ToolbarSection>
             <ToolbarSection>
