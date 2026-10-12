@@ -86,6 +86,48 @@ export interface ArtworkPipelineOptions {
     readonly pdfRenderer?: PdfRenderer | null;
 }
 
+/** Options for `inspectArtwork` and `importArtwork`. */
+export interface ArtworkRunOptions extends ArtworkPipelineOptions {
+    /**
+     * Checked before the file is read, after it's opened and before each
+     * page; aborting also closes an open PDF document, which destroys its
+     * hidden window. A `sharp` call in flight finishes and its result is
+     * discarded. Pass one signal to every file of a multi-select, so a
+     * cancel also stops between files. Rejects with `ArtworkImportCancelled`.
+     */
+    readonly signal?: AbortSignal;
+    /**
+     * Called with `(0, total)` once the file is open, then after each page
+     * (imported or not). `total` is the pages being imported, or 1 for an
+     * inspection.
+     */
+    readonly onProgress?: (done: number, total: number) => void;
+}
+
+/**
+ * The rejection for an aborted `signal`. `report` is what `importArtwork`
+ * had already stored (those Versions stay in the Library); null for an
+ * inspection or a preview.
+ */
+export class ArtworkImportCancelled extends Error {
+    readonly code = "cancelled" as const;
+    readonly filename: string;
+    readonly report: ArtworkImportReport | null;
+
+    constructor(filename: string, report: ArtworkImportReport | null = null) {
+        super(`Importing ${filename} was cancelled.`);
+        this.name = "ArtworkImportCancelled";
+        this.filename = filename;
+        this.report = report;
+    }
+}
+
+export function isArtworkImportCancelled(
+    error: unknown,
+): error is ArtworkImportCancelled {
+    return error instanceof ArtworkImportCancelled;
+}
+
 /** Where a trustworthy physical size came from (props-spec.md §3). */
 export type FileSizeSource = "png-phys" | "svg-page" | "pdf-page";
 
@@ -234,6 +276,9 @@ function refused(
         },
     };
 }
+
+const noSuchPage = (index: number): ImportNote =>
+    note("cant-import", "no-such-page", `This file has no page ${index + 1}.`);
 
 function inspectionNotes(pages: readonly ArtworkPage[]): ImportNote[] {
     const notes: ImportNote[] = [];
@@ -474,15 +519,157 @@ async function probe(
     }
 }
 
+/** Throws `ArtworkImportCancelled` once `signal` is aborted. */
+function checkCancelled(
+    file: ArtworkFile,
+    signal: AbortSignal | undefined,
+    report: () => ArtworkImportReport | null = () => null,
+): void {
+    if (signal?.aborted)
+        throw new ArtworkImportCancelled(file.filename, report());
+}
+
+/**
+ * Opens a probe, closing it (once) when `signal` aborts so an open PDF's
+ * window goes at once. `release` removes the listener and closes the probe.
+ */
+async function openProbe(
+    file: ArtworkFile,
+    options: ArtworkPipelineOptions,
+    signal: AbortSignal | undefined,
+): Promise<
+    | { ok: true; probe: Probe; release: () => Promise<void> }
+    | { ok: false; inspection: ArtworkInspection & { ok: false } }
+> {
+    checkCancelled(file, signal);
+    const result = await probe(file, options);
+    if (!result.ok) return result;
+    let closing: Promise<void> | null = null;
+    const close = () => (closing ??= result.probe.close());
+    const onAbort = () => void close().catch(() => {});
+    signal?.addEventListener("abort", onAbort, { once: true });
+    const release = async () => {
+        signal?.removeEventListener("abort", onAbort);
+        await close();
+    };
+    if (signal?.aborted) {
+        await release();
+        checkCancelled(file, signal);
+    }
+    return { ok: true, probe: result.probe, release };
+}
+
 /** Reads a file for the review, storing nothing. */
 export async function inspectArtwork(
     file: ArtworkFile,
-    options: ArtworkPipelineOptions = {},
+    options: ArtworkRunOptions = {},
 ): Promise<ArtworkInspection> {
-    const result = await probe(file, options);
-    if (!result.ok) return result.inspection;
-    await result.probe.close();
-    return result.probe.inspection;
+    const { signal, onProgress } = options;
+    const opened = await openProbe(file, options, signal);
+    if (!opened.ok) return opened.inspection;
+    onProgress?.(0, 1);
+    await opened.release();
+    checkCancelled(file, signal);
+    onProgress?.(1, 1);
+    return opened.probe.inspection;
+}
+
+/** A preview raster: PNG bytes in sRGB and their pixel size. */
+export type ArtworkPreview =
+    | {
+          readonly ok: true;
+          readonly filename: string;
+          readonly page: number;
+          readonly png: Uint8Array;
+          readonly width: number;
+          readonly height: number;
+      }
+    | {
+          readonly ok: false;
+          readonly filename: string;
+          readonly page: number;
+          readonly notes: readonly ImportNote[];
+      };
+
+/**
+ * The pixel size of a preview: the longest edge at `maxPx`, the page's
+ * shape kept. Rasters are never enlarged.
+ */
+export function artworkPreviewSize(
+    page: ArtworkPage,
+    maxPx: number,
+): PixelSize {
+    const fit = (width: number, height: number, enlarge: boolean) => {
+        const scale = maxPx / Math.max(width, height);
+        const s = enlarge ? scale : Math.min(1, scale);
+        const side = (v: number) =>
+            Math.min(maxPx, Math.max(1, Math.round(v * s)));
+        return { width: side(width), height: side(height) };
+    };
+    return page.pixels
+        ? fit(page.pixels.width, page.pixels.height, false)
+        : fit(page.aspect, 1, true);
+}
+
+/**
+ * Renders one page (0-based) of a file as a PNG preview for the review
+ * screen and page picker (C1.9 Q51; 256 and 1024 px in the app), with the
+ * display texture's path: sharp for PNG, JPEG and SVG, the PDF renderer for
+ * PDF, converted to sRGB. Stores nothing. A file or page that can't be read
+ * comes back as notes, like an inspection.
+ */
+export async function renderArtworkPreview(
+    file: ArtworkFile,
+    page: number,
+    maxPx: number,
+    options: ArtworkPipelineOptions & { readonly signal?: AbortSignal } = {},
+): Promise<ArtworkPreview> {
+    if (!Number.isInteger(maxPx) || maxPx < 1) {
+        throw new Error("renderArtworkPreview: maxPx must be whole pixels");
+    }
+    const { signal } = options;
+    const opened = await openProbe(file, options, signal);
+    if (!opened.ok) {
+        return {
+            ok: false,
+            filename: file.filename,
+            page,
+            notes: opened.inspection.notes,
+        };
+    }
+    try {
+        const info = opened.probe.inspection.pages[page];
+        if (!info) {
+            return {
+                ok: false,
+                filename: file.filename,
+                page,
+                notes: [noSuchPage(page)],
+            };
+        }
+        const size = artworkPreviewSize(info, maxPx);
+        let png: Buffer;
+        try {
+            png = await (await opened.probe.render(info.index, size))
+                .toColourspace("srgb")
+                .png()
+                .toBuffer();
+        } catch (error) {
+            checkCancelled(file, signal);
+            throw error;
+        }
+        checkCancelled(file, signal);
+        return {
+            ok: true,
+            filename: file.filename,
+            page: info.index,
+            png: new Uint8Array(png),
+            width: size.width,
+            height: size.height,
+        };
+    } finally {
+        await opened.release();
+    }
 }
 
 /** `36 in`, `1.5 m`: a size for messages. */
@@ -567,10 +754,11 @@ function baseName(filename: string): string {
 export async function importArtwork(
     store: LibraryStore,
     request: ArtworkImportRequest,
-    options: ArtworkPipelineOptions = {},
+    options: ArtworkRunOptions = {},
 ): Promise<ArtworkImportReport> {
     const { file } = request;
-    const result = await probe(file, options);
+    const { signal, onProgress } = options;
+    const result = await openProbe(file, options, signal);
     if (!result.ok) {
         return {
             filename: file.filename,
@@ -581,29 +769,29 @@ export async function importArtwork(
     }
     const { probe: probed } = result;
     const { inspection } = probed;
+    const imported: ArtworkImportedPage[] = [];
+    const notImported: { page: number | null; notes: ImportNote[] }[] = [];
+    const soFar = (): ArtworkImportReport => ({
+        filename: file.filename,
+        format: inspection.format,
+        imported: [...imported],
+        notImported: [...notImported],
+    });
     try {
-        const pageCount = inspection.pages.length;
         const chosen = request.pages ?? inspection.pages.map((p) => p.index);
         if (request.itemId !== undefined && chosen.length > 1) {
             throw new Error(
                 "importArtwork: itemId adds one Version, so import one page at a time",
             );
         }
-        const imported: ArtworkImportedPage[] = [];
-        const notImported: { page: number | null; notes: ImportNote[] }[] = [];
-        for (const index of [...new Set(chosen)]) {
+        const unique = [...new Set(chosen)];
+        onProgress?.(0, unique.length);
+        for (const [done, index] of unique.entries()) {
+            if (done > 0) onProgress?.(done, unique.length);
+            checkCancelled(file, signal, soFar);
             const page = inspection.pages[index];
             if (!page) {
-                notImported.push({
-                    page: index,
-                    notes: [
-                        note(
-                            "cant-import",
-                            "no-such-page",
-                            `This file has no page ${index + 1}.`,
-                        ),
-                    ],
-                });
+                notImported.push({ page: index, notes: [noSuchPage(index)] });
                 continue;
             }
             const size = resolveSize(
@@ -615,17 +803,20 @@ export async function importArtwork(
                 continue;
             }
             imported.push(
-                await importPage(store, request, probed, page, size, pageCount),
+                await importPage(store, request, probed, page, size, signal),
             );
         }
-        return {
-            filename: file.filename,
-            format: inspection.format,
-            imported,
-            notImported,
-        };
+        onProgress?.(unique.length, unique.length);
+        return soFar();
+    } catch (error) {
+        if (signal?.aborted) {
+            throw isArtworkImportCancelled(error) && error.report
+                ? error
+                : new ArtworkImportCancelled(file.filename, soFar());
+        }
+        throw error;
     } finally {
-        await probed.close();
+        await result.release();
     }
 }
 
@@ -677,6 +868,19 @@ async function renderDisplay(
     probed: Probe,
     page: ArtworkPage,
     target: PixelSize,
+    signal: AbortSignal | undefined,
+): Promise<{ bytes: Uint8Array; format: "png" | "jpeg" }> {
+    const result = await encodeDisplay(probed, page, target);
+    // A render in flight finishes; once cancelled, its result isn't stored
+    // (`importArtwork` turns the abort into `ArtworkImportCancelled`).
+    signal?.throwIfAborted();
+    return result;
+}
+
+async function encodeDisplay(
+    probed: Probe,
+    page: ArtworkPage,
+    target: PixelSize,
 ): Promise<{ bytes: Uint8Array; format: "png" | "jpeg" }> {
     const image = (await probed.render(page.index, target)).toColourspace(
         "srgb",
@@ -692,27 +896,38 @@ async function renderDisplay(
     return { bytes: new Uint8Array(jpeg), format: "jpeg" };
 }
 
-async function importPage(
-    store: LibraryStore,
-    request: ArtworkImportRequest,
-    probed: Probe,
+/**
+ * Vectors render at the cap in the physical size's shape; rasters keep
+ * their pixels, downsized to fit the cap, never enlarged.
+ */
+function displayTarget(
+    surface: ArtworkSurface,
     page: ArtworkPage,
     size: ResolvedSize,
-    pageCount: number,
-): Promise<ArtworkImportedPage> {
-    const { file, surface } = request;
-    const { inspection } = probed;
-
-    // Vectors render at the cap in the physical size's shape; rasters keep
-    // their pixels, downsized to fit the cap, never enlarged.
-    const target = page.pixels
+): PixelSize {
+    return page.pixels
         ? displaySize(surface, page.pixels)
         : displaySize(
               surface,
               { width: size.width.m, height: size.height.m },
               { enlarge: true },
           );
-    const display = await renderDisplay(probed, page, target);
+}
+
+async function importPage(
+    store: LibraryStore,
+    request: ArtworkImportRequest,
+    probed: Probe,
+    page: ArtworkPage,
+    size: ResolvedSize,
+    signal: AbortSignal | undefined,
+): Promise<ArtworkImportedPage> {
+    const { file, surface } = request;
+    const { inspection } = probed;
+    const pageCount = inspection.pages.length;
+
+    const target = displayTarget(surface, page, size);
+    const display = await renderDisplay(probed, page, target, signal);
 
     const dpi = page.pixels
         ? nativeDpi(page.pixels.width, size.width.m)
