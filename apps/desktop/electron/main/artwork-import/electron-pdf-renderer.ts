@@ -10,12 +10,19 @@
  * PNG data URLs. Nothing here is exposed to the editor's renderer; the
  * public import IPC is package C1.9.
  *
+ * Shutdown (C1.9 Q56): every hidden window is tracked. `closeAllPdfRenderers`
+ * destroys them at once, for the editor's `closed` and `before-quit`; the
+ * module also does it on `before-quit` itself, and whenever a window closes
+ * and only hidden renderer windows remain, so they never hold
+ * `window-all-closed` back. A call in flight on a destroyed window rejects.
+ *
  * Main process only. Call after `app` is ready.
  */
 import { randomBytes } from "node:crypto";
 import path from "node:path";
 // cspell:words nosniff
-import { BrowserWindow, session as electronSession } from "electron";
+import { app, BrowserWindow, session as electronSession } from "electron";
+import { HiddenWindowRegistry } from "./hidden-windows";
 import type { PdfDocument, PdfPageInfo, PdfRenderer } from "./pdf";
 import {
     PDF_RENDERER_CSP,
@@ -39,6 +46,51 @@ export interface ElectronPdfRendererOptions {
     /** The `pdfjs-dist` package folder; resolved from main's modules if left out. */
     readonly pdfjsRoot?: string;
     readonly timeoutMs?: number;
+}
+
+/** Every live hidden renderer window. */
+const hiddenWindows = new HiddenWindowRegistry<BrowserWindow>();
+
+let lifecycleHooked = false;
+
+/**
+ * Destroys every hidden PDF renderer window now; their open documents fail
+ * and calls in flight reject. For C1.9 to call on the editor window's
+ * `closed` and on `before-quit` after cancelling its import sessions.
+ * Returns how many windows it destroyed. Renderers stay usable: the next
+ * `open` makes a new window.
+ */
+export function closeAllPdfRenderers(): number {
+    return hiddenWindows.destroyAll();
+}
+
+/** How many hidden PDF renderer windows are alive. */
+export function livePdfRendererCount(): number {
+    return hiddenWindows.size;
+}
+
+function closeOrphanedRenderers() {
+    // `closed` fires while the window is still being torn down; look once
+    // it's gone.
+    setImmediate(() =>
+        hiddenWindows.closeIfOrphaned(BrowserWindow.getAllWindows()),
+    );
+}
+
+function watchWindow(win: BrowserWindow) {
+    win.once("closed", closeOrphanedRenderers);
+}
+
+/**
+ * Once per process: destroy hidden windows on `before-quit`, and whenever a
+ * window closes leaving only hidden ones, so they never keep the app alive.
+ */
+function hookLifecycle() {
+    if (lifecycleHooked) return;
+    lifecycleHooked = true;
+    app.on("before-quit", closeAllPdfRenderers);
+    for (const win of BrowserWindow.getAllWindows()) watchWindow(win);
+    app.on("browser-window-created", (_event, win) => watchWindow(win));
 }
 
 /** PDFs waiting for their window's fetch, by one-time token. */
@@ -182,6 +234,8 @@ function createHiddenWindow(ses: Electron.Session): BrowserWindow {
     contents.on("will-navigate", (event) => event.preventDefault());
     contents.on("will-redirect", (event) => event.preventDefault());
     contents.on("will-attach-webview", (event) => event.preventDefault());
+    hiddenWindows.add(win);
+    win.once("closed", () => hiddenWindows.remove(win));
     return win;
 }
 
@@ -189,6 +243,8 @@ function createHiddenWindow(ses: Electron.Session): BrowserWindow {
 interface RendererPage {
     readonly win: BrowserWindow;
     call<T>(expression: string, what: string): Promise<T>;
+    /** `work`, rejected early if the window is destroyed first. */
+    guard<T>(work: Promise<T>): Promise<T>;
     /** Whether the page can still answer. */
     alive(): boolean;
     destroy(): void;
@@ -200,13 +256,24 @@ function openRendererPage(
 ): RendererPage {
     const win = createHiddenWindow(ses);
     let gone: string | null = null;
+    let rejectClosed: (error: Error) => void = () => {};
+    const closed = new Promise<never>((_, reject) => {
+        rejectClosed = reject;
+    });
+    closed.catch(() => {});
     win.webContents.on("render-process-gone", (_event, details) => {
         gone = details.reason;
+        rejectClosed(new Error(`The PDF reader stopped (${gone}).`));
     });
+    win.once("closed", () =>
+        rejectClosed(new Error("The PDF reader was closed.")),
+    );
     const alive = () => !gone && !win.isDestroyed();
+    const guard = <T>(work: Promise<T>) => Promise.race([work, closed]);
     return {
         win,
         alive,
+        guard,
         destroy() {
             if (!win.isDestroyed()) win.destroy();
         },
@@ -217,7 +284,7 @@ function openRendererPage(
                 );
             }
             const answer = (await withTimeout(
-                win.webContents.executeJavaScript(expression),
+                guard(win.webContents.executeJavaScript(expression)),
                 timeoutMs,
                 what,
             )) as PageAnswer<T> | undefined;
@@ -297,12 +364,14 @@ async function openInWindow(
     const token = randomBytes(16).toString("hex");
     try {
         await withTimeout(
-            page.win.loadURL(`${PDF_RENDERER_ORIGIN}/`),
+            page.guard(page.win.loadURL(`${PDF_RENDERER_ORIGIN}/`)),
             timeoutMs,
             "loading pdf.js",
         );
-        const ready = await page.win.webContents.executeJavaScript(
-            "globalThis.omPdfReady === true",
+        const ready = await page.guard(
+            page.win.webContents.executeJavaScript(
+                "globalThis.omPdfReady === true",
+            ),
         );
         if (ready !== true) throw new Error("pdf.js didn't load.");
 
@@ -333,6 +402,7 @@ export function createElectronPdfRenderer(
     const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
     return {
         open(bytes: Uint8Array): Promise<PdfDocument> {
+            hookLifecycle();
             const ses = rendererSession(
                 options.pdfjsRoot ?? resolvePdfjsRoot(),
             );

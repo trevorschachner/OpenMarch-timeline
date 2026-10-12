@@ -6,6 +6,8 @@ export * from "./sidecar";
 export type { ArtworkFormat } from "./formats";
 export type { PdfDocument, PdfPageInfo, PdfRenderer } from "./pdf";
 export {
+    closeAllPdfRenderers,
     createElectronPdfRenderer,
+    livePdfRendererCount,
     type ElectronPdfRendererOptions,
 } from "./electron-pdf-renderer";

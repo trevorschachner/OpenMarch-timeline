@@ -447,3 +447,21 @@ Nothing yet.
   change its mesh). Remaining: the download menu, which waits on C1.9's IPC;
   custom-size presets carry no Cut shape yet (they draw as rectangles).
   Resume from: wire the download menu once C1.9 lands its channels.
+
+- 2026-10-12, C1.8 follow-ups for C1.9's Q51 and Q56 and its cancel design:
+  `renderArtworkPreview(file, page, maxPx)` renders one page as an sRGB PNG
+  with its pixel size (longest edge at `maxPx`, shape kept, rasters never
+  enlarged; sharp for PNG, JPEG and SVG, the PDF renderer for PDF).
+  `inspectArtwork` and `importArtwork` take an optional `signal`, checked
+  before the file, after opening and before each page (aborting also closes
+  an open PDF document, destroying its window), rejecting with
+  `ArtworkImportCancelled` (`code: "cancelled"`, plus the partial report of
+  what stayed stored), and an optional `onProgress(done, total)` per page.
+  The PDF renderer tracks every hidden window: `closeAllPdfRenderers()`
+  destroys them at once, and calls in flight on a destroyed window reject.
+  The module itself destroys them on `before-quit` and whenever a window
+  closes leaving only hidden renderer windows, so `index.ts`'s
+  `window-all-closed` handler fires as before and needs no change. C1.9
+  still cancels its sessions and calls `closeAllPdfRenderers()` on the
+  editor's `closed` (this also covers macOS, where the app stays open), and
+  `open-win`'s `getAllWindows()` loop must skip hidden windows if it stays.

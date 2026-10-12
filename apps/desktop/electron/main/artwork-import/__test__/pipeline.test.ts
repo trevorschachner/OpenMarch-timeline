@@ -5,16 +5,19 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import PDFDocument from "pdfkit";
 import sharp from "sharp";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { lengthOf, toMeters } from "../../../../src/view3d/core/sizes";
 import { sha256Hex } from "../../library/hash";
 import { openLibraryStore, type LibraryStore } from "../../library/store";
 import { readPngPhys, sniffArtworkFormat } from "../formats";
 import type { PdfRenderer } from "../pdf";
 import {
+    ArtworkImportCancelled,
     groupByAspect,
     importArtwork,
     inspectArtwork,
+    isArtworkImportCancelled,
+    renderArtworkPreview,
     type ArtworkFile,
     type ArtworkSizeChoice,
 } from "../pipeline";
@@ -680,5 +683,219 @@ describe("groupByAspect", () => {
             width: { m: toMeters(36, "in"), typed: "36 in" },
             height: { m: toMeters(54, "in"), typed: "54 in" },
         });
+    });
+});
+
+// ------------------------------------------------------------ preview
+
+async function pngInfo(bytes: Uint8Array) {
+    const meta = await sharp(bytes).metadata();
+    return {
+        format: meta.format,
+        width: meta.width,
+        height: meta.height,
+        space: meta.space,
+    };
+}
+
+describe("renderArtworkPreview", () => {
+    it("fits a raster's longest edge to maxPx, keeping its shape", async () => {
+        const file = await png("wide.png", 2000, 1000);
+        const preview = await renderArtworkPreview(file, 0, 256);
+        expect(preview).toMatchObject({ ok: true, page: 0, width: 256 });
+        if (!preview.ok) return;
+        expect(preview.height).toBe(128);
+        expect(await pngInfo(preview.png)).toEqual({
+            format: "png",
+            width: 256,
+            height: 128,
+            space: "srgb",
+        });
+    });
+
+    it("never enlarges a small raster", async () => {
+        const preview = await renderArtworkPreview(
+            await png("small.png", 300, 200),
+            0,
+            1024,
+        );
+        expect(preview).toMatchObject({ ok: true, width: 300, height: 200 });
+    });
+
+    it("converts a CMYK JPEG to sRGB and applies EXIF orientation", async () => {
+        const preview = await renderArtworkPreview(
+            await jpeg("cmyk.jpg", 400, 1000, { cmyk: true, orientation: 6 }),
+            0,
+            256,
+        );
+        expect(preview.ok).toBe(true);
+        if (!preview.ok) return;
+        // Orientation 6 turns 400 × 1000 into 1000 × 400.
+        expect(await pngInfo(preview.png)).toEqual({
+            format: "png",
+            width: 256,
+            height: 102,
+            space: "srgb",
+        });
+    });
+
+    it("renders an SVG at maxPx on its longest edge", async () => {
+        const file = svg("silk.svg", 'width="36in" height="54in"');
+        const preview = await renderArtworkPreview(file, 0, 1024);
+        expect(preview).toMatchObject({ ok: true, width: 683, height: 1024 });
+        if (!preview.ok) return;
+        expect(await pngInfo(preview.png)).toMatchObject({
+            width: 683,
+            height: 1024,
+            space: "srgb",
+        });
+    });
+
+    it("renders a PDF page through the renderer and closes it", async () => {
+        const close = vi.fn();
+        const renderer: PdfRenderer = {
+            async open(bytes) {
+                const doc = await fakePdfRenderer.open(bytes);
+                return { ...doc, close };
+            },
+        };
+        const preview = await renderArtworkPreview(await twoPagePdf(), 1, 256, {
+            pdfRenderer: renderer,
+        });
+        expect(preview).toMatchObject({
+            ok: true,
+            page: 1,
+            width: 256,
+            height: 166,
+        });
+        if (!preview.ok) return;
+        expect(await pngInfo(preview.png)).toMatchObject({
+            format: "png",
+            width: 256,
+            height: 166,
+        });
+        expect(close).toHaveBeenCalledTimes(1);
+    });
+
+    it("answers with notes for a missing page or an unreadable file", async () => {
+        expect(
+            await renderArtworkPreview(await png("a.png", 10, 10), 3, 256),
+        ).toEqual({
+            ok: false,
+            filename: "a.png",
+            page: 3,
+            notes: [expect.objectContaining({ code: "no-such-page" })],
+        });
+        const pdf = await renderArtworkPreview(await twoPagePdf(), 0, 256);
+        expect(pdf).toMatchObject({
+            ok: false,
+            notes: [expect.objectContaining({ code: "pdf-unavailable" })],
+        });
+        await expect(
+            renderArtworkPreview(await png("a.png", 10, 10), 0, 0),
+        ).rejects.toThrow(/maxPx/);
+    });
+});
+
+// ------------------------------------------------------------ cancel, progress
+
+/** A two-page renderer whose page renders wait until `release()`. */
+function slowPdfRenderer() {
+    const close = vi.fn();
+    let release: () => void = () => {};
+    const gate = new Promise<void>((resolve) => {
+        release = resolve;
+    });
+    const rendering = vi.fn();
+    const renderer: PdfRenderer = {
+        async open(bytes) {
+            const doc = await fakePdfRenderer.open(bytes);
+            return {
+                ...doc,
+                async renderPage(index, size) {
+                    rendering(index);
+                    if (index === 1) await gate;
+                    return doc.renderPage(index, size);
+                },
+                close,
+            };
+        },
+    };
+    return { renderer, close, release: () => release(), rendering };
+}
+
+describe("cancellation", () => {
+    it("rejects before reading when the signal is already aborted", async () => {
+        const controller = new AbortController();
+        controller.abort();
+        const open = vi.fn();
+        const error = await inspectArtwork(await twoPagePdf(), {
+            pdfRenderer: { open },
+            signal: controller.signal,
+        }).catch((e: unknown) => e);
+        expect(isArtworkImportCancelled(error)).toBe(true);
+        expect(error).toMatchObject({
+            code: "cancelled",
+            filename: "front-back.pdf",
+            report: null,
+        });
+        expect(open).not.toHaveBeenCalled();
+    });
+
+    it("stops between pages, keeps what was stored and closes the PDF", async () => {
+        const slow = slowPdfRenderer();
+        const controller = new AbortController();
+        const progress: [number, number][] = [];
+        const running = importArtwork(
+            store,
+            { file: await twoPagePdf(), surface: "propSlot" },
+            {
+                pdfRenderer: slow.renderer,
+                signal: controller.signal,
+                onProgress: (done, total) => progress.push([done, total]),
+            },
+        );
+        await vi.waitFor(() => expect(slow.rendering).toHaveBeenCalledWith(1));
+        controller.abort();
+        // Aborting closes the document at once, while page 2 still renders.
+        expect(slow.close).toHaveBeenCalledTimes(1);
+        slow.release();
+
+        const error = await running.catch((e: unknown) => e);
+        expect(error).toBeInstanceOf(ArtworkImportCancelled);
+        const { report } = error as ArtworkImportCancelled;
+        expect(report?.imported.map((r) => r.page)).toEqual([0]);
+        expect(progress).toEqual([
+            [0, 2],
+            [1, 2],
+        ]);
+        // Page 1 stays in the Library; page 2's render was discarded.
+        expect((await store.listItems()).map((i) => i.name)).toEqual([
+            "front-back (page 1)",
+        ]);
+        expect(slow.close).toHaveBeenCalledTimes(1);
+    });
+
+    it("reports progress per page and once for an inspection", async () => {
+        const progress: [number, number][] = [];
+        const onProgress = (done: number, total: number) =>
+            progress.push([done, total]);
+        await importArtwork(
+            store,
+            { file: await twoPagePdf(), surface: "propSlot", pages: [0, 1, 7] },
+            { pdfRenderer: fakePdfRenderer, onProgress },
+        );
+        expect(progress).toEqual([
+            [0, 3],
+            [1, 3],
+            [2, 3],
+            [3, 3],
+        ]);
+        progress.length = 0;
+        await inspectArtwork(await png("a.png", 10, 10), { onProgress });
+        expect(progress).toEqual([
+            [0, 1],
+            [1, 1],
+        ]);
     });
 });
