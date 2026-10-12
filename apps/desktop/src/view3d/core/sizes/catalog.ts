@@ -5,12 +5,14 @@
  *
  * Every size is stored in its source unit and converted to meters on read, so
  * a 36 × 54 in silk stays exactly 36 × 54 in. Every entry names its sources.
- * Silks are written header (along the pole) × fly.
+ * Silks are written header (along the pole) × fly, plus an overall depth for
+ * Cuts that hang below the end of the pole; their outlines are in
+ * `./silkCuts`.
  *
  * Plain TypeScript only: this module lives under `view3d/core/`, so it must
  * not import React, React Three Fiber, drei, Electron or the database.
  */
-// cspell:words sabre sabres ultralite fjminc demoulin bandshoppe drillcomp styleplus wgi
+// cspell:words sabre sabres ultralite fjminc demoulin bandshoppe drillcomp styleplus wgi teardrop mccormick
 import { lengthOf, type ImperialUnit, type Length } from "./units";
 
 /** A catalog size in the unit its source gives. */
@@ -47,8 +49,21 @@ export interface DimsByKind<L> {
     pole: { readonly length: L; readonly diameter: L };
     swingPole: { readonly length: L; readonly diameter: L };
     tPole: { readonly upright: L; readonly crossbars: readonly L[] };
-    /** `sleeve` only where the source gives a sleeve shorter than the header. */
-    silk: { readonly header: L; readonly fly: L; readonly sleeve?: L };
+    /**
+     * `depth` is the overall height, top of the pole edge to the lowest
+     * point, for Cuts that hang below the end of the pole; omitted, it equals
+     * the header (see `silkDepth`). `sleeve` only where the source gives a
+     * sleeve shorter than the header. `sag` is how far a curve-family Cut's
+     * top and bottom edges droop toward the fly; omitted, it is 0 (a true
+     * rectangle, owner Q40).
+     */
+    silk: {
+        readonly header: L;
+        readonly fly: L;
+        readonly depth?: L;
+        readonly sleeve?: L;
+        readonly sag?: L;
+    };
     rifle: { readonly length: L };
     sabre: { readonly length: L };
     /** The source doesn't say which side faces the audience; WGI checks ignore orientation. */
@@ -77,6 +92,11 @@ export type CatalogEntry = {
               readonly use: SilkUse;
               /** The pole the source pairs this Cut with. */
               readonly pole?: string;
+              /**
+               * Other names for this Cut, vendors' included, for search
+               * only: never shown as its label or on its template (Q44).
+               */
+              readonly aliases?: readonly string[];
           }
         : EntryBase<K>;
 }[SizeKind];
@@ -156,6 +176,16 @@ const DPG_FLOORS: CatalogSource = {
     url: "https://dpgperforms.com/?p=1275",
     confidence: "snippet",
 };
+/**
+ * Overall depths (and two fly widths) measured from vendors' shape images where the
+ * vendor states only header and one other figure (research/silk-cuts.md,
+ * 2026-10-12), rounded to the catalog's ⅛ in.
+ */
+const SILK_CUT_TRACING: CatalogSource = {
+    name: "Traced from vendor shape images (research/silk-cuts.md)",
+    url: "https://fjminc.com/pages/custom-flag-designs",
+    confidence: "unverified",
+};
 const SHEET_GOODS: CatalogSource = {
     name: "General practice: 4 x 8 ft sheet goods",
     confidence: "unverified",
@@ -226,6 +256,13 @@ const tPoles: CatalogEntryOf<"tPole">[] = [
     },
 ];
 
+interface SilkExtra extends Partial<
+    Pick<CatalogEntryOf<"silk">, "pole" | "isDefault" | "aliases">
+> {
+    readonly depth?: number;
+    readonly sleeve?: number;
+}
+
 function silk(
     id: string,
     name: string,
@@ -233,11 +270,9 @@ function silk(
     fly: number,
     use: SilkUse,
     sources: CatalogEntryOf<"silk">["sources"],
-    extra: Partial<Pick<CatalogEntryOf<"silk">, "pole" | "isDefault">> & {
-        sleeve?: number;
-    } = {},
+    extra: SilkExtra = {},
 ): CatalogEntryOf<"silk"> {
-    const { sleeve, ...rest } = extra;
+    const { depth, sleeve, ...rest } = extra;
     return {
         id,
         kind: "silk",
@@ -246,6 +281,7 @@ function silk(
         dims: {
             header: inch(header),
             fly: inch(fly),
+            ...(depth === undefined ? {} : { depth: inch(depth) }),
             ...(sleeve === undefined ? {} : { sleeve: inch(sleeve) }),
         },
         sources,
@@ -253,6 +289,18 @@ function silk(
     };
 }
 
+const CURVE_ALIASES = [
+    "standard curve",
+    "curved rectangle",
+    "arc shape (Band Shoppe)",
+    "Arced, Curved Rectangle (DeMoulin)",
+];
+
+/**
+ * Header × fly as the vendors write them, except the hanging Cuts, whose
+ * second figure is their overall depth (owner Q39, research/silk-cuts.md
+ * "How the second number is measured"). Ids keep the vendors' figures.
+ */
 const silks: CatalogEntryOf<"silk">[] = [
     silk(
         "silk-5ft-30x46",
@@ -261,7 +309,7 @@ const silks: CatalogEntryOf<"silk">[] = [
         46,
         "flag",
         [BAND_SHOPPE_SIZE_CHART],
-        { pole: "pole-5ft" },
+        { pole: "pole-5ft", aliases: CURVE_ALIASES },
     ),
     silk(
         "silk-5.5ft-33x50",
@@ -270,7 +318,7 @@ const silks: CatalogEntryOf<"silk">[] = [
         50,
         "flag",
         [BAND_SHOPPE_SIZE_CHART],
-        { pole: "pole-5.5ft" },
+        { pole: "pole-5.5ft", aliases: CURVE_ALIASES },
     ),
     silk(
         "silk-6ft-36x54",
@@ -279,7 +327,7 @@ const silks: CatalogEntryOf<"silk">[] = [
         54,
         "flag",
         [DEMOULIN_PERFORMANCE_FLAG, BAND_SHOPPE_SIZE_CHART],
-        { pole: "pole-6ft", isDefault: true },
+        { pole: "pole-6ft", isDefault: true, aliases: CURVE_ALIASES },
     ),
     silk(
         "silk-7ft-42x60",
@@ -288,39 +336,131 @@ const silks: CatalogEntryOf<"silk">[] = [
         60,
         "flag",
         [BAND_SHOPPE_SIZE_CHART],
-        { pole: "pole-7ft" },
+        { pole: "pole-7ft", aliases: CURVE_ALIASES },
     ),
-    silk("silk-standard-36x56", "Standard", 36, 56, "flag", [
-        FJM_CUSTOM_FLAGS,
-        DEMOULIN_PRINTED_FLAG,
-    ]),
-    silk("silk-oversized-42x67", "Oversized", 42, 67, "flag", [
-        FJM_CUSTOM_FLAGS,
-    ]),
-    silk("silk-teardrop-44x74", "Teardrop", 44, 74, "flag", [FJM_CUSTOM_FLAGS]),
+    silk(
+        "silk-standard-36x56",
+        "Standard",
+        36,
+        56,
+        "flag",
+        [FJM_CUSTOM_FLAGS, DEMOULIN_PRINTED_FLAG],
+        {
+            aliases: [
+                "Standard (Fred J. Miller)",
+                "Standard Curve",
+                ...CURVE_ALIASES,
+            ],
+        },
+    ),
+    silk(
+        "silk-oversized-42x67",
+        "Oversized",
+        42,
+        67,
+        "flag",
+        [FJM_CUSTOM_FLAGS],
+        {
+            aliases: [
+                "Oversized (Fred J. Miller)",
+                "7' Standard Curve (Field & Floor FX)",
+            ],
+        },
+    ),
+    silk(
+        "silk-teardrop-44x74",
+        "Teardrop",
+        44,
+        74,
+        "flag",
+        [FJM_CUSTOM_FLAGS, SILK_CUT_TRACING],
+        {
+            depth: 79.625,
+            aliases: [
+                "Teardrop (Fred J. Miller)",
+                "Teardrop (Drill Company)",
+                "Extended Tear Drop Swing (Field & Floor FX)",
+                "Shape SC (McCormick's)",
+            ],
+        },
+    ),
     silk("silk-swing-44x66", "Swing", 44, 66, "swing", [BAND_SHOPPE_SWING], {
         isDefault: true,
+        aliases: [
+            "Swing, arc shape (Band Shoppe)",
+            "Standard Swing (Field & Floor FX)",
+        ],
     }),
-    silk("silk-super-swing-44x84", "Curved or super swing", 44, 84, "swing", [
-        FJM_CUSTOM_FLAGS,
-        DRILLCOMP_SUPER_SWING,
-    ]),
+    silk(
+        "silk-super-swing-44x84",
+        "Curved or super swing",
+        44,
+        68,
+        "swing",
+        [FJM_CUSTOM_FLAGS, DRILLCOMP_SUPER_SWING, SILK_CUT_TRACING],
+        {
+            depth: 84,
+            aliases: [
+                "Curved Swing (Fred J. Miller)",
+                "Super Swing (DeMoulin)",
+                "Glamour Super Swing (StylePlus)",
+                "Arch Swing (Field & Floor FX)",
+                "Shape SD, Shape SE (McCormick's)",
+            ],
+        },
+    ),
     silk(
         "silk-oversized-swing-56x84",
         "Oversized swing",
+        42,
         56,
-        84,
         "swing",
         [DEMOULIN_SWING_FLAG],
-        { sleeve: 42 },
+        {
+            depth: 84,
+            aliases: ["In-Stock Swing Flag (DeMoulin)", "Lava Lame Swing"],
+        },
     ),
-    silk("silk-arc-45x96", "Regular arc", 45, 96, "flag", [FJM_CUSTOM_FLAGS]),
-    silk("silk-narrow-arc-44x94", "Narrow arc", 44, 94, "flag", [
-        FJM_CUSTOM_FLAGS,
-    ]),
-    silk("silk-super-arc-54x100", "Super arc", 54, 100, "flag", [
-        FJM_CUSTOM_FLAGS,
-    ]),
+    silk(
+        "silk-arc-45x96",
+        "Regular arc",
+        45,
+        78.625,
+        "flag",
+        [FJM_CUSTOM_FLAGS, SILK_CUT_TRACING],
+        {
+            depth: 96,
+            aliases: [
+                "Regular Arc (Fred J. Miller)",
+                "Arc Swing (Drill Company)",
+                "Arc Swing (DPG)",
+            ],
+        },
+    ),
+    silk(
+        "silk-narrow-arc-44x94",
+        "Narrow arc",
+        44,
+        94,
+        "flag",
+        [FJM_CUSTOM_FLAGS, SILK_CUT_TRACING],
+        { depth: 56, aliases: ["Narrow Arc (Fred J. Miller)"] },
+    ),
+    silk(
+        "silk-super-arc-54x100",
+        "Super arc",
+        54,
+        100,
+        "flag",
+        [FJM_CUSTOM_FLAGS, SILK_CUT_TRACING],
+        {
+            depth: 87,
+            aliases: [
+                "Super Arc (Fred J. Miller)",
+                "Oversized Wing Swing (Field & Floor FX)",
+            ],
+        },
+    ),
 ];
 
 const rifles: CatalogEntryOf<"rifle">[] = [36, 37.5, 39].map((lengthIn) => ({
@@ -414,6 +554,34 @@ export function defaultCatalogEntry<K extends SizeKind>(
         const e: CatalogEntry = entry;
         return e.isDefault === true && (e.kind !== "silk" || e.use === use);
     });
+}
+
+/**
+ * A silk's overall depth, top of the pole edge to the lowest point: the
+ * stated depth, else the header, plus any sag on a curve-family Cut, in
+ * meters. Pass `catalogDims(entry)` for a catalog Cut.
+ */
+export function silkDepthM(dims: DimsByKind<Length>["silk"]): number {
+    return Math.max(
+        dims.depth?.m ?? dims.header.m,
+        dims.header.m + (dims.sag?.m ?? 0),
+    );
+}
+
+/**
+ * Whether an entry matches a search: its name, id or any alias contains the
+ * query, ignoring case. Aliases are searchable but never shown (Q44).
+ */
+export function catalogEntryMatches(
+    entry: CatalogEntry,
+    query: string,
+): boolean {
+    const q = query.trim().toLowerCase();
+    if (!q) return true;
+    const aliases = entry.kind === "silk" ? (entry.aliases ?? []) : [];
+    return [entry.name, entry.id, ...aliases].some((text) =>
+        text.toLowerCase().includes(q),
+    );
 }
 
 /** A catalog size as a stored length: exact meters, re-displaying as its source text. */

@@ -236,3 +236,16 @@ Each field is on its own line so that concurrent claims merge cleanly. Edit only
 Nothing yet.
 
 ## Progress log
+
+- 2026-10-12, Cross-phase note from C1.12 (branch `3d/c1-artwork-templates`):
+  the silk Cut outlines now live in `view3d/core/sizes/silkCuts.ts` (lines
+  and cubic Bezier curves in inches at the catalog size, `silkCutPath` for meters
+  at any header × fly, `sampleCutPath` for a polygon), and catalog silks gain
+  a `depth` (overall height; omitted, it equals the header) and a per-silk
+  `sag` (default 0). The oversized swing is now header 42 × fly 56, depth 84;
+  the super swing 44 × 68, depth 84; the regular arc 45 × 78⅝, depth 96. C1.12
+  did not change the silk renderer's mesh. C4.4 (silk mesh) must build its
+  mesh from these outlines and the depth field, not a header × fly
+  rectangle, so the 3D silk clips where the Artwork template's mask does.
+  C4.11's 44 × 66 in swing size is unchanged; its outline is the flat-bottom
+  swing (owner Q41), with a sagging-bottom alternative kept in the data.

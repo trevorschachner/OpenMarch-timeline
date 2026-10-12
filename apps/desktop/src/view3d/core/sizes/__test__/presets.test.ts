@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { catalogEntry } from "../catalog";
+import { catalogEntry, silkDepthM } from "../catalog";
 import {
     SIZE_PRESET_VERSION,
     makeSizePreset,
@@ -81,5 +81,59 @@ describe("size presets", () => {
             { ...valid, dims: { width: { m: Infinity }, depth: { m: 1 } } },
         ])
             expect(parseSizePreset(bad), JSON.stringify(bad)).toBeNull();
+    });
+
+    it("parses a silk's optional depth and sag (Q39, Q40)", () => {
+        const hanging = makeSizePreset("silk", {
+            id: ID,
+            name: "Our oversized swing",
+            createdAt: AT,
+            dims: {
+                header: enterLength("42 in")!,
+                fly: enterLength("56 in")!,
+                depth: enterLength("84 in")!,
+            },
+        });
+        const restored = parseSizePreset(JSON.parse(JSON.stringify(hanging)));
+        expect(restored).toEqual(hanging);
+        if (restored?.kind !== "silk") throw new Error("expected a silk");
+        expect(silkDepthM(restored.dims)).toBe(enterLength("84 in")!.m);
+
+        const plain = parseSizePreset({
+            ...hanging,
+            dims: { header: hanging.dims.header, fly: hanging.dims.fly },
+        });
+        if (plain?.kind !== "silk") throw new Error("expected a silk");
+        expect(plain.dims.depth).toBeUndefined();
+        expect(plain.dims.sag).toBeUndefined();
+        expect(silkDepthM(plain.dims)).toBe(plain.dims.header.m);
+
+        const sagged = parseSizePreset({
+            ...hanging,
+            dims: {
+                header: hanging.dims.header,
+                fly: hanging.dims.fly,
+                sag: enterLength("10 1/2 in")!,
+            },
+        });
+        if (sagged?.kind !== "silk") throw new Error("expected a silk");
+        expect(sagged.dims.sag?.typed).toBe("10 1/2 in");
+
+        for (const dims of [
+            { ...hanging.dims, depth: enterLength("40 in")! },
+            { ...hanging.dims, depth: { m: -1 } },
+            { ...hanging.dims, sag: { m: -1 } },
+        ])
+            expect(parseSizePreset({ ...hanging, dims })).toBeNull();
+    });
+
+    it("keeps a catalog Cut's depth when saved as a preset", () => {
+        const preset = presetFromCatalog(
+            catalogEntry("silk-super-swing-44x84")!,
+            { id: ID, name: "Super swing", createdAt: AT },
+        );
+        expect(parseSizePreset(preset)).toEqual(preset);
+        if (preset.kind !== "silk") throw new Error("expected a silk");
+        expect(preset.dims.depth?.typed).toBe("84 in");
     });
 });

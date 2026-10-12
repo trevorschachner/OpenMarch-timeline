@@ -8,3 +8,5 @@ export * from "./catalog";
 export * from "./checks";
 export * from "./presets";
 export * from "./artwork";
+export * from "./silkCuts";
+export * from "./cutGeometry";
