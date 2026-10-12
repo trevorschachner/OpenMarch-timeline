@@ -748,6 +748,38 @@
         },
         "title": "Launch Page"
     },
+    "library": {
+        "templates": {
+            "menu": "Artwork templates",
+            "menuHint": "Full size, one file per click",
+            "groups": {
+                "silk": "Silk Cuts",
+                "floor": "Base floors",
+                "floorProp": "Floor props",
+                "prop": "Prop panels",
+                "uniform": "Uniform panels"
+            },
+            "withSag": "{name}, {sag} sag",
+            "saggingBottom": "{name}, sagging bottom",
+            "propFace": {
+                "top": "Top, {name}",
+                "front": "Front, {name}",
+                "back": "Back, {name}"
+            },
+            "uniformPart": {
+                "top": "Top",
+                "bottoms": "Bottoms",
+                "overlay": "Overlay (cape)"
+            },
+            "uniformSide": {
+                "front": "{part}, front",
+                "back": "{part}, back"
+            },
+            "download": "Download {name} as {format}",
+            "saved": "Saved {filename}",
+            "saveFailed": "Couldn't save the template"
+        }
+    },
     "marchers": {
         "addMarcher": "Add",
         "addMarchers": "Add Marchers",

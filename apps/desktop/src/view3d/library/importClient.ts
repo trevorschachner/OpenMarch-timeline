@@ -88,6 +88,12 @@ export function createImportClient(
                 Result<Extract<ImportInspection, { type: "artwork" }>>
             >,
 
+        /**
+         * Saves one Artwork template in one format (C1.12, Q53). Resolves
+         * `null` when the user cancels the save dialog.
+         */
+        saveTemplate: api.templateSave,
+
         preview: api.importPreview,
         commit: api.importCommit,
         cancel: api.importCancel,

@@ -11,6 +11,7 @@ import * as api from "@/api/api";
 import { RegisteredActionsObjects } from "@/utilities/RegisteredActionsHandler";
 import RegisteredActionButton from "@/components/RegisteredActionButton";
 import ExportCoordinatesModal from "@/components/exporting/ExportCoordinatesModal";
+import ArtworkTemplatesMenu from "@/components/library/ArtworkTemplatesMenu";
 import { useFullscreenStore } from "@/stores/FullscreenStore";
 import SettingsModal from "../SettingsModal";
 import { T } from "@tolgee/react";
@@ -90,6 +91,9 @@ export function FileTab() {
             )}
             <ToolbarSection>
                 <ExportCoordinatesModal />
+            </ToolbarSection>
+            <ToolbarSection>
+                <ArtworkTemplatesMenu />
             </ToolbarSection>
             <ToolbarSection>
                 <SettingsModal />
