@@ -11,6 +11,7 @@ import {
     LIBRARY_CHANNELS,
     LIBRARY_INVOKE_CHANNELS,
     MODEL_KIND_VALUES,
+    ModelImportChoicesSchema,
     type ImportInspection,
     type Result,
 } from "../protocol";
@@ -104,6 +105,18 @@ describe("library protocol", () => {
                 license: { licenseText: "x".repeat(4097) },
             }).success,
         ).toBe(false);
+    });
+
+    it("takes an artwork slot picked from the material list (Q67)", () => {
+        const slot = { material: 1, id: "artwork", widthM: 2.4, heightM: 0.6 };
+        const parse = (s: object) =>
+            ModelImportChoicesSchema.safeParse({ slots: [s] }).success;
+        expect(parse(slot)).toBe(true);
+        expect(parse({ ...slot, material: -1 })).toBe(false);
+        expect(parse({ ...slot, material: 0.5 })).toBe(false);
+        expect(parse({ ...slot, id: "front panel" })).toBe(false);
+        expect(parse({ ...slot, widthM: 0 })).toBe(false);
+        expect(parse({ ...slot, name: "Wood" })).toBe(false);
     });
 
     it("caps a commit's thumbnail at 1 MB", () => {

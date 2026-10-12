@@ -59,6 +59,7 @@ import { validateModel } from "./validate";
 import {
     meshTriangles,
     measureDocument,
+    measureMaterials,
     sceneNodes,
     worldMatrix,
 } from "./measure";
@@ -87,6 +88,7 @@ import {
     type ChoiceRow,
     type FixRow,
     type GripChoice,
+    type MaterialInfo,
     type ModelFileInput,
     type ModelImportChoices,
     type ModelImportOptions,
@@ -240,6 +242,7 @@ function emptyReport(): ModelImportReport {
         badges: [],
         source: null,
         output: null,
+        materials: [],
         metadata: { generator: null, copyright: null },
     };
 }
@@ -354,11 +357,13 @@ async function decode(
     await stripExtensions(doc, json, report);
 
     report.source = measureDocument(doc, scene);
+    const ctx = { input, report, io, doc, scene, json, meta, raw };
+    report.materials = materialRows(ctx);
     if (report.source.triangles === 0) {
         report.cantImport.push({ code: "noGeometry" });
         return null;
     }
-    return { input, report, io, doc, scene, json, meta, raw };
+    return ctx;
 }
 
 /** From a picker, else the Starter kit stamp, else a required choice. */
@@ -501,6 +506,8 @@ function describe(ctx: Context, plan: Plan): Described {
     const { doc, scene, meta, raw, report } = ctx;
     const { kind, choices } = plan;
     const bounds = measureDocument(doc, scene).bounds!;
+    // Re-measured in output meters, before cleaning drops anything.
+    report.materials = materialRows(ctx);
     const nodeOf = (name: string) =>
         meta.omNodes.find((n) => n.name === name)?.index;
     const pointOf = (index: number | undefined): AttachPoint | null =>
@@ -607,6 +614,11 @@ async function write(
 
     const glb = await io.writeBinary(doc);
     const root = doc.getRoot();
+    const outputMaterials = root.listMaterials();
+    for (const row of report.materials) {
+        const index = outputMaterials.indexOf(raw.materials[row.index]);
+        row.outputIndex = index >= 0 ? index : null;
+    }
     const measured = measureDocument(
         doc,
         root.getDefaultScene() ?? root.listScenes()[0],
@@ -936,6 +948,36 @@ async function downsizeTextures(
     if (textures.length) {
         report.fixedForYou.push({ code: "texturesDownsized", cap, textures });
     }
+}
+
+/**
+ * The source materials as the review lists them (Q67), measured where the
+ * scene draws them now. `outputIndex` is filled once the GLB is written.
+ */
+function materialRows({ scene, meta, raw }: Context): MaterialInfo[] {
+    const extents = measureMaterials(scene, raw.materials);
+    const fileSlot = new Map<number, string>();
+    for (const slot of meta.slots) {
+        if ("material" in slot.target) {
+            if (!fileSlot.has(slot.target.material))
+                fileSlot.set(slot.target.material, slot.id);
+            continue;
+        }
+        for (const prim of raw.meshes[slot.target.mesh]?.listPrimitives() ??
+            []) {
+            const i = raw.materials.indexOf(prim.getMaterial()!);
+            if (i >= 0 && !fileSlot.has(i)) fileSlot.set(i, slot.id);
+        }
+    }
+    return raw.materials.map((material, index) => ({
+        index,
+        name: material.getName() || null,
+        outputIndex: null,
+        sizeM: extents[index].size,
+        areaM2: extents[index].area,
+        hasUVs: extents[index].hasUVs,
+        fileSlot: fileSlot.get(index) ?? null,
+    }));
 }
 
 function collectSlots(

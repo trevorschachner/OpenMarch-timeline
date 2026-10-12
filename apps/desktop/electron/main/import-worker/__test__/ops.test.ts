@@ -8,6 +8,7 @@ import {
     artworkTemplateFiles,
 } from "../../../../src/view3d/core/artworkTemplates";
 import { runWorkerJob, templateFile } from "../ops";
+import type { ModelImportResult } from "../../model-import/types";
 import type { WorkerResponse } from "../protocol";
 
 const FIXTURES = path.join(__dirname, "../../model-import/__test__/fixtures");
@@ -53,6 +54,16 @@ describe("import worker ops", () => {
         const answers = posted.filter((r) => "ok" in r);
         expect(answers).toHaveLength(1);
         expect(answers[0]).toMatchObject({ jobId: 7, ok: true });
+        // The material list (Q67) survives the utility process's clone.
+        const cloned = structuredClone(answers[0]) as {
+            output: ModelImportResult;
+        };
+        expect(
+            cloned.output.report.materials.map((m) => [m.name, m.fileSlot]),
+        ).toEqual([
+            ["PoleMetal", null],
+            ["Silk", "silk"],
+        ]);
         expect(posted.filter((r) => "stage" in r).length).toBeGreaterThan(3);
     });
 

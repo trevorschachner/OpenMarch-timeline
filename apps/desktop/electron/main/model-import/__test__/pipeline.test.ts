@@ -455,6 +455,93 @@ describe("Needs your choice", () => {
     });
 });
 
+describe("materials (Q67)", () => {
+    it("lists each source material with its size and file slot", async () => {
+        const r = await run("equipment-clean-kit.glb");
+        expect(r.report.materials.map((m) => [m.name, m.fileSlot])).toEqual([
+            ["PoleMetal", null],
+            ["Silk", "silk"],
+        ]);
+        const silk = r.report.materials[1];
+        expect(silk.index).toBe(1);
+        expect(silk.hasUVs).toBe(true);
+        expect(silk.sizeM![0]).toBeCloseTo(0.9144, 4);
+        expect(silk.sizeM![1]).toBeCloseTo(1.3716, 4);
+        // Both faces of the thin box, plus its edges.
+        expect(silk.areaM2).toBeGreaterThan(2 * 0.9144 * 1.3716);
+        expect(silk.areaM2).toBeLessThan(2 * 0.9144 * 1.3716 + 0.01);
+        // `outputIndex` finds the same material in the normalized GLB.
+        const gltf = await expectLoadsBare(r);
+        const material = await gltf.parser.getDependency(
+            "material",
+            silk.outputIndex!,
+        );
+        expect(material.name).toBe("Silk");
+    });
+
+    it("measures materials in output meters once converted", async () => {
+        const r = await run("equipment-centimeters.glb");
+        expect(choice(r, "unitConversion")?.applied).toBe("cm");
+        const silk = r.report.materials.find((m) => m.name === "Silk")!;
+        expect(silk.sizeM![0]).toBeCloseTo(0.9144, 4);
+        expect(silk.sizeM![1]).toBeCloseTo(1.3716, 4);
+    });
+
+    it("lists materials before the kind is known, with no output index", async () => {
+        const r = await run("prop-no-extras.glb");
+        expect(r.report.status).toBe("needs-kind");
+        expect(r.report.materials).toEqual([
+            {
+                index: 0,
+                name: "Wood",
+                outputIndex: null,
+                sizeM: [
+                    expect.closeTo(2.4, 6),
+                    expect.closeTo(0.6, 6),
+                    expect.closeTo(1.2, 6),
+                ],
+                areaM2: expect.closeTo(10.08, 4),
+                hasUVs: true,
+                fileSlot: null,
+            },
+        ]);
+    });
+
+    it("writes a slot picked from the list on that material", async () => {
+        const listed = await run("prop-no-extras.glb", { kind: "prop" });
+        const wood = listed.report.materials[0];
+        expect(wood.outputIndex).toBe(0);
+        const r = await run("prop-no-extras.glb", {
+            kind: "prop",
+            choices: {
+                slots: [
+                    {
+                        material: wood.index,
+                        id: "artwork",
+                        widthM: 2.4,
+                        heightM: 0.6,
+                    },
+                ],
+            },
+        });
+        expect(r.output!.sidecar.artworkSlots).toEqual([
+            {
+                id: "artwork",
+                widthM: 2.4,
+                heightM: 0.6,
+                target: { material: wood.outputIndex },
+                hasUVs: true,
+            },
+        ]);
+    });
+
+    it("lists none for a file it can't read", async () => {
+        const r = await run("invalid.glb");
+        expectRejected(r);
+        expect(r.report.materials).toEqual([]);
+    });
+});
+
 describe("Fixed for you", () => {
     it("downsizes textures to the kind's cap", async () => {
         const r = await run("prop-big-texture.glb");

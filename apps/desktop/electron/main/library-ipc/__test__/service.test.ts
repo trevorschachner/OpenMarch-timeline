@@ -420,6 +420,66 @@ describe("model import", () => {
         ).toMatchObject({ ok: false, error: { code: "session-expired" } });
     });
 
+    it("lists the materials and commits an artwork slot picked from them (Q67)", async () => {
+        const glb = path.join(files, "riser.glb");
+        await copyFile(path.join(FIXTURES, "prop-no-extras.glb"), glb);
+        const session = await pick([glb], "model");
+        const base = {
+            sessionId: session.sessionId,
+            fileId: session.files[0].fileId,
+            type: "model",
+        };
+        const inspection = value(
+            await call<ImportInspection>(C.importInspect, {
+                ...base,
+                kind: "prop",
+                choices: {},
+            }),
+        );
+        if (inspection.type !== "model") throw new Error("not a model");
+        expect(inspection.report.materials).toMatchObject([
+            { index: 0, name: "Wood", outputIndex: 0, fileSlot: null },
+        ]);
+        const slots = [
+            { material: 0, id: "artwork", widthM: 2.4, heightM: 0.6 },
+        ];
+        // A slot id outside the naming rule never reaches the worker.
+        expect(
+            await call(C.importInspect, {
+                ...base,
+                kind: "prop",
+                choices: { slots: [{ ...slots[0], id: "front panel" }] },
+            }),
+        ).toMatchObject({ ok: false, error: { code: "invalid-request" } });
+        const committed = value(
+            await call<{
+                saved: { item: { id: string }; versionHash: string } | null;
+            }>(C.importCommit, {
+                ...base,
+                kind: "prop",
+                choices: { slots },
+                meta: { name: "Riser" },
+            }),
+        );
+        const parts = value(
+            await call<Record<string, Uint8Array>>(C.readParts, {
+                itemId: committed.saved!.item.id,
+                versionHash: committed.saved!.versionHash,
+                roles: ["sidecar"],
+            }),
+        );
+        const stored = JSON.parse(new TextDecoder().decode(parts.sidecar));
+        expect(stored.artworkSlots).toEqual([
+            {
+                id: "artwork",
+                widthM: 2.4,
+                heightM: 0.6,
+                target: { material: 0 },
+                hasUVs: true,
+            },
+        ]);
+    });
+
     it("answers every inspect with a rising requestSeq; the newest result is kept", async () => {
         const { session, fileId } = await modelSession();
         const base = { sessionId: session.sessionId, fileId, type: "model" };

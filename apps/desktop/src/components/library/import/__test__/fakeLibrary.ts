@@ -142,6 +142,7 @@ export function modelReport(
         badges: [],
         source: measurements(6412),
         output: measurements(2000),
+        materials: [],
         metadata: { generator: null, copyright: null },
         ...overrides,
     };

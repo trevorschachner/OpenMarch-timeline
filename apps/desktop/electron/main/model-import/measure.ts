@@ -5,6 +5,7 @@
 import {
     ImageUtils,
     type Document,
+    type Material,
     type Mesh,
     type Node,
     type Primitive,
@@ -156,4 +157,75 @@ export function primitiveInfluences(prim: Primitive): number {
         max = Math.max(max, n);
     }
     return max;
+}
+
+/** Where a material is drawn: its geometry's world bounds and surface area. */
+export interface MaterialExtent {
+    size: Vec3 | null;
+    /** Total triangle area, in the scene's units squared. */
+    area: number;
+    /** Every primitive using it has UV0 (false when none does). */
+    hasUVs: boolean;
+}
+
+/**
+ * Measures each material where the scene draws it, as `measureBounds` does
+ * (a skinned mesh in its bind pose). Area counts `TRIANGLES` primitives.
+ */
+export function measureMaterials(
+    scene: Scene,
+    materials: readonly Material[],
+): MaterialExtent[] {
+    const acc = materials.map(() => ({
+        min: new Vector3(Infinity, Infinity, Infinity),
+        max: new Vector3(-Infinity, -Infinity, -Infinity),
+        area: 0,
+        prims: 0,
+        withUVs: 0,
+    }));
+    const index = new Map(materials.map((m, i) => [m, i]));
+    const v = new Vector3();
+    const a = new Vector3();
+    const b = new Vector3();
+    const c = new Vector3();
+    const el: number[] = [];
+    for (const node of sceneNodes(scene)) {
+        const mesh = node.getMesh();
+        if (!mesh) continue;
+        const m = node.getSkin() ? new Matrix4() : worldMatrix(node);
+        for (const prim of mesh.listPrimitives()) {
+            const material = prim.getMaterial();
+            const i = material ? index.get(material) : undefined;
+            const pos = prim.getAttribute("POSITION");
+            if (i === undefined || !pos) continue;
+            const out = acc[i];
+            out.prims++;
+            if (prim.getAttribute("TEXCOORD_0")) out.withUVs++;
+            const world: Vector3[] = [];
+            for (let k = 0; k < pos.getCount(); k++) {
+                pos.getElement(k, el);
+                v.set(el[0], el[1], el[2]).applyMatrix4(m);
+                world.push(v.clone());
+                out.min.min(v);
+                out.max.max(v);
+            }
+            if (prim.getMode() !== 4) continue;
+            const indices = prim.getIndices();
+            const count = indices?.getCount() ?? world.length;
+            const at = (k: number) => (indices ? indices.getScalar(k) : k);
+            for (let k = 0; k + 2 < count; k += 3) {
+                a.copy(world[at(k)]);
+                b.copy(world[at(k + 1)]).sub(a);
+                c.copy(world[at(k + 2)]).sub(a);
+                out.area += b.cross(c).length() / 2;
+            }
+        }
+    }
+    return acc.map((x) => ({
+        size: isFinite(x.min.x)
+            ? (x.max.clone().sub(x.min).toArray() as Vec3)
+            : null,
+        area: x.area,
+        hasUVs: x.prims > 0 && x.withUVs === x.prims,
+    }));
 }

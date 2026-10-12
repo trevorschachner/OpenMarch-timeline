@@ -257,6 +257,35 @@ export interface ModelMeasurements {
     maxInfluences: number;
 }
 
+/**
+ * A material of the source file (owner decision Q67, 2026-10-12): what the
+ * review lists to pick an artwork surface on when the file marks no slots.
+ * Hand-set slots name `index`; the preview finds the material through
+ * `outputIndex`.
+ */
+export interface MaterialInfo {
+    /** Index in the source file's `materials`: what `ManualSlotChoice.material` takes. */
+    index: number;
+    name: string | null;
+    /**
+     * Index in the normalized GLB; null with no output yet, or when the
+     * output dropped it (nothing drew it).
+     */
+    outputIndex: number | null;
+    /**
+     * World bounding size of the geometry it's on, in output meters once
+     * converted, else in the file's units read as meters; null when nothing
+     * in the scene uses it.
+     */
+    sizeM: Vec3 | null;
+    /** That geometry's surface area, in the same units squared. */
+    areaM2: number;
+    /** Every primitive using it has UV0, which artwork needs. */
+    hasUVs: boolean;
+    /** The slot the file already declares on it or its mesh, else null. */
+    fileSlot: string | null;
+}
+
 export interface ModelImportReport {
     pipelineVersion: number;
     status: ImportStatus;
@@ -271,6 +300,8 @@ export interface ModelImportReport {
     source: ModelMeasurements | null;
     /** The normalized output; `null` when rejected. */
     output: ModelMeasurements | null;
+    /** The source file's materials, in source order; empty when unread. */
+    materials: MaterialInfo[];
     metadata: {
         generator: string | null;
         /** glTF `asset.copyright`, to pre-fill the license fields. */

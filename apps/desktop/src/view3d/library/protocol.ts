@@ -30,6 +30,7 @@ import {
 } from "../../../electron/main/library/types";
 import type { AddVersionOutcome } from "../../../electron/main/library/store";
 import type {
+    MaterialInfo,
     ModelImportChoices,
     ModelImportReport,
     ModelImportStage,
@@ -54,6 +55,7 @@ export type {
     LibraryItem,
     LibraryItemKind,
     LibraryItemSummary,
+    MaterialInfo,
     ModelImportChoices,
     ModelImportReport,
     ModelKind,
