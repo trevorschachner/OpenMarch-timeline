@@ -14,13 +14,18 @@ import {
     WrenchIcon,
 } from "@phosphor-icons/react";
 import { T, useTranslate } from "@tolgee/react";
+import clsx from "clsx";
+import { formatLength } from "@/view3d/core/sizes/units";
 import {
     MODEL_KIND_VALUES,
     type ModelImportReport,
 } from "@/view3d/library/protocol";
-import type {
-    ImportReviewActions,
-    ModelReview as ModelState,
+import {
+    asksArtworkSurface,
+    pickedSurface,
+    slotSizeFor,
+    type ImportReviewActions,
+    type ModelReview as ModelState,
 } from "./importReview";
 import { Chip, ReportGroup, Row } from "./parts";
 import {
@@ -40,6 +45,8 @@ type Actions = Pick<
     | "startGripPick"
     | "cancelGripPick"
     | "setShowBefore"
+    | "setArtworkSurface"
+    | "hoverMaterial"
 >;
 
 export function KindPicker({
@@ -305,6 +312,118 @@ function Choice({
     }
 }
 
+function SurfaceOption({
+    on,
+    disabled,
+    title,
+    detail,
+    testId,
+    onPick,
+    onHover,
+}: {
+    on: boolean;
+    disabled: boolean;
+    title: string;
+    detail?: string;
+    testId: string;
+    onPick: () => void;
+    onHover: (hovered: boolean) => void;
+}) {
+    return (
+        <button
+            type="button"
+            role="radio"
+            aria-checked={on}
+            disabled={disabled}
+            data-testid={testId}
+            onClick={onPick}
+            onMouseEnter={() => onHover(true)}
+            onMouseLeave={() => onHover(false)}
+            onFocus={() => onHover(true)}
+            onBlur={() => onHover(false)}
+            className={clsx(
+                "rounded-6 focus-visible:border-accent flex items-center gap-8 border px-8 py-4 text-left outline-hidden duration-150 ease-out disabled:cursor-not-allowed disabled:opacity-50",
+                on
+                    ? "border-accent bg-accent/15"
+                    : "border-stroke bg-fg-2 enabled:hover:border-text-subtitle",
+            )}
+        >
+            <span
+                aria-hidden
+                className={clsx(
+                    "size-10 shrink-0 rounded-full border",
+                    on ? "border-accent bg-accent" : "border-text-subtitle",
+                )}
+            />
+            <Row title={title} detail={detail} muted={!on} />
+        </button>
+    );
+}
+
+/**
+ * Which surface takes artwork, when the file marks none (Q67): the source
+ * materials, each with the size of what it's drawn on. Hovering one lights
+ * it in the preview; picking one writes `choices.slots`.
+ */
+function ArtworkSurfaceChoice({
+    model,
+    actions,
+    t,
+}: {
+    model: ModelState;
+    actions: Actions;
+    t: Translate;
+}) {
+    const k = (key: string, params?: Record<string, string | number>) =>
+        t(`library.import.choices.surface.${key}`, params);
+    const report = model.inspection!.report;
+    const picked = pickedSurface(model);
+    const busy = model.inspecting;
+    const hover = (index: number | null) => (hovered: boolean) =>
+        actions.hoverMaterial(hovered ? index : null);
+    return (
+        <div className="flex flex-col gap-6" data-testid="import-surface">
+            <Row title={k("title")} detail={k("detail")} />
+            <div
+                className="flex flex-col gap-4"
+                role="radiogroup"
+                aria-label={k("title")}
+            >
+                <SurfaceOption
+                    on={picked === null}
+                    disabled={busy}
+                    title={k("none")}
+                    testId="import-surface-none"
+                    onPick={() => actions.setArtworkSurface(null)}
+                    onHover={hover(null)}
+                />
+                {report.materials.map((m) => {
+                    const size = slotSizeFor(m);
+                    if (!size) return null;
+                    const dims = k("size", {
+                        width: formatLength(size.widthM, "metric"),
+                        height: formatLength(size.heightM, "metric"),
+                    });
+                    return (
+                        <SurfaceOption
+                            key={m.index}
+                            on={picked === m.index}
+                            disabled={busy}
+                            title={
+                                m.name ?? k("unnamed", { index: m.index + 1 })
+                            }
+                            detail={m.hasUVs ? dims : `${dims} · ${k("noUVs")}`}
+                            testId={`import-surface-${m.index}`}
+                            onPick={() => actions.setArtworkSurface(m.index)}
+                            onHover={hover(m.index)}
+                        />
+                    );
+                })}
+            </div>
+        </div>
+    );
+}
+
 export function ModelReportView({
     model,
     actions,
@@ -316,10 +435,12 @@ export function ModelReportView({
     const report = model.inspection?.report;
     if (!report) return null;
     const choices = report.needsChoice.filter((r) => r.code !== "kind");
+    const asksSurface = asksArtworkSurface(report);
     const clean =
         report.status === "ready" &&
         report.cantImport.length === 0 &&
         choices.length === 0 &&
+        !asksSurface &&
         report.notes.length === 0;
     return (
         <div className="flex flex-col gap-12" data-testid="import-report">
@@ -342,7 +463,7 @@ export function ModelReportView({
                 icon={<WarningIcon size={16} />}
                 tone="accent"
                 title={t("library.import.groups.needsChoice")}
-                count={choices.length}
+                count={choices.length + (asksSurface ? 1 : 0)}
                 testId="import-group-choices"
             >
                 {choices.map((row) => (
@@ -354,6 +475,13 @@ export function ModelReportView({
                         t={t}
                     />
                 ))}
+                {asksSurface && (
+                    <ArtworkSurfaceChoice
+                        model={model}
+                        actions={actions}
+                        t={t}
+                    />
+                )}
             </ReportGroup>
             <ReportGroup
                 icon={<WrenchIcon size={16} />}

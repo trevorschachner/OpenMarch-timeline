@@ -17,6 +17,7 @@ import {
     ok,
     pdfInspection,
     session,
+    surfaceReport,
 } from "./fakeLibrary";
 
 // jsdom has no WebGL: a stand-in for the code-split canvas records its
@@ -85,6 +86,28 @@ describe("ImportPreviewStage", () => {
         expect(
             screen.getByTestId("import-stage-before-after"),
         ).toHaveTextContent("After");
+    });
+
+    it("lights the hovered material, else the picked one (Q67)", async () => {
+        const { store } = await modelStore(surfaceReport());
+        wrap(<ImportPreviewStage store={store} />);
+        await screen.findByTestId("canvas-stand-in");
+        expect(canvasProps.at(-1)?.highlightMaterial).toBeNull();
+        expect(screen.queryByTestId("import-stage-surface")).toBeNull();
+
+        act(() => store.getState().hoverMaterial(1));
+        expect(canvasProps.at(-1)?.highlightMaterial).toBe(1);
+        expect(screen.getByTestId("import-stage-surface")).toHaveTextContent(
+            "Artwork surface: Trim",
+        );
+        act(() => store.getState().hoverMaterial(null));
+        act(() => store.getState().setArtworkSurface(0));
+        await waitFor(() =>
+            expect(canvasProps.at(-1)?.highlightMaterial).toBe(0),
+        );
+        expect(screen.getByTestId("import-stage-surface")).toHaveTextContent(
+            "Artwork surface: Front",
+        );
     });
 
     it("switches between front, side and top views", async () => {

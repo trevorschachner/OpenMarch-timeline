@@ -11,7 +11,9 @@
  * (D-15): no decoders, as in the 3D View.
  *
  * Clicking the model while `picking` reports the point in the normalized
- * GLB's meters, which is what the grip choice takes.
+ * GLB's meters, which is what the grip choice takes. `highlightMaterial`
+ * lights one material, by its index in the GLB (`MaterialInfo.outputIndex`),
+ * for the artwork surface choice (Q67).
  */
 // cspell:ignore frameloop
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -48,6 +50,7 @@ import {
     type PreviewView,
     type Vec3,
 } from "./previewMath";
+import { highlightMaterials, tagMaterials } from "./previewMaterials";
 
 export interface ImportPreviewCanvasProps {
     url: string;
@@ -56,6 +59,8 @@ export interface ImportPreviewCanvasProps {
     showBefore: boolean;
     /** The grip, in the normalized GLB's meters. */
     grip: Vec3 | null;
+    /** A material of the GLB, by index, to light (the artwork surface). */
+    highlightMaterial?: number | null;
     picking: boolean;
     view: PreviewView;
     /** Bumped to fly back to `view` after orbiting. */
@@ -102,6 +107,7 @@ function useGltf(url: string | null, onError?: () => void): Object3D | null {
             .then((gltf) => {
                 if (cancelled) return;
                 loaded = gltf.scene;
+                tagMaterials(gltf.scene, gltf.parser.associations);
                 // Measured now, before it joins the placed group: measuring
                 // later would include the previous model's offset.
                 gltf.scene.userData.importBounds = measure(gltf.scene);
@@ -364,6 +370,14 @@ function PreviewScene(props: ImportPreviewCanvasProps) {
     }, [after]);
 
     useEffect(() => invalidate(), [shown, props.grip, invalidate]);
+
+    const highlight = props.highlightMaterial ?? null;
+    const accent = useMemo(() => cssColor("--color-accent", "#967eff"), []);
+    useEffect(() => {
+        if (!shown) return;
+        highlightMaterials(shown, highlight, accent);
+        invalidate();
+    }, [shown, highlight, accent, invalidate]);
 
     if (!shown || !bounds) return null;
     const offset = placementOffset(bounds);

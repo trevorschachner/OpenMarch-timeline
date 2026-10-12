@@ -43,7 +43,9 @@ import type {
     ImportSession,
     LibraryIpcErrorCode,
     LibraryMatch,
+    MaterialInfo,
     ModelImportChoices,
+    ModelImportReport,
     ModelKind,
     PickContext,
     PickPurpose,
@@ -107,6 +109,8 @@ export interface ModelReview {
     /** Click a point on the model to set the grip. */
     pickingGrip: boolean;
     previewFailed: boolean;
+    /** The source material the surface list hovers, lit in the preview. */
+    hoveredMaterial: number | null;
 }
 
 /** The size chosen for one aspect group. */
@@ -177,6 +181,12 @@ export interface ImportReviewActions {
     retry(): Promise<void>;
     setKind(kind: ModelKind): void;
     setChoices(patch: ModelImportChoices): void;
+    /**
+     * Puts artwork on a source material (its `MaterialInfo.index`), sized
+     * from its geometry, or none (Q67).
+     */
+    setArtworkSurface(material: number | null): void;
+    hoverMaterial(material: number | null): void;
     startGripPick(): void;
     cancelGripPick(): void;
     /** A point on the model, in the normalized GLB's meters. */
@@ -215,6 +225,60 @@ export interface ImportReviewOptions {
 }
 
 // ------------------------------------------------------------------ helpers
+
+/** The id a hand-picked artwork surface gets (one per model). */
+export const PICKED_SLOT_ID = "artwork";
+
+/**
+ * Whether the review asks which surface takes artwork (Q67): the kind is
+ * known, the file marks no slot, and it isn't a Garment (their panels are
+ * Uniform artwork).
+ */
+export function asksArtworkSurface(report: ModelImportReport): boolean {
+    return (
+        report.status !== "rejected" &&
+        report.kind !== null &&
+        report.kind !== "garment" &&
+        report.materials.some((m) => m.sizeM !== null) &&
+        report.materials.every((m) => m.fileSlot === null)
+    );
+}
+
+/**
+ * A slot's size from where its material is drawn: the two larger sides of
+ * its bounds. Upright (Y among them) it's width × Y; lying flat, X × Z.
+ */
+export function slotSizeFor(
+    material: Pick<MaterialInfo, "sizeM">,
+): { widthM: number; heightM: number } | null {
+    const size = material.sizeM;
+    if (!size) return null;
+    const thinnest = size.indexOf(Math.min(...size));
+    const [w, h] =
+        thinnest === 1
+            ? [size[0], size[2]]
+            : [thinnest === 0 ? size[2] : size[0], size[1]];
+    const floor = 1e-3; // a slot needs a positive size
+    return { widthM: Math.max(w, floor), heightM: Math.max(h, floor) };
+}
+
+/** The source material the artwork surface choice is set to, if any. */
+export function pickedSurface(model: ModelReview): number | null {
+    return (
+        model.choices.slots?.find((s) => s.id === PICKED_SLOT_ID)?.material ??
+        null
+    );
+}
+
+/** The material the preview lights: the hovered one, else the picked one. */
+export function litMaterial(model: ModelReview): MaterialInfo | null {
+    const index = model.hoveredMaterial ?? pickedSurface(model);
+    if (index === null) return null;
+    return (
+        model.inspection?.report.materials.find((m) => m.index === index) ??
+        null
+    );
+}
 
 /** The filename without its extension, underscores as spaces. */
 export function displayName(filename: string): string {
@@ -763,6 +827,7 @@ export function createImportReview(
                             loadingBefore: false,
                             pickingGrip: false,
                             previewFailed: false,
+                            hoveredMaterial: null,
                         },
                     });
                     await inspectModel();
@@ -1011,6 +1076,35 @@ export function createImportReview(
                         showBefore: false,
                     });
                     void inspectModel();
+                },
+
+                setArtworkSurface(material) {
+                    const model = get().model;
+                    if (!model) return;
+                    const info = model.inspection?.report.materials.find(
+                        (m) => m.index === material,
+                    );
+                    const size = info ? slotSizeFor(info) : null;
+                    const others = (model.choices.slots ?? []).filter(
+                        (s) => s.id !== PICKED_SLOT_ID,
+                    );
+                    const slots =
+                        material !== null && size
+                            ? [
+                                  ...others,
+                                  { material, id: PICKED_SLOT_ID, ...size },
+                              ]
+                            : others;
+                    const choices = { ...model.choices };
+                    if (slots.length) choices.slots = slots;
+                    else delete choices.slots;
+                    // Slots change no geometry: the before preview stays.
+                    patchModel({ choices, hoveredMaterial: null });
+                    void inspectModel();
+                },
+
+                hoverMaterial(material) {
+                    patchModel({ hoveredMaterial: material });
                 },
 
                 startGripPick() {

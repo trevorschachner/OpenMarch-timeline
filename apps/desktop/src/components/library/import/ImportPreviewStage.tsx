@@ -18,7 +18,11 @@ import {
 } from "@phosphor-icons/react";
 import { T, useTranslate } from "@tolgee/react";
 import { formatLength } from "@/view3d/core/sizes/units";
-import type { ArtworkReview, ImportReviewStore } from "./importReview";
+import {
+    litMaterial,
+    type ArtworkReview,
+    type ImportReviewStore,
+} from "./importReview";
 import { sizeText } from "./parts";
 import {
     boundsSize,
@@ -118,6 +122,7 @@ function ModelStage({ store }: { store: ImportReviewStore }) {
     }
 
     const grip = model.inspection?.sidecar?.grips.right?.position ?? null;
+    const lit = litMaterial(model);
     const simplify = report?.needsChoice.find((r) => r.code === "simplify");
     const triangles =
         model.showBefore && simplify
@@ -144,6 +149,7 @@ function ModelStage({ store }: { store: ImportReviewStore }) {
                     beforeUrl={model.beforeUrl}
                     showBefore={model.showBefore}
                     grip={grip}
+                    highlightMaterial={lit?.outputIndex ?? null}
                     picking={model.pickingGrip}
                     view={view}
                     viewNonce={nonce}
@@ -164,6 +170,17 @@ function ModelStage({ store }: { store: ImportReviewStore }) {
                             : t("library.import.stage.triangles", {
                                   triangles: triangles.toLocaleString("en-US"),
                               })}
+                    </span>
+                )}
+                {lit && (
+                    <span className={tag} data-testid="import-stage-surface">
+                        {t("library.import.stage.surface", {
+                            name:
+                                lit.name ??
+                                t("library.import.choices.surface.unnamed", {
+                                    index: lit.index + 1,
+                                }),
+                        })}
                     </span>
                 )}
             </div>

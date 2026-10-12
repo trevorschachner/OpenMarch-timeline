@@ -1,3 +1,4 @@
+// cspell:words unhover
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import {
     act,
@@ -26,6 +27,7 @@ import {
     pdfInspection,
     pngInspection,
     session,
+    surfaceReport,
 } from "./fakeLibrary";
 
 beforeAll(async () => {
@@ -99,6 +101,59 @@ describe("ImportPanel: models", () => {
             "aria-pressed",
             "true",
         );
+    });
+
+    it("asks which surface takes artwork when the file marks none (Q67)", async () => {
+        const { lib, store } = await renderModel(surfaceReport(), []);
+        const surface = await screen.findByTestId("import-surface");
+        expect(within(surface).getByText("Artwork surface")).toBeVisible();
+        expect(screen.getByTestId("import-surface-none")).toHaveAttribute(
+            "aria-checked",
+            "true",
+        );
+        expect(
+            within(screen.getByTestId("import-surface-0")).getByText(
+                /About 2\.40 m × 0\.60 m/,
+            ),
+        ).toBeVisible();
+        expect(
+            within(screen.getByTestId("import-surface-1")).getByText(/no UVs/),
+        ).toBeVisible();
+        // Nothing draws the third material: not offered.
+        expect(screen.queryByTestId("import-surface-2")).toBeNull();
+
+        await userEvent.hover(screen.getByTestId("import-surface-1"));
+        expect(store.getState().model?.hoveredMaterial).toBe(1);
+        await userEvent.unhover(screen.getByTestId("import-surface-1"));
+        expect(store.getState().model?.hoveredMaterial).toBeNull();
+
+        await userEvent.click(screen.getByTestId("import-surface-0"));
+        await waitFor(() =>
+            expect(lib.calls.importInspect.at(-1)).toMatchObject({
+                choices: {
+                    slots: [
+                        {
+                            material: 0,
+                            id: "artwork",
+                            widthM: 2.4,
+                            heightM: 0.6,
+                        },
+                    ],
+                },
+            }),
+        );
+        expect(screen.getByTestId("import-surface-0")).toHaveAttribute(
+            "aria-checked",
+            "true",
+        );
+    });
+
+    it("doesn't ask for a surface when the file marks a slot", async () => {
+        const report = surfaceReport();
+        report.materials[0].fileSlot = "front";
+        await renderModel(report, []);
+        await screen.findByTestId("import-report");
+        expect(screen.queryByTestId("import-surface")).toBeNull();
     });
 
     it("keeps Fixed for you collapsed and Notes open", async () => {

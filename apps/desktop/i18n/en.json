@@ -882,6 +882,14 @@
                     "manual": "Set by your click on the model.",
                     "pick": "Click a point on the model",
                     "picking": "Clicking… (Esc to stop)"
+                },
+                "surface": {
+                    "title": "Artwork surface",
+                    "detail": "The file marks no surface for artwork. Pick the one artwork prints on, or none; hover one to see it on the model.",
+                    "none": "None",
+                    "unnamed": "Material {index}",
+                    "size": "About {width} × {height}",
+                    "noUVs": "no UVs, so artwork can’t map onto it"
                 }
             },
             "rows": {
@@ -989,7 +997,8 @@
                     "side": "Side",
                     "top": "Top"
                 },
-                "pickGrip": "Click a point on the model to set the grip · Esc to stop"
+                "pickGrip": "Click a point on the model to set the grip · Esc to stop",
+                "surface": "Artwork surface: {name}"
             },
             "errors": {
                 "mixed-selection": {

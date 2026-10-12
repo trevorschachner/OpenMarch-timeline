@@ -181,6 +181,43 @@ export function choicesReport(): ModelImportReport {
     });
 }
 
+/** A riser with no slots: three materials to pick the artwork surface from (Q67). */
+export function surfaceReport(): ModelImportReport {
+    return modelReport({
+        kind: "prop",
+        notes: [{ code: "customPropertiesOff" }],
+        materials: [
+            {
+                index: 0,
+                name: "Front",
+                outputIndex: 0,
+                sizeM: [2.4, 0.6, 0.02],
+                areaM2: 2.9,
+                hasUVs: true,
+                fileSlot: null,
+            },
+            {
+                index: 1,
+                name: "Trim",
+                outputIndex: 1,
+                sizeM: [2.4, 0.6, 1.2],
+                areaM2: 1.1,
+                hasUVs: false,
+                fileSlot: null,
+            },
+            {
+                index: 2,
+                name: "Unused",
+                outputIndex: null,
+                sizeM: null,
+                areaM2: 0,
+                hasUVs: false,
+                fileSlot: null,
+            },
+        ],
+    });
+}
+
 export function sidecar(grip: [number, number, number] | null): ModelSidecar {
     return {
         format: "openmarch/model-sidecar@1",
