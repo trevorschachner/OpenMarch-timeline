@@ -226,7 +226,9 @@ async function openFile(
     const resources = input.resources ?? {};
     try {
         ({ format, json } = parseContainer(input.bytes));
-        if (format === "gltf") checkResources(json, resources);
+        if (format === "gltf") {
+            checkResources(json, resources, input.refusedResources);
+        }
     } catch (error) {
         if (!(error instanceof ContainerError)) throw error;
         report.cantImport.push(

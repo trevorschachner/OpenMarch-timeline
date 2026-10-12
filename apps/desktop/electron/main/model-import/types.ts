@@ -30,6 +30,11 @@ export interface ModelFileInput {
      * URI exactly as written. `importModelFile` fills this from disk.
      */
     resources?: Readonly<Record<string, Uint8Array>>;
+    /**
+     * URIs that `importModelFile` found resolving outside the picked file's
+     * folder on disk (through a symlink), and so never read.
+     */
+    refusedResources?: readonly string[];
 }
 
 /** A unit conversion the review can apply; `none` keeps the file's units. */
@@ -80,6 +85,8 @@ export type Rejection =
     | { code: "unreadable"; reason: string }
     | { code: "missingResource"; uri: string }
     | { code: "externalUri"; uri: string }
+    /** A resource path that leaves the picked file's folder (`..`, absolute, symlink). */
+    | { code: "resourceOutsideFolder"; uri: string }
     | {
           code: "validatorErrors";
           count: number;

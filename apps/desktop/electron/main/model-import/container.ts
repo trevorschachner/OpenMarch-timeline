@@ -3,7 +3,7 @@
  * anything interprets it. Names and `extras` are read from this raw JSON, not
  * from three's sanitized `Object3D.name` (props-spec.md section 2).
  */
-import { readFile } from "node:fs/promises";
+import { readFile, realpath } from "node:fs/promises";
 import path from "node:path";
 import type { ModelFileInput } from "./types";
 
@@ -31,7 +31,11 @@ export interface ParsedContainer {
 
 export class ContainerError extends Error {
     constructor(
-        readonly code: "unreadable" | "missingResource" | "externalUri",
+        readonly code:
+            | "unreadable"
+            | "missingResource"
+            | "externalUri"
+            | "resourceOutsideFolder",
         message: string,
         readonly uri?: string,
     ) {
@@ -98,27 +102,86 @@ export function externalUris(json: RawGltf): string[] {
     return [...uris];
 }
 
+const SCHEME = /^[A-Za-z][A-Za-z0-9+.-]*:/;
+const DRIVE_LETTER = /^[A-Za-z]:/;
+
+/** Where a buffer or image URI points, before anything is read. */
+export type ResourcePath =
+    | { ok: true; path: string }
+    | { ok: false; code: "externalUri" | "resourceOutsideFolder" };
+
 /**
- * Only relative file URIs are followed. Anything with a scheme (http, file,
- * …) or an absolute path is refused: the import makes no network requests
- * and reads only beside the picked file.
+ * Checks a resource URI without touching the disk. Only relative file URIs
+ * are followed: anything with a scheme (http, file, …) is refused, since the
+ * import makes no network requests and reads only beside the picked file.
+ * After percent-decoding, an absolute path, a Windows drive letter or UNC
+ * path, a backslash or a `..` that climbs above the picked file's folder is
+ * refused too. On success, `path` is the decoded POSIX path relative to that
+ * folder. Symlinks are caught later, by `readModelFile`.
  */
-export function isRelativeFileUri(uri: string): boolean {
-    if (/^[A-Za-z][A-Za-z0-9+.-]*:/.test(uri)) return false;
-    if (uri.startsWith("/") || uri.startsWith("\\")) return false;
-    return true;
+export function resourcePathOf(uri: string): ResourcePath {
+    const outside = { ok: false, code: "resourceOutsideFolder" } as const;
+    if (DRIVE_LETTER.test(uri)) return outside;
+    if (SCHEME.test(uri)) return { ok: false, code: "externalUri" };
+    let decoded: string;
+    try {
+        decoded = decodeURIComponent(uri);
+    } catch {
+        return outside;
+    }
+    for (const text of [uri, decoded]) {
+        if (DRIVE_LETTER.test(text)) return outside;
+        if (text.startsWith("/") || text.includes("\\")) return outside;
+        if (text.includes("\0")) return outside;
+    }
+    if (SCHEME.test(decoded)) return { ok: false, code: "externalUri" };
+    const normalized = path.posix.normalize(decoded);
+    if (
+        normalized === ".." ||
+        normalized.startsWith("../") ||
+        path.posix.isAbsolute(normalized)
+    ) {
+        return outside;
+    }
+    return { ok: true, path: normalized };
 }
 
-/** Throws when a `.gltf` names a resource that wasn't supplied. */
+/** Whether `target` is strictly inside `dir` (both already real paths). */
+function isInside(dir: string, target: string): boolean {
+    const rel = path.relative(dir, target);
+    return (
+        rel !== "" &&
+        rel !== ".." &&
+        !rel.startsWith(`..${path.sep}`) &&
+        !path.isAbsolute(rel)
+    );
+}
+
+/**
+ * Throws when a `.gltf` names a resource that is outside the picked file's
+ * folder, or that wasn't supplied. `refused` lists URIs `readModelFile`
+ * found resolving outside the folder on disk (through a symlink).
+ */
 export function checkResources(
     json: RawGltf,
     resources: Readonly<Record<string, Uint8Array>>,
+    refused: readonly string[] = [],
 ): void {
     for (const uri of externalUris(json)) {
-        if (!isRelativeFileUri(uri)) {
+        const resolved = resourcePathOf(uri);
+        if (!resolved.ok) {
             throw new ContainerError(
-                "externalUri",
-                `refusing non-relative URI ${uri}`,
+                resolved.code,
+                resolved.code === "externalUri"
+                    ? `refusing non-relative URI ${uri}`
+                    : `refusing URI outside the picked folder ${uri}`,
+                uri,
+            );
+        }
+        if (refused.includes(uri)) {
+            throw new ContainerError(
+                "resourceOutsideFolder",
+                `refusing URI outside the picked folder ${uri}`,
                 uri,
             );
         }
@@ -134,8 +197,10 @@ export function checkResources(
 
 /**
  * Reads a picked file from disk, with a `.gltf`'s relative resources from
- * beside it. Resources that can't be read are left out, so the pipeline
- * reports them as missing.
+ * beside it. Each resource's real path (symlinks resolved) must be inside the
+ * picked file's real folder; one that isn't is never read and is listed in
+ * `refusedResources`. Resources that can't be read are left out, so the
+ * pipeline reports them as missing.
  */
 export async function readModelFile(filePath: string): Promise<ModelFileInput> {
     const bytes = new Uint8Array(await readFile(filePath));
@@ -150,19 +215,33 @@ export async function readModelFile(filePath: string): Promise<ModelFileInput> {
     } catch {
         return input;
     }
-    const dir = path.dirname(filePath);
+    const dir = await realpath(path.dirname(filePath));
     const resources: Record<string, Uint8Array> = {};
+    const refused: string[] = [];
     for (const uri of externalUris(json)) {
-        if (!isRelativeFileUri(uri)) continue;
+        const resolved = resourcePathOf(uri);
+        if (!resolved.ok) continue; // Reported by checkResources.
+        let real: string;
         try {
-            resources[uri] = new Uint8Array(
-                await readFile(path.join(dir, decodeURIComponent(uri))),
-            );
+            real = await realpath(path.resolve(dir, resolved.path));
+        } catch {
+            continue; // Reported as missingResource by the pipeline.
+        }
+        if (!isInside(dir, real)) {
+            refused.push(uri);
+            continue;
+        }
+        try {
+            resources[uri] = new Uint8Array(await readFile(real));
         } catch {
             // Reported as missingResource by the pipeline.
         }
     }
-    return { ...input, resources };
+    return {
+        ...input,
+        resources,
+        ...(refused.length ? { refusedResources: refused } : {}),
+    };
 }
 
 /**
@@ -183,6 +262,8 @@ export function sourceFileOf(input: ModelFileInput): {
         for (const entry of list as { uri?: unknown; mimeType?: unknown }[]) {
             const uri = entry?.uri;
             if (typeof uri !== "string" || uri.startsWith("data:")) continue;
+            if (!resourcePathOf(uri).ok) continue;
+            if (input.refusedResources?.includes(uri)) continue;
             const data = input.resources[uri];
             if (!data) continue;
             const mime =

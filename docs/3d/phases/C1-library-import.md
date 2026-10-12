@@ -351,3 +351,13 @@ Nothing yet.
   `GARMENT_BODY_TYPES` (`apps/desktop/electron/main/model-import/rules.ts`),
   and may leave the median fit (`neutral-average`) untagged. C1.7 rejects any
   other name (owner decision Q36, 2026-10-11).
+
+### 2026-10-12 · 3d worker (3d/c1-model-import) · C1.7
+
+- 2026-10-12, C1.7 security fix: a `.gltf`'s buffer and image URIs are
+  percent-decoded and refused when they leave the picked file's folder (`..`,
+  absolute, Windows drive or UNC paths, backslashes, or a symlink whose real
+  path is outside the folder's real path), as the new Can't import code
+  `resourceOutsideFolder` naming the URI; any scheme, `file:` included, stays
+  `externalUri`. Refused files are never read, so their bytes can't reach the
+  stored source. Tests in `model-import/__test__/container.test.ts`.
