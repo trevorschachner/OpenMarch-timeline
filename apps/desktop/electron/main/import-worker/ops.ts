@@ -12,7 +12,7 @@ import {
     templatePdf,
     templatePng,
     templatePngDpi,
-    templateSurface,
+    templateDownloadSurface,
     templateSvg,
     type TemplateSurface,
 } from "../../../src/view3d/core/artworkTemplates";
@@ -85,7 +85,9 @@ export async function runWorkerJob(
                 return;
             }
             case "template": {
-                const surface = templateSurface(request.input.surfaceId);
+                const surface = templateDownloadSurface(
+                    request.input.surfaceId,
+                );
                 if (!surface) {
                     post({
                         jobId,

@@ -15,6 +15,7 @@ import { templateSvg } from "./svg";
 import { FLOOR_PRINT_MASTER_NOTE, type TemplateSurface } from "./surfaces";
 
 export * from "./surfaces";
+export * from "./downloads";
 export * from "./uniformPanels";
 export * from "./policy";
 export * from "./layout";

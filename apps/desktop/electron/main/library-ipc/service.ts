@@ -47,7 +47,7 @@ import {
     type LibraryMatch,
     type Result,
 } from "../../../src/view3d/library/protocol";
-import { templateSurface } from "../../../src/view3d/core/artworkTemplates";
+import { templateDownloadSurface } from "../../../src/view3d/core/artworkTemplates";
 import {
     decodeArtworkSidecar,
     groupByAspect,
@@ -921,7 +921,7 @@ export function createLibraryIpcService(
         payload: unknown,
     ): Promise<{ filename: string } | null> {
         const request = TemplateSaveRequestSchema.parse(payload);
-        const surface = templateSurface(request.surfaceId);
+        const surface = templateDownloadSurface(request.surfaceId);
         if (!surface) {
             throw new IpcFailure(
                 "not-found",

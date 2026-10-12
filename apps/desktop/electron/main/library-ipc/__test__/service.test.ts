@@ -847,6 +847,19 @@ describe("library:template-save", () => {
             await call(C.templateSave, { surfaceId: "no-such", format: "pdf" }),
         ).toMatchObject({ ok: false, error: { code: "not-found" } });
     });
+
+    it("saves the menu's variants: a sagging-bottom swing and a Floor prop", async () => {
+        for (const surfaceId of [
+            "silk-swing-44x66-sagging-bottom",
+            "silk-6ft-36x54-sag-9in",
+            "floor-prop-4x8ft",
+        ]) {
+            saveTarget = path.join(files, `${surfaceId}.svg`);
+            expect(
+                value(await call(C.templateSave, { surfaceId, format: "svg" })),
+            ).toEqual({ filename: `${surfaceId}.svg` });
+        }
+    });
 });
 
 it("pushes library:changed through sendChanged only, never to the sender", () => {
