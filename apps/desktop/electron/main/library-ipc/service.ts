@@ -479,19 +479,20 @@ export function createLibraryIpcService(
             });
         }
         // Q52: models one file per session; a pick mixing models and artwork
-        // is refused ("Import models and artwork separately").
+        // is refused ("Import models and artwork separately") with its own
+        // code (Q59).
         const models = files.filter((f) => f.type === "model").length;
         const artwork = files.filter((f) => f.type === "artwork").length;
         if (models > 0 && artwork > 0) {
             throw new IpcFailure(
-                "invalid-request",
-                "mixed-selection: import models and artwork separately",
+                "mixed-selection",
+                "import models and artwork separately",
             );
         }
         if (models > 1) {
             throw new IpcFailure(
-                "invalid-request",
-                "mixed-selection: import one model at a time",
+                "mixed-selection",
+                "import one model at a time",
             );
         }
         return sessionDto(

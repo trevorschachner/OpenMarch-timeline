@@ -129,6 +129,8 @@ export const LIBRARY_LIMITS = {
 
 export type LibraryIpcErrorCode =
     | "invalid-request"
+    /** A pick mixing models and artwork, or holding two models (Q52, Q59). */
+    | "mixed-selection"
     | "session-expired"
     | "unknown-file"
     | "too-large"

@@ -44,6 +44,12 @@ export function createImportClient(
     return {
         api,
 
+        /**
+         * Opens the file dialog. A pick mixing models and artwork, or
+         * holding two models, answers `mixed-selection` (Q52, Q59): show
+         * "Import models and artwork separately" inline and let the user
+         * pick again.
+         */
         pick: api.importPick,
 
         /**

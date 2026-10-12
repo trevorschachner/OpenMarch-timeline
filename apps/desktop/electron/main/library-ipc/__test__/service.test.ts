@@ -229,15 +229,20 @@ describe("library:import-pick", () => {
         const mixed = await call(C.importPick, { purpose: "any" });
         expect(mixed).toMatchObject({
             ok: false,
-            error: { code: "invalid-request" },
+            error: {
+                code: "mixed-selection",
+                message: "import models and artwork separately",
+            },
         });
-        expect(!mixed.ok && mixed.error.message).toMatch(/^mixed-selection/);
         const glb2 = path.join(files, "flag2.glb");
         await copyFile(glb, glb2);
         picks.push([glb, glb2]);
         expect(await call(C.importPick, { purpose: "any" })).toMatchObject({
             ok: false,
-            error: { code: "invalid-request" },
+            error: {
+                code: "mixed-selection",
+                message: "import one model at a time",
+            },
         });
         expect(service.sessions.size).toBe(0);
     });
