@@ -17,11 +17,12 @@ import type { RgbaColor } from "@openmarch/core";
 import { FAMILIES, getSectionObjectByName } from "@/global/classes/Sections";
 import {
     carryForSection,
+    guardCarry,
     type Carry,
     type Finish,
 } from "../instruments/catalog";
 import { bassSizesFor } from "../instruments/battery";
-import type { ModelOptions } from "../instruments/model";
+import type { GuardModelId, ModelOptions } from "../instruments/model";
 import type { HoldState } from "../instruments/holds";
 
 const withOptions = (
@@ -192,7 +193,8 @@ const SHOE_BLACK = 0x0b0b0d;
 /** Lifted from om-pose's 0x1c1f2b, which renders as black legs. */
 const NAVY = 0x2b3150;
 
-const rgbToNumber = (c: RgbaColor) =>
+/** An sRGB hex number from a 2D color. */
+export const rgbToNumber = (c: RgbaColor) =>
     ((Math.round(c.r) & 255) << 16) |
     ((Math.round(c.g) & 255) << 8) |
     (Math.round(c.b) & 255);
@@ -201,14 +203,20 @@ const rgbToNumber = (c: RgbaColor) =>
  * A section's uniform: om-pose's classic style with the section's fill as
  * the jacket and hat, white and gold trim, navy pants. Guard sections go
  * without the shako. Brass carry their horn in gold lacquer, held as `hold`
- * says (docs/3d/instruments.md §5).
+ * says (docs/3d/instruments.md §5). `guard`, when set, is the equipment every
+ * guard section carries instead of its own (the settings' guard equipment).
  */
 export function sectionUniform(
     section: string,
     fill: RgbaColor | null | undefined,
     hold: HoldState = "up",
     options?: ModelOptions,
+    guard?: GuardModelId,
 ): UniformLook {
+    const carry =
+        guard && isGuard(section)
+            ? guardCarry(guard)
+            : withOptions(carryForSection(section), options);
     const primary = fill ? rgbToNumber(fill) : DEFAULT_PRIMARY;
     return {
         style: "classic",
@@ -229,7 +237,7 @@ export function sectionUniform(
             hat: !isGuard(section),
             hatType: "shako",
             instrument: "none",
-            carry: withOptions(carryForSection(section), options),
+            carry,
             finish: "brass",
             hold,
         },

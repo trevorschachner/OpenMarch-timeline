@@ -1,6 +1,6 @@
 # Instruments, holds and front ensemble props: design
 
-<!-- cspell:words mellophone mellophones sousaphone sousaphones contras leadpipe Mylar lathed swept subwoofer spocks ligature -->
+<!-- cspell:words Zaber mellophone mellophones sousaphone sousaphones contras leadpipe Mylar lathed swept subwoofer spocks ligature -->
 
 Status: reviewed by the owner 2026-10-08; §9 item 3 (props persistence) is
 still open. Nothing here is built.
@@ -16,7 +16,7 @@ schema addition in §6 needs an ADR amendment before it is built.
   mellophone, baritone; 120 triangles each) skinned to the right hand, and
   every clip holds one "horn up" arm pose. Every other section carries
   nothing. The bodies and clips are vendored as read-only
-  (`src/view3d/vendor/om-pose/README.md`).
+  (`src/view3d/render/README.md`).
 - The window bakes the clips itself (`bakeClips`) from the loaded clip files,
   and the library already builds rigid one-bone meshes that ride the baked
   skeleton (`blockGeometry`). Both are the hooks this design uses, so nothing
@@ -57,7 +57,7 @@ reference pages during the build.
 
 | Section       | Model                                                                    | Working dimensions          | Hold     |
 | ------------- | ------------------------------------------------------------------------ | --------------------------- | -------- |
-| Trumpet       | Bb trumpet, 3 piston valves                                              | length 0.48, bell 0.125     | brass    |
+| Trumpet       | Bb trumpet, 3 piston valves; a modeled mesh (Kagelok, CC BY 4.0)         | length 0.48, bell 0.125     | brass    |
 | Mellophone    | marching mellophone, front bell                                          | length 0.55, bell 0.26      | brass    |
 | Baritone      | marching baritone, front bell                                            | length 0.62, bell 0.25      | brass    |
 | Euphonium     | marching euphonium, front bell                                           | length 0.66, bell 0.28      | brass    |
@@ -126,13 +126,16 @@ drum 2.
 
 ### Guard, Other, Pit
 
-| Model             | What it is                                                          | Working dimensions         | Hold  |
-| ----------------- | ------------------------------------------------------------------- | -------------------------- | ----- |
-| 6 ft flag         | chrome pole, rubber end caps, tape, a silk in the section's color   | pole 1.83, silk 36 × 54 in | flag  |
-| Swing flag        | short pole with the silk along its length                           | pole 0.9, silk 1.2 × 0.9   | flag  |
-| Double swing flag | two swing flags, one in each hand                                   | as the swing flag          | flag  |
-| Rifle             | white drill rifle, chrome bolt and swivels, black sling             | 0.91 long                  | rifle |
-| Sabre             | curved chrome blade, brass guard and knuckle bow, wire-wrapped grip | blade 0.8, grip 0.12       | sabre |
+| Model             | What it is                                                                                                   | Working dimensions                    | Hold            |
+| ----------------- | ------------------------------------------------------------------------------------------------------------ | ------------------------------------- | --------------- |
+| 6 ft flag         | chrome pole, rubber end caps, tape, a silk in the section's color                                            | pole 1.83, silk 36 × 54 in            | flag            |
+| Swing flag        | held in one fist at the butt, a bare tab above the hand, the silk sleeved along the rest                     | pole 1.02 (tab 0.32), silk 1.5 × 0.7¹ | swingFlag       |
+| Double swing flag | two swing flags, one in each hand, mirrored                                                                  | as the swing flag                     | doubleSwingFlag |
+| Rifle             | white spinning rifle (an Ultra Spin): flat-sided stock, wrist dip, chrome bolt plate, black sling drawn taut | 0.91 long, butt 0.12 deep             | rifle           |
+| Sabre             | spinning sabre (a Zaber): broad curved chrome blade, rubber tip, chrome cup and D-bow, finger-grooved grip   | blade 0.8 (85 mm of curve), grip 0.12 | sabre           |
+
+¹ Fly × header, `SWING_SILK` in `guard.ts`; C4.11 makes it the 44 × 66 in
+swing cut.
 
 Today the Color Guard and Flag sections carry the 6 ft flag and the Rifle
 section the rifle. The swing flag, the double swing flag and the sabre are
@@ -161,6 +164,26 @@ geometry instances with the body for free, and a dimension change is a
 number. Hand-modeled GLB assets are the alternative if the result reads as
 too simple; the attachment and paint path below is the same either way.
 
+**Modeled meshes (2026-10-09).** The trumpet is the first instrument from a
+modeled mesh rather than code: "Trumpet" by Kagelok on Sketchfab, CC BY 4.0
+(credit and changes in `src/view3d/assets/instruments/CREDITS.md`). The
+owner picked it as the look every horn should match. Blender bakes it into
+the instrument frame with `apps/desktop/scripts/view3d-assets/export-horn.py`
+and a per-horn config (scale, grip origin, material-to-part map, a decimate
+ratio per detail), writing quantized JSON that `core/instruments/meshAsset.ts`
+turns back into pieces. The trumpet keeps the procedural trumpet's mouthpiece
+rim, (0, 0.018, −0.168), so the brass holds are unchanged. The mellophone,
+baritone, euphonium and contra followed the same day: no licensed models
+were found, so `build-horns.py` builds them in Blender from the trumpet's
+valve block and mouthpiece, with tubing and bells to the reference photos'
+proportions (oval wrap behind the valves, leadpipe across the top into an
+inner loop, slides below, bell forward on the wrap's top line; the contra
+the same layout, its valves low by the bell). Each keeps its procedural
+predecessor's mouthpiece and left grip, so the holds are unchanged too. The
+trombones stay procedural. Only meshes whose
+license allows redistribution under AGPL, such as CC0 or CC BY with credit,
+can ship here.
+
 **Material (revised 2026-10-08).** The first pass painted horns through the
 uniform shader: flat-shaded, no metalness, one color. It cannot read as
 brass. Instruments are instead their own instanced mesh per look group,
@@ -171,7 +194,21 @@ something to reflect, so the scene gains an environment map generated from
 the sky gradient over a bright ground, applied scene-wide (the fidelity
 brief's "sky-baked environment lighting"). One extra draw call per brass
 group. The part ids below remain the mesh's own attribute for the material
-to color by.
+to color by. Parts that aren't metal (the rifle's painted stock, silks,
+rubber and plastic, drum heads: `MATTE_PARTS` in `instrumentGeometry.ts`)
+draw non-metallic at roughness 0.65, because a fully metallic white stock
+shows only reflections and reads as chrome (owner, 2026-10-09).
+
+**Silks** are not instrument pieces (C4.4, props-spec.md section 7). A flag
+model lists its silks as `SilkSpec`s (size, frame in the instrument frame,
+bone, mirror); `silkSet.ts` draws every silk in the band in one instanced
+cloth mesh per detail tier (24 × 16 cells near, 12 × 8 far and at `low`):
+metalness 0, roughness 0.8, double-sided, no shadows, plain in the
+section's 2D color. The vertex shader waves each silk in its own frame
+before skinning (`silkWave.ts`, the silk prototype's variant B: it hangs
+at rest and billows on the move), from per-instance inputs written by
+count: the show clock, a phase seed, ground speed, distance covered and
+turn rate. Only the swing flag's sleeve stays a silk-colored piece.
 
 **Parts and finish.** The uniform shader paints parts by id; it knows ids 0
 to 15 today. Instruments take new ids from 16 upward: 16 brass finish (gold
@@ -293,10 +330,17 @@ points and where the elbows go.
   audience it flies to the camera's left). Carry and trail: the pole
   vertical at the right side, left arm down. Which side a guard presents
   the silk to is unconfirmed; flipping it is one sign in `guard.ts`.
-- **rifle.** Up (port arms): diagonal across the chest, muzzle up to the
-  performer's left, right hand at the wrist of the stock by the right hip,
-  left hand on the fore-end by the left shoulder. Carry and trail (right
-  shoulder arms): vertical at the right shoulder, left arm down.
+- **swingFlag, doubleSwingFlag.** Down 45 in every state, ready to start
+  swinging (owner, 2026-10-09): the arm straight, out and down at 45 degrees
+  from the shoulder and a little forward, the pole running on along the arm
+  from the fist, the silk trailing back and a little down so it clears the
+  ground. One swing flag is in the right hand with the left arm relaxed at
+  the side; a pair puts one in each hand, the left flag the right one's
+  mirror image through the body's center plane.
+- **rifle.** Always level, in every state (owner, 2026-10-09): across the
+  front of the body at the waist, top up, the butt out past the right hip
+  and the muzzle to the performer's left. Right hand at the wrist of the
+  stock, left hand on the fore-end.
 - **sabre.** Up (present): the blade vertical in front of the right
   shoulder. Carry and trail: at the right hip, blade up along the
   shoulder, left arm down.

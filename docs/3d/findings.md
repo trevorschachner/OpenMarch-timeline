@@ -220,4 +220,370 @@ a flat silk needs few cells, and `guard.test.ts` pins their own budgets.
   and bakes in 60 percent of the time, prep rows included. A copy of
   JackBrittAct1 bakes 1,639 rows, 123.6 MB, in 0.99 s.
 
+### 2026-10-10 · trevor (3d/cue-layering-measure) · channel layering spike (performer-behavior §8.5)
+
+<!-- cspell:ignore GLSL prebaked webgl texels rebakes rebake -->
+
+- Change measured: a spike of performer-behavior.md §8.3, URL-gated, not
+  for merge (`src/view3d/spike/layeringSpike.ts`). Each vertex composes
+  Feet (today's attributes), Body (spine.003 and up) and Horn (shoulders
+  to hands, and every instrument vertex) by a per-bone channel id. Body and
+  Horn state (row, samples, counts, phase) comes from a float
+  `DataTexture` read by `gl_InstanceID`. Body is re-anchored to the Feet
+  waist, Horn to the Body chest. Variants: `layered` (anchors inverted in
+  GLSL), `prebaked` (rows assumed baked anchor-relative, no inverse),
+  `layered2` and `prebaked2` (§8.5's fallback: Feet plus Horn only). Body
+  and Horn play the Feet row 0.25 and 0.5 counts ahead, so they read other
+  texture rows. Check: with both offsets at 0, `layered` draws what `off`
+  draws (20 of 1.99 M pixels differ by more than 8/255, all on blended
+  step sizes, which the spike's Body and Horn rows don't blend).
+- Method: the web preview (`?spikeLayer=…&spikeN=…`) in headless Chromium
+  148, ANGLE Metal, 1920 × 1036 canvas at 1x, Fall Show 2026 demo,
+  high school venue with its default crowd. `spikeN` takes the show's first
+  300 performers, or repeats the 385 to reach 600. At 6 paused pages, 100
+  frames rendered back to back and synced with `readPixels`, marchers
+  shown and then hidden, 3 times; medians. CPU submit was 0.14–0.53 ms
+  against 2.3–22.7 ms of wall time, so the wall time is GPU time.
+  `EXT_disjoint_timer_query_webgl2` is exposed but unusable: back-to-back
+  queries overlap on ANGLE Metal (a frame of 1.0 ms wall time read 28 ms).
+  Two full rounds. Scripts: `view3d-web/spike/measure-layering.mjs` and
+  `measure-bake.mjs`.
+- Machine and commit: Apple M1 Pro (14-core GPU), macOS 26.6.2, on branch
+  `3d/cue-layering-measure` (from `3d/cues-compile` `43f7dc3e`). **Intel
+  Iris Xe was not measured: no such machine here.** A base M1 (8-core GPU)
+  was not measured either.
+- GPU ms per frame, whole frame (round 1 / round 2), and the change from `off`:
+
+  | Tier, n   | off       | layered     | prebaked    | layered2    | prebaked2   |
+  | --------- | --------- | ----------- | ----------- | ----------- | ----------- |
+  | low, 300  | 2.59/2.29 | +2.57/+1.51 | +0.86/+0.96 | +0.10/+0.30 | −0.03/+0.27 |
+  | low, 600  | 3.00/3.05 | +3.04/+2.80 | +3.84/+2.11 | +1.47/+1.21 | +1.40/+0.85 |
+  | high, 300 | 4.69/4.43 | +7.41/+5.84 | +6.33/+5.56 | +2.64/+2.76 | +2.38/+1.91 |
+  | high, 600 | 9.27/9.09 | +13.4/+13.5 | +13.5/+12.4 | +5.96/+6.61 | +4.18/+4.54 |
+
+  The scene without marchers is 0.86–1.16 ms in every run. Vertices
+  skinned per frame (`off`): low 300, 0.16 M body and 0.44 M instrument;
+  high 300, 1.44 M and 0.44 M; high 600, 2.87 M and 0.76 M. Instrument
+  vertices are all on Horn, so they pay the full composition; they are
+  most of the cost at low.
+
+- Bake, Fall Show 2026 (385 performers, high, 3 runs, CPU in the window):
+
+  | Bake                                | Texture rows |  Width (of 4096) |    MB |        Time |
+  | ----------------------------------- | -----------: | ---------------: | ----: | ----------: |
+  | Today: 1,963 clip × hold rows       |       85,423 |            3,864 | 126.6 | 1.03–1.04 s |
+  | Feet channel: 438 clips once        |       18,108 |              828 |  27.1 |  231–233 ms |
+  | Horn channel: 10 holds, static rows |           20 | (fits the above) |  0.03 |  0.7–0.8 ms |
+
+  Feet plus Horn is 18,128 rows, 9 columns of 92 texels, 828 wide. A
+  4096 × 2048 texture holds 44 columns, 90,112 rows, so 71,984 rows (about
+  2,400 counts of phrases at 30 samples a count) remain for Horn and Body
+  rows. Body has no rows until cues exist. A Horn-only texture (8 arm bones
+  plus 1 prop bone, 36 texels a row) would hold 231,424 rows; it isn't
+  needed for this show.
+
+- Result against §8.5:
+  - **Layering adds at most 1 ms at 300, M1, full quality: fail.** +5.8
+    to +7.4 ms (`layered`), +5.6 to +6.3 (`prebaked`). The fallback, Feet
+    plus one upper-body channel, fails too: +2.6 to +2.8 (`layered2`), +1.9
+    to +2.4 (`prebaked2`). On the low tier only the two-channel variants
+    stay under 1 ms at 300.
+  - **60 fps at 1080p with 300 in `pro` on an integrated GPU:
+    inconclusive.** Measured on the high school kit, not `pro`, and on an
+    M1 Pro, not an M1 or an Iris Xe. The layered frame at 300 is 10–12 ms
+    of GPU here.
+  - **Bake inside 4096 × 2048: pass.** 828 texels wide, against 3,864
+    today. Horn needs no texture of its own.
+  - **Full show bake under 1.5 s: pass** (0.23 s, against 1.04 s today).
+  - **Cue edit rebakes the touched channel in under 100 ms: pass for Horn**
+    (0.7 ms, static rows only; phrase rows don't exist yet).
+    **Inconclusive for Feet:** its whole channel takes 0.23 s, and a
+    rebake of only the touched rows wasn't built.
+- Reading: composing per vertex costs too much because every skinned
+  vertex fetches and multiplies the anchors, and instruments put 0.4–0.8 M
+  vertices on Horn. Per-channel baking is a clear win and keeps its place.
+  Step 6 shouldn't build per-vertex composition as specified. An
+  unmeasured option: compose once per instance and bone per frame (a pass
+  writing 23 matrices per performer into a float target), so skinning
+  reads one matrix per influence. That needs its own spike before the
+  owner picks it over the fallback.
+
+### 2026-10-11 · trevor (3d/cue-compose-pass) · compose once per frame (performer-behavior §8.5)
+
+<!-- cspell:ignore GLSL texel texels readPixels lerping -->
+
+- Change measured: the option the layering spike above left open. Each
+  performer's 23 bones plus one prop bone get their final skinning
+  matrices once per frame, in an RGBA32F texture of 96 texels per
+  performer (42 performers a row, 4032 wide). Bodies and instruments skin
+  from it with one matrix (4 fetches) per influence, and an `aSlot`
+  attribute maps each instance to its performer. The composition is the
+  `layered` one: Feet with today's step-size blend and leg turn, Body
+  (spine.003 and up) re-anchored to the Feet waist, Horn (shoulders to
+  hands) re-anchored to the Body chest, inverses included, the leg turn
+  applied per bone after composing. Two ways to fill the texture
+  (`src/view3d/spike/composeSpike.ts`, URL-gated, not for merge):
+  `compose-gpu`, a render-to-texture pass with one fragment per
+  (performer, bone, matrix column) into a float target
+  (`EXT_color_buffer_float` is exposed here); and `compose-cpu`, the same
+  composition in JavaScript from the bake's array, then three's
+  `texSubImage2D` upload every frame. Channel state (Feet, turn, Body,
+  Horn) is in a per-performer float texture written only when a clip
+  changes. Body and Horn play the Feet row 0.25 and 0.5 counts ahead, as
+  before.
+- Method: the same as the layering spike above (web preview, headless
+  Chromium, ANGLE Metal, 1920 × 1036 canvas at 1x, Fall Show 2026 demo,
+  6 paused pages, 100 frames back to back synced with `readPixels`,
+  marchers shown and then hidden, 3 times, medians, two full rounds; timer
+  queries not used). With the marchers hidden the composition is skipped
+  too, so its cost is inside the marchers' share. `off` was measured again
+  in the same runs. Scripts: `view3d-web/spike/measure-layering.mjs` with
+  `SPIKE_LAYERS=off,compose-gpu,compose-cpu SPIKE_LOOP=100`, and
+  `check-compose.mjs`.
+- Machine and commit: Apple M1 Pro (14-core GPU), on branch
+  `3d/cue-compose-pass` (from `3d/cue-layering-measure` `d01c7863`).
+  **A base M1, Intel Iris Xe and the `pro` kit were not measured.**
+- GPU ms per frame, whole frame (round 1 / round 2), and the change from
+  `off`:
+
+  | Tier, n   | off       | compose-gpu | compose-cpu |
+  | --------- | --------- | ----------- | ----------- |
+  | low, 300  | 2.08/2.16 | −0.21/−0.19 | −0.37/−0.38 |
+  | low, 600  | 3.06/2.88 | −0.11/−0.34 | −0.64/−0.43 |
+  | high, 300 | 4.52/4.71 | −0.94/−1.21 | −1.65/−0.84 |
+  | high, 600 | 9.50/9.24 | −3.89/−3.36 | −4.85/−4.19 |
+
+  The scene without marchers is 0.86–1.31 ms in every run. Both variants
+  are cheaper than today's skinning, not dearer: today each influence
+  reads two sample rows (8 fetches, 16 when blended) and sums by turn
+  class per vertex; composed, it reads 4. At high, 600, that drops 3.6 M
+  skinned vertices from 8.1–8.4 ms of marchers to 3.6–4.7.
+
+- CPU, per frame, in the window's main thread: `compose-cpu` composes in
+  0.76–0.81 ms at 300 and 1.48–1.53 ms at 600 (medians of the 6 pages,
+  both rounds and both tiers), and the upload call returns in 0.02–0.03
+  ms. It uploads 516 KB a frame at 300 and 968 KB at 600 (whole texture
+  rows); the copy itself runs in the GPU process and isn't timed apart.
+  `compose-gpu` costs 0.005–0.01 ms to submit its pass. CPU submit per
+  frame: 0.97–1.11 ms (`compose-cpu`, 300), 1.76–1.92 (600), against 0.14–0.35
+  for `off` and `compose-gpu`; the wall time stayed above it, so the
+  frames were still GPU-bound.
+- Correctness: with both offsets at 0, against `off` (`compare-shots.mjs`):
+  6–7 of 1.99 M pixels differ by more than 8/255 at high 300, 11–24 at low
+  300, 10–25 at high 600, the same order as the `layered` check (20),
+  which was traced to blended step sizes whose Body and Horn rows aren't
+  blended (not traced again here). With the default offsets, the GPU pass read back against the
+  CPU composition, at 4 pages and 12 clock values each, differs by at most
+  1.5e-5 in any matrix entry (entries up to 2.5).
+- Result against §8.5:
+  - **Layering adds at most 1 ms at 300, M1, full quality: pass on an M1
+    Pro**, both variants: the frame is 0.8–1.7 ms cheaper than today, with
+    three channels and the full re-anchoring. A base M1 wasn't measured.
+  - **600 and the low tier: pass**, cheaper than today in every
+    configuration.
+  - **60 fps at 1080p with 300 in `pro` on an integrated GPU:
+    inconclusive.** The high school kit, not `pro`, and an M1 Pro. The
+    composed frame at high 300 is 2.9–3.9 ms of GPU here, against 4.5–4.7
+    today.
+  - **Per-frame CPU (no budget in §8.5):** `compose-cpu` puts 0.8 ms at 300
+    and 1.5 ms at 600 on the main thread on the fastest target, plus a
+    0.5–1 MB upload each frame while playing. `compose-gpu` puts nothing.
+  - Bake budgets: unchanged from the entry above (this spike doesn't
+    change the bake).
+- Reading: composing once per frame removes the GPU objection to §8.3.
+  The cost moves from every vertex to 96 texels per performer, and the
+  skinning gets cheaper because it reads one matrix instead of lerping
+  two rows. Prefer `compose-gpu` for step 6: same or close GPU numbers,
+  no main-thread work, no per-frame upload (the battery concern in
+  `10-runtime-layering.md`), and it scales with fragments, not
+  JavaScript. `compose-cpu`'s whole frame was 0.1–1 ms shorter in 7 of
+  8 runs (0.37 ms longer in one), but its CPU time doubles with performers and isn't measured on a slow CPU.
+  Not covered: the pass's own GPU time apart from the frame, a base M1,
+  Iris Xe, `pro`, the shadow pass (still unpatched), and a parity test of
+  the composed pose against a mixer-layered one.
+
+### 2026-10-11 · trevor (3d/cue-layering) · step 6, the layered renderer
+
+<!-- cspell:ignore readPixels -->
+
+- Change measured: performer-behavior.md section 8.3 built for the window
+  (`src/view3d/render/`): the per-channel bake (Feet clips once, each hold
+  once as a Horn row, transitions as baked rows, a prop bone on every row),
+  the channel state texture, and the GPU compose pass that bodies and
+  instruments skin from, one matrix per influence. Instruments ride the
+  prop bone. Against `3d/cue-planner` (`b41f94a6`): the same code built
+  before step 6.
+- Method: the compose spike's (above), both builds as static sites
+  (`view3d-web:build`), each with the spike's harness cut down and never
+  committed (a performer-count override and the back-to-back frame loop;
+  in the new build each frame runs the compose pass first). Fall Show 2026
+  demo, headless Chromium, ANGLE Metal, 1920 × 1036 canvas at 1x, 6 paused
+  pages, 100 frames synced with `readPixels`, marchers shown then hidden, 3
+  times, medians, two rounds. Apple M1 Pro. **A base M1, Intel Iris Xe and
+  the `pro` kit were not measured.**
+- GPU ms per frame, whole frame (round 1 / round 2):
+
+  | Tier, n   | before    | step 6    | change      | spike `compose-gpu` |
+  | --------- | --------- | --------- | ----------- | ------------------- |
+  | low, 300  | 2.24/2.15 | 1.89/1.86 | −0.36/−0.29 | −0.21/−0.19         |
+  | low, 600  | 3.07/3.03 | 2.93/2.63 | −0.14/−0.40 | −0.11/−0.34         |
+  | high, 300 | 4.57/4.61 | 3.61/3.63 | −0.97/−0.99 | −0.94/−1.21         |
+  | high, 600 | 9.39/9.40 | 5.64/6.42 | −3.75/−2.98 | −3.89/−3.36         |
+
+  The scene without marchers is 0.93–1.18 ms in every run; CPU submit
+  0.13–0.32 ms, unchanged.
+
+- Bake, whole show (385 performers, high): before, 1,951 rows of 427 clips
+  × 11 holds, 126.6 MB, 1.01 s; step 6, 437 rows (17,587 Feet texture rows,
+  20 Horn), 864 texels wide, 28.3 MB, 0.19 s. Low: 173 rows, 384 wide,
+  12.6 MB, 0.08 s. A horns-down cue on the band adds 5 hold and 5
+  transition rows (165 texture rows).
+- Correctness: the default show drawn by both builds at the same paused
+  page (page 2, Press box), compared with the spike's `compare-shots.mjs`
+  method: 47 of 2,073,600 pixels differ by more than 8/255 at high and 47
+  at low, single pixels on silhouette edges, no cluster over 5 pixels. The
+  GPU pass read back against `composeMath.ts` at the same clock differs by
+  at most 4.8e-7 in any matrix entry (entries up to 2.5). Forcing the CPU
+  fallback draws 16 pixels apart from the GPU pass. Unit tests compare the
+  composed hold row against om-pose's own bake of the clip in that hold
+  (at most 2e-5, turned and not).
+- Horns-down cue, checked in the web preview from a close front-row view:
+  horns up on the cue's first count, bells about halfway down at its
+  middle (the baked transition row's prop bone is 48 of 90 degrees round
+  there), and the brass carry hold on its count, bell to the ground with
+  the mouthpiece at the face. Battery and guard, which the cue doesn't fit,
+  are unchanged.
+- Result against §8.5: layering costs nothing at 300 on an M1 Pro (the
+  frame is about 1 ms cheaper at high); the bake fits 4096 wide with room
+  to spare and takes 0.19 s. The integrated-GPU budget is still
+  unmeasured.
+
+### 2026-10-13 · trevor (3d/c4-silk) · C4.4, silk mesh and wave
+
+- Change measured: silks drawn in their own instanced cloth mesh per tier
+  with the stateless wave before skinning, against the flags' silks inside
+  the instrument mesh (56 × 36 at high, 6 × 4 at low).
+- Method: the web preview (`view3d-web:dev`) with a debug hook never
+  committed, LHB '26 Daft Punk demo (40 Color Guard 6 ft flags), Press box,
+  show clock pinned at 8.0 s (39 silks moving), headless Chromium, ANGLE
+  Metal, Apple M1 Pro. `renderer.info` with the silk meshes shown and
+  hidden; 100 frames synced with `readPixels` at 1920 × 1080, 3 rounds,
+  medians. The `task/gpu-benchmark` harness is not on this branch and was
+  not run.
+- Draw calls: +1 with 40 silks (high 121 against 120, low 49 against 48),
+  +1 with 72 swing silks and +1 with 144 double-swing silks: one call per
+  tier in use, at most 2.
+- Triangles: +7,680 for 40 silks on the 12 × 8 tier; the instrument mesh
+  sheds the old silk grids.
+- Frame time: high 5.75 against 5.68 ms (+0.07), low 3.29 against 3.03 ms
+  (+0.26), within run-to-run noise of a few tenths.
+- Scrubbing: the same count drawn after scrubbing away and back gives a
+  byte-identical screenshot (high and low); unit tests check the same
+  per-instance inputs and vertices after a scrub.
+- Not measured: a base M1, Intel Iris Xe (C4.7).
+
 ## Verdicts
+
+### 2026-10-09 · trevor (3d/architecture-props) · rifle, sabre and swing flag models
+
+- Rebuilt against product photos: an Ultra Spin rifle, a Zaber <!-- cspell:ignore Zaber --> sabre, and
+  swing flags held at the tab.
+- Rifle: the stock was a round lathe with a barrel, a barrel band and a
+  trigger guard standing proud of it. It is now a loft of rounded-rectangle
+  sections (`RIFLE_STATIONS`): 0.12 m deep at the butt, 0.033 m at the wrist
+  under the hand, a chrome bolt plate let into the top, no barrel or trigger
+  guard, and the sling drawn nearly straight from under the butt (z −0.255)
+  to under the fore-end (z 0.40). The hold's grip point and `leftGrip` are
+  unchanged.
+- Sabre: the blade went from 30 to 8 mm wide (a rapier point) to 25 to 19 mm
+  with a white rubber tip cap, and curves 85 mm off straight instead of 50.
+  The hilt is chrome, no longer the brass finish: a cup guard, a 24 mm flat
+  D-bow, two side bars, and four finger grooves on the edge side of the grip.
+- Swing flag: the silk covered the hand (it ran the pole's full 0.9 m). Now
+  the pole is 1.02 m with a 0.32 m bare tab below the hand side, the silk is
+  1.5 × 0.7 m with a sleeve around the pole, and its fly end droops 0.5 m and
+  rolls in a deeper wave. The 6 ft flag's silk is unchanged.
+- Triangles (high / low): swingFlag 4,864 / 328, doubleSwingFlag
+  9,728 / 656, rifle 6,464 / 1,104, sabre 9,088 / 924, flag6 4,736 / 288
+  (unchanged). All are inside the budgets in `guard.test.ts`.
+- Checked in a three.js preview of each model (side, top, three-quarter and
+  close views, high and low), not in the Electron app. Holds were not
+  changed; the Guard equipment setting puts the swing flags and sabre in
+  the guard's hands to check them there.
+
+### 2026-10-09 · trevor (3d/p7-instruments) · rifle finish and hold
+
+- Owner: the rifle read wrong in the app. It should be solid white and always
+  held parallel to the ground.
+- Cause of the color: one instrument material for every part, metalness 1 and
+  roughness 0.25, so the white stock drew as a mirror of the sky and field.
+  Wood, silk, black and drum-head parts now draw non-metallic at roughness
+  0.65, chosen per vertex from `_part` in the shader; brass, chrome and
+  shells are unchanged.
+- The hold: port arms (diagonal) and right shoulder arms (vertical) are
+  replaced by one level hold for every state, wrists at y 1.08 and z 0.22,
+  the muzzle along +X.
+- Checked in the web preview (Guard equipment set to Rifle, front-row camera,
+  zoomed in on one guard member): the rifle is matte white, level at the
+  waist, butt past the right hip, both hands on it.
+
+### 2026-10-09 · trevor (3d/p7-instruments) · swing flag holds
+
+- Owner: a swing flag is held in one hand; two are one in each hand at down
+  45, kept ready for swing animations later.
+- Before: both used the 6 ft flag's two-handed hold, the pole vertical in
+  front of the body. Now `swingFlag` and `doubleSwingFlag` are hold
+  families of their own, the same in every state. Wrists at
+  (∓0.50, 1.08, 0.09), 45 degrees out and down from the shoulders. The pole
+  runs on along the arm from a fist at its butt end (pole now −0.06 to 0.96
+  in the instrument frame), and the silk trails back, its lowest corner
+  0.09 m above the ground before the ripple. The silk no longer droops
+  along the pole.
+- The second flag is the first one's exact mirror image through the body's
+  center plane, worked out from the hold; `guard.test.ts` checks every
+  vertex, and that no silk vertex reaches the ground.
+- Checked in the web preview with Guard equipment set to Swing flag and to
+  Double swing, from the front row and the press box: one flag in the right
+  hand with the left arm down, or a low V with a flag in each hand.
+
+### 2026-10-09 · trevor (3d/p7-instruments) · modeled trumpet
+
+- Owner supplied "Trumpet" by Kagelok (Sketchfab, CC BY 4.0) as the
+  trumpet to use and the look for the other horns.
+- Source: 58 objects, 28,332 triangles, materials Gold, Silver, Black and
+  White, bell along +X and valve caps up +Z, 8.93 units long. The pinky hook
+  sits on the leadpipe side (−Y), the player's right with the bell forward,
+  so the file isn't mirrored.
+- Baked (Blender 4.2.3, `export-horn.py`, `trumpet.config.json`): scale
+  0.05375 to 0.48 m, origin chosen so the mouthpiece rim is at
+  (0, 0.018, −0.168) like the procedural trumpet's. High: 10,836 triangles
+  and 7,376 vertices; low: 3,423 and 2,483. The JSON is 406 KB. Re-running
+  the exporter reproduces it byte for byte.
+- Checked in the web preview from the front row: the trumpets draw the new
+  mesh, bells forward at the lips, valves and silver slides visible from
+  the side.
+
+### 2026-10-09 · trevor (3d/p7-instruments) · modeled mellophone, baritone, euphonium, contra
+
+- Owner: no more models to be found; build the rest to the reference photos.
+- `build-horns.py` (Blender 4.2.3) reuses the trumpet's valve block (scaled
+  1.25 mellophone, 1.45 baritone and euphonium, 1.7 contra) and mouthpiece
+  (1.1, 1.35, 1.4, 1.8), and sweeps new tubing and lathes new bells. Lengths
+  and heights are fractions of the horn's length measured off side-view
+  photos, with the procedural horns' lengths and bell diameters.
+- Sizes (length × width × height, m): mellophone 0.552 × 0.266 × 0.301,
+  baritone 0.622 × 0.256 × 0.347, euphonium 0.662 × 0.287 × 0.377, contra
+  0.974 × 0.512 × 0.562.
+- Triangles (high / low): mellophone 10,103 / 2,633; baritone 10,104 /
+  2,634; euphonium 10,105 / 2,631; contra 10,186 / 2,657. The five baked
+  meshes are 1.95 MB of JSON, about 650 KB gzipped.
+- Mouthpiece rims match the procedural horns' (−0.35 L mellophone, −0.36 L
+  baritone and euphonium, the contra's point unchanged), so no hold moved;
+  `brass.test.ts` pins them.
+- First pass faults fixed before baking, from Blender side renders: the
+  leadpipe sat inside the bell tube, the inner loop crossed the valves on a
+  diagonal, the contra's wrap kinked where it met the bell, and the wrap's
+  front bow climbed diagonally into the valves.
+- Checked in the web preview: the trumpet and mellophone sections at the lips from the
+  front row; a contra on the shoulder from the podium. A clean side-on view
+  of the baritones in their holds wasn't captured.

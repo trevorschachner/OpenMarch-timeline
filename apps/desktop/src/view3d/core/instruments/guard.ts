@@ -1,4 +1,4 @@
-// cspell:words cofactor forestock
+// cspell:words cofactor forestock Zaber
 /**
  * The color guard's equipment (docs/3d/instruments.md §3): a 6 ft flag, a
  * swing flag, a pair of swing flags, a drill rifle and a sabre. Pure: no
@@ -29,7 +29,9 @@ import type {
     InstrumentModel,
     ModelOptions,
     GuardModelId,
+    SilkSpec,
 } from "./model";
+import { hold } from "./holds";
 
 /**
  * Default colors by part: chrome, black, a brass hilt, the white of a drill
@@ -51,31 +53,28 @@ interface SegmentCounts {
     lathe: number;
     /** Rings around small parts: caps, bolt, swivels. */
     small: number;
-    /** A silk's grid: cells out from the pole and along it. */
-    silkOut: number;
-    silkAlong: number;
     /** Rings along the sabre's blade, and ridges of wire on its grip. */
     blade: number;
     ridges: number;
+    /** Rings between each pair of a lofted body's stations. */
+    loft: number;
 }
 const SEGMENTS: Record<Detail, SegmentCounts> = {
     high: {
         tube: 32,
         lathe: 48,
         small: 16,
-        silkOut: 56,
-        silkAlong: 36,
         blade: 40,
         ridges: 24,
+        loft: 6,
     },
     low: {
         tube: 10,
         lathe: 12,
         small: 6,
-        silkOut: 6,
-        silkAlong: 4,
         blade: 10,
         ridges: 6,
+        loft: 2,
     },
 };
 
@@ -198,55 +197,196 @@ function latheZ(
 }
 
 /**
- * A flag's silk: a grid of `out` by `along` cells in the XZ plane, from
- * `x0` out `width` toward +X and from `z0` up `height` along the pole, with a
- * sine ripple of `ripple` in +Y that is still at the pole and grows toward
- * the fly end, so it reads as cloth. Shared vertices; per-vertex normals
- * follow the ripple's slope and face +Y (counterclockwise seen from +Y).
+ * Replaces a piece's normals with the area-weighted average of the faces
+ * around each shared vertex: smooth shading for a surface whose shape comes
+ * from a displacement rather than a formula.
  */
-function silk(
-    width: number,
-    height: number,
-    ripple: number,
-    out: number,
-    along: number,
-    x0: number,
-    z0: number,
-): Piece {
-    const p: Piece = {
-        part: PART_SILK,
-        positions: [],
-        normals: [],
-        indices: [],
+function smoothNormals(p: Piece): Piece {
+    const n = new Array<number>(p.positions.length).fill(0);
+    const at = (i: number): Vec3 => [
+        p.positions[i * 3],
+        p.positions[i * 3 + 1],
+        p.positions[i * 3 + 2],
+    ];
+    for (let t = 0; t < p.indices.length; t += 3) {
+        const [a, b, c] = [p.indices[t], p.indices[t + 1], p.indices[t + 2]];
+        const [pa, pb, pc] = [at(a), at(b), at(c)];
+        const e1 = [pb[0] - pa[0], pb[1] - pa[1], pb[2] - pa[2]];
+        const e2 = [pc[0] - pa[0], pc[1] - pa[1], pc[2] - pa[2]];
+        // the unnormalized cross product weights each face by its area
+        const f = [
+            e1[1] * e2[2] - e1[2] * e2[1],
+            e1[2] * e2[0] - e1[0] * e2[2],
+            e1[0] * e2[1] - e1[1] * e2[0],
+        ];
+        for (const i of [a, b, c])
+            for (let k = 0; k < 3; k++) n[i * 3 + k] += f[k];
+    }
+    for (let i = 0; i < n.length; i += 3) {
+        const l = Math.hypot(n[i], n[i + 1], n[i + 2]) || 1;
+        n[i] /= l;
+        n[i + 1] /= l;
+        n[i + 2] /= l;
+    }
+    return { ...p, normals: n };
+}
+
+/**
+ * A station of a lofted body: at `z`, a cross-section from `bottom` to
+ * `top` in Y and `half` either side in X, its corners rounded by `square`
+ * (2 an ellipse, higher toward a rectangle).
+ */
+export interface Station {
+    z: number;
+    top: number;
+    bottom: number;
+    half: number;
+    square: number;
+}
+
+/** Catmull-Rom through the stations: the body's section at any `z` among them. */
+export function sectionAt(stations: Station[], z: number): Station {
+    let i = 0;
+    while (i < stations.length - 2 && stations[i + 1].z < z) i++;
+    const a = stations[Math.max(i - 1, 0)];
+    const b = stations[i];
+    const c = stations[i + 1];
+    const d = stations[Math.min(i + 2, stations.length - 1)];
+    const t = Math.min(1, Math.max(0, (z - b.z) / (c.z - b.z || 1)));
+    const cr = (k: keyof Station) =>
+        0.5 *
+        (2 * b[k] +
+            (c[k] - a[k]) * t +
+            (2 * a[k] - 5 * b[k] + 4 * c[k] - d[k]) * t * t +
+            (3 * b[k] - a[k] - 3 * c[k] + d[k]) * t * t * t);
+    return {
+        z,
+        top: cr("top"),
+        bottom: cr("bottom"),
+        half: cr("half"),
+        square: cr("square"),
     };
-    // u: 0 at the pole, 1 at the fly; v: 0 at the bottom, 1 at the top
-    const f = (u: number, v: number) =>
-        ripple *
-        Math.sin((Math.PI / 2) * Math.min(1, 3 * u)) *
-        Math.sin(2 * Math.PI * 1.5 * u + 0.6 * Math.PI * v);
-    const h = 1e-4;
-    for (let j = 0; j <= along; j++)
-        for (let i = 0; i <= out; i++) {
-            const u = i / out;
-            const v = j / along;
-            p.positions.push(x0 + u * width, f(u, v), z0 + v * height);
-            // surface y = f(x, z): normal (-df/dx, 1, -df/dz)
-            const dx = (f(u + h, v) - f(u - h, v)) / (2 * h * width);
-            const dz = (f(u, v + h) - f(u, v - h)) / (2 * h * height);
-            const l = Math.hypot(dx, 1, dz);
-            p.normals.push(-dx / l, 1 / l, -dz / l);
+}
+
+/**
+ * A closed body along +Z through `stations`: `steps` rings between each
+ * pair, `segments` points around each ring, smooth-shaded, with flat caps
+ * at both ends. For what a lathe can't make: a drill rifle's stock is
+ * flat-sided and deeper than it is wide.
+ */
+function loft(
+    stations: Station[],
+    steps: number,
+    segments: number,
+    part: number,
+): Piece {
+    const rings: Station[] = [];
+    for (let i = 0; i + 1 < stations.length; i++)
+        for (let k = 0; k < steps; k++)
+            rings.push(
+                sectionAt(
+                    stations,
+                    stations[i].z +
+                        ((stations[i + 1].z - stations[i].z) * k) / steps,
+                ),
+            );
+    rings.push(stations[stations.length - 1]);
+    const point = (s: Station, k: number): Vec3 => {
+        const a = (k / segments) * Math.PI * 2;
+        const e = 2 / s.square;
+        const c = Math.cos(a);
+        const sn = Math.sin(a);
+        return [
+            s.half * Math.sign(c) * Math.abs(c) ** e,
+            (s.top + s.bottom) / 2 +
+                ((s.top - s.bottom) / 2) * Math.sign(sn) * Math.abs(sn) ** e,
+            s.z,
+        ];
+    };
+    const body: Piece = { part, positions: [], normals: [], indices: [] };
+    for (const s of rings)
+        for (let k = 0; k < segments; k++) body.positions.push(...point(s, k));
+    for (let i = 0; i + 1 < rings.length; i++)
+        for (let k = 0; k < segments; k++) {
+            const a = i * segments + k;
+            const b = i * segments + ((k + 1) % segments);
+            const c = (i + 1) * segments + ((k + 1) % segments);
+            const d = (i + 1) * segments + k;
+            // each ring runs counterclockwise seen from +Z: (a, b, c) faces out
+            body.indices.push(a, b, c, a, c, d);
         }
-    const row = out + 1;
-    for (let j = 0; j < along; j++)
-        for (let i = 0; i < out; i++) {
-            const a = j * row + i; // (x, z)
-            const b = (j + 1) * row + i; // (x, z + 1)
-            const c = (j + 1) * row + i + 1; // (x + 1, z + 1)
-            const d = j * row + i + 1; // (x + 1, z)
-            // +Z then +X from a: the cross product points +Y
-            p.indices.push(a, b, c, a, c, d);
+    const out = smoothNormals(body);
+    // flat caps on their own vertices, so the end faces keep a crisp edge
+    const cap = (s: Station, dir: 1 | -1) => {
+        const first = out.positions.length / 3;
+        out.positions.push(0, (s.top + s.bottom) / 2, s.z);
+        out.normals.push(0, 0, dir);
+        for (let k = 0; k < segments; k++) {
+            out.positions.push(...point(s, k));
+            out.normals.push(0, 0, dir);
         }
-    return p;
+        for (let k = 0; k < segments; k++) {
+            const a = first + 1 + k;
+            const b = first + 1 + ((k + 1) % segments);
+            if (dir > 0) out.indices.push(first, a, b);
+            else out.indices.push(first, b, a);
+        }
+    };
+    cap(rings[0], -1);
+    cap(rings[rings.length - 1], 1);
+    return out;
+}
+
+/** `samples` points on a Catmull-Rom curve through `points`, ends included. */
+function curve(points: Vec3[], samples: number): Vec3[] {
+    const out: Vec3[] = [];
+    const n = points.length - 1;
+    for (let i = 0; i <= samples; i++) {
+        const f = (i / samples) * n;
+        const j = Math.min(Math.floor(f), n - 1);
+        const t = f - j;
+        const a = points[Math.max(j - 1, 0)];
+        const b = points[j];
+        const c = points[j + 1];
+        const d = points[Math.min(j + 2, n)];
+        out.push(
+            [0, 1, 2].map(
+                (k) =>
+                    0.5 *
+                    (2 * b[k] +
+                        (c[k] - a[k]) * t +
+                        (2 * a[k] - 5 * b[k] + 4 * c[k] - d[k]) * t * t +
+                        (3 * b[k] - a[k] - 3 * c[k] + d[k]) * t * t * t),
+            ) as Vec3,
+        );
+    }
+    return out;
+}
+
+/**
+ * Bends a piece built straight along +Z into a curve toward −X: each point
+ * past `base` moves by `k (z − base)²`, and its normal follows the slope.
+ */
+function bendX(p: Piece, base: number, k: number): Piece {
+    const out: Piece = { ...p, positions: [], normals: [] };
+    for (let i = 0; i < p.positions.length; i += 3) {
+        const [x, y, z] = [
+            p.positions[i],
+            p.positions[i + 1],
+            p.positions[i + 2],
+        ];
+        const d = Math.max(0, z - base);
+        out.positions.push(x - k * d * d, y, z);
+        // x' = x + f(z): the normal's z loses f'(z) times its x
+        const [nx, ny, nz] = [
+            p.normals[i],
+            p.normals[i + 1],
+            p.normals[i + 2] + 2 * k * d * p.normals[i],
+        ];
+        const l = Math.hypot(nx, ny, nz) || 1;
+        out.normals.push(nx / l, ny / l, nz / l);
+    }
+    return out;
 }
 
 /** A capped chrome pole along Z from `from` to `to`. */
@@ -288,342 +428,463 @@ const tape = (z: number, radius: number, s: SegmentCounts) =>
         PART_BLACK,
     );
 
-/** A pole from `butt` to `tip` with the silk hanging from its top `height`. */
+/**
+ * A silk's frame in the instrument frame: out to the fly along +X, up the
+ * pole along +Z, the face toward −Y (+X × +Z), so the frame is a rotation.
+ */
+const SILK_BASIS: SilkSpec["basis"] = [1, 0, 0, 0, 0, -1, 0, 1, 0];
+
+/** A silk's size, m: out to the fly, and along the pole. */
+interface SilkSize {
+    fly: number;
+    header: number;
+}
+
+/** The 6 ft flag's silk: 36 × 54 in. */
+export const FLAG6_SILK: SilkSize = { fly: 1.37, header: 0.9 };
+
+/**
+ * The swing flag's silk. Today's size, kept here alone so that C4.11's
+ * real swing cut (44 × 66 in: a 1.118 m header, 1.676 m fly) is a one-line
+ * change.
+ */
+export const SWING_SILK: SilkSize = { fly: 1.5, header: 0.7 };
+
+/**
+ * A pole from `butt` to `tip` with a silk of `silk`'s size hanging from its
+ * top. With `sleeve`, the silk's hem wraps the pole along its height, as a
+ * swing flag's does. The silk itself is a {@link SilkSpec}, drawn by the
+ * silk mesh; the hem is a piece, since it doesn't wave.
+ */
 function flag(
     butt: number,
     tip: number,
     radius: number,
-    width: number,
-    height: number,
+    silk: SilkSize,
     s: SegmentCounts,
-): Piece[] {
-    const bottom = tip - height;
-    return [
+    sleeve = false,
+): { pieces: Piece[]; silks: SilkSpec[] } {
+    const bottom = tip - silk.header;
+    const pieces = [
         pole(butt, tip, radius, s),
         endCap(butt, -1, radius, s),
         endCap(tip, 1, radius, s),
-        silk(width, height, 0.03, s.silkOut, s.silkAlong, radius, bottom),
         tape(bottom + 0.015, radius, s),
         tape(tip - 0.06, radius, s),
     ];
+    if (sleeve)
+        pieces.push(
+            smoothTube(
+                [
+                    [0, 0, bottom + 0.03],
+                    [0, 0, tip - 0.075],
+                ],
+                radius + 0.003,
+                s.tube,
+                PART_SILK,
+            ),
+        );
+    return {
+        pieces,
+        silks: [
+            {
+                fly: silk.fly,
+                header: silk.header,
+                basis: [...SILK_BASIS],
+                origin: [radius, 0, tip],
+                mirror: 1,
+            },
+        ],
+    };
 }
 
 /**
- * Where the left hand holds the second swing flag in the instrument frame:
- * the `flag` carry hold's left wrist relative to the right. The flag hold
- * turns instrument +X onto the body's right, so the left hand is at −X.
+ * A silk mapped by `p' = M p + t` where M mirrors: the frame stays a
+ * rotation (M · basis · diag(1, 1, −1)) and the wave flips its face instead.
  */
-const LEFT_FLAG: Vec3 = [-0.55, -0.07, -0.05];
+function mirrorSilk(silk: SilkSpec, m: Mat3, t: Vec3): SilkSpec {
+    const b = mul(m, silk.basis);
+    const o = silk.origin;
+    return {
+        ...silk,
+        basis: [b[0], b[1], -b[2], b[3], b[4], -b[5], b[6], b[7], -b[8]],
+        origin: [
+            m[0] * o[0] + m[1] * o[1] + m[2] * o[2] + t[0],
+            m[3] * o[0] + m[4] * o[1] + m[5] * o[2] + t[1],
+            m[6] * o[0] + m[7] * o[1] + m[8] * o[2] + t[2],
+        ],
+        mirror: silk.mirror === 1 ? -1 : 1,
+    };
+}
+
+/**
+ * The second swing flag as the first one's mirror image through the body's
+ * center plane, in the instrument frame of the `doubleSwingFlag` hold.
+ * With the hold's axes R (columns +X, +Y, +Z in the body) and origin o, the
+ * body mirror M = diag(−1, 1, 1) becomes `p' = Rᵀ M R p + Rᵀ (M o − o)`, and
+ * Rᵀ M R = I − 2 r rᵀ for r, the body's X axis seen in the instrument frame.
+ */
+function leftSwingFlag(): { m: Mat3; t: Vec3 } {
+    const { origin, bellAxis, capsAxis } = hold(
+        "doubleSwingFlag",
+        "up",
+    ).instrument;
+    const norm = (v: Vec3): Vec3 => {
+        const l = Math.hypot(v[0], v[1], v[2]) || 1;
+        return [v[0] / l, v[1] / l, v[2] / l];
+    };
+    // the same frame `instrumentGeometry` places the model in
+    const z = norm(bellAxis);
+    const d = capsAxis[0] * z[0] + capsAxis[1] * z[1] + capsAxis[2] * z[2];
+    const y = norm([
+        capsAxis[0] - d * z[0],
+        capsAxis[1] - d * z[1],
+        capsAxis[2] - d * z[2],
+    ]);
+    const x: Vec3 = [
+        y[1] * z[2] - y[2] * z[1],
+        y[2] * z[0] - y[0] * z[2],
+        y[0] * z[1] - y[1] * z[0],
+    ];
+    const r: Vec3 = [x[0], y[0], z[0]];
+    const m = [0, 1, 2].flatMap((i) =>
+        [0, 1, 2].map((j) => (i === j ? 1 : 0) - 2 * r[i] * r[j]),
+    ) as Mat3;
+    // Rᵀ (M o − o) is Rᵀ (−2 o_x, 0, 0): −2 o_x times r
+    const t: Vec3 = [
+        -2 * origin[0] * r[0],
+        -2 * origin[0] * r[1],
+        -2 * origin[0] * r[2],
+    ];
+    return { m, t };
+}
 
 /** The 6 ft flag: a 1.83 m pole (butt below the hand) and a 36 by 54 in silk. */
 function flag6(s: SegmentCounts): Omit<InstrumentModel, "id"> {
     return {
-        pieces: flag(-0.6, 1.23, 0.012, 1.37, 0.9, s),
+        ...flag(-0.6, 1.23, 0.012, FLAG6_SILK, s),
         leftGrip: [0, 0, -0.25],
         mouthpiece: [0, 0, 0],
     };
 }
 
-/** A swing flag: a 0.9 m pole with a 1.2 by 0.9 m silk along its length. */
+/**
+ * A swing flag: a 1 m pole held in one fist at its butt end, a bare tab
+ * above the hand, and a {@link SWING_SILK} silk sleeved along the rest of it.
+ */
 function swingFlag(s: SegmentCounts): Omit<InstrumentModel, "id"> {
     return {
-        pieces: flag(-0.3, 0.6, 0.013, 1.2, 0.9, s),
+        ...flag(-0.06, 0.96, 0.0125, SWING_SILK, s, true),
         leftGrip: [0, 0, -0.2],
         mouthpiece: [0, 0, 0],
     };
 }
 
-/** Two swing flags: the second mirrored in x and riding the left hand. */
+/** Two swing flags: the second the first's mirror image, riding the left hand. */
 function doubleSwingFlag(s: SegmentCounts): Omit<InstrumentModel, "id"> {
-    const right = swingFlag(s).pieces;
-    const left = right.map(
-        (p): Piece => ({
-            ...mapPiece(p, [-1, 0, 0, 0, 1, 0, 0, 0, 1], LEFT_FLAG),
-            bone: "handL",
-        }),
+    const right = swingFlag(s);
+    const { m, t } = leftSwingFlag();
+    const left = right.pieces.map(
+        (p): Piece => ({ ...mapPiece(p, m, t), bone: "handL" }),
+    );
+    const leftSilks = (right.silks ?? []).map(
+        (silk): SilkSpec => ({ ...mirrorSilk(silk, m, t), bone: "handL" }),
     );
     return {
-        pieces: [...right, ...left],
-        leftGrip: LEFT_FLAG,
+        pieces: [...right.pieces, ...left],
+        silks: [...(right.silks ?? []), ...leftSilks],
+        leftGrip: t,
         mouthpiece: [0, 0, 0],
     };
 }
 
-/** The stock's underside at the back swivel (z -0.22). */
-export const STOCK_UNDERSIDE = -0.082;
-
 /**
- * A drill rifle, 0.91 m: a white stock from the butt 0.3 m behind the hand,
- * the wrist at the grip, a forestock and barrel ahead to the muzzle, a
- * chrome bolt on the right side (−X), a black sling slung under the body.
+ * The drill rifle's body, modeled on a spinning rifle (an Ultra Spin): a
+ * flat-sided stock deeper than it is wide, its top nearly level from the
+ * butt plate to a dip at the wrist where the right hand holds it (the
+ * origin), rising to the receiver, then a forestock tapering to a rounded
+ * octagonal muzzle. No barrel stands proud of the wood.
  */
-function rifle(s: SegmentCounts): Omit<InstrumentModel, "id"> {
-    const butt = -0.3;
-    const muzzle = 0.61;
-    const pieces: Piece[] = [
-        // the stock: an oval deeper than wide, dropping toward the butt plate
-        latheZ(
-            [
-                [0, butt],
-                [0.016, butt],
-                [0.024, butt + 0.003],
-                [0.028, butt + 0.012],
-                [0.03, butt + 0.04],
-                [0.03, -0.2],
-                [0.028, -0.15],
-                [0.024, -0.1],
-                [0.019, -0.05],
-                [0.016, -0.02],
-                [0.0155, 0.0],
-                [0.017, 0.02],
-                [0.02, 0.035],
-            ],
-            s.lathe,
-            PART_WOOD,
-            0.75,
-            2,
-            [0, 0, 0],
-            0.1,
-        ),
-        // the receiver and forestock: a slimmer oval tapering to the barrel band
-        latheZ(
-            [
-                [0, 0.03],
-                [0.018, 0.03],
-                [0.02, 0.04],
-                [0.021, 0.08],
-                [0.02, 0.15],
-                [0.019, 0.25],
-                [0.018, 0.35],
-                [0.017, 0.45],
-                [0.016, 0.5],
-                [0.012, 0.515],
-                [0, 0.52],
-            ],
-            s.lathe,
-            PART_WOOD,
-            0.85,
-            1.35,
-        ),
-        // the barrel along the top of the forestock to the muzzle
-        smoothTube(
-            [
-                [0, 0.012, 0.2],
-                [0, 0.012, muzzle],
-            ],
-            0.0095,
-            s.tube,
-            PART_WOOD,
-        ),
-        // barrel bands
-        smoothTube(
-            [
-                [0, 0.004, 0.47],
-                [0, 0.004, 0.49],
-            ],
-            0.02,
-            s.small,
-            PART_CHROME,
-        ),
-        // the bolt: a chrome receiver plate on top, a handle out to the right with a ball knob
-        smoothTube(
-            [
-                [0, 0.026, 0.04],
-                [0, 0.026, 0.12],
-            ],
-            0.008,
-            s.small,
-            PART_CHROME,
-        ),
-        smoothTube(
-            [
-                [-0.004, 0.026, 0.06],
-                [-0.03, 0.018, 0.055],
-            ],
-            0.003,
-            s.small,
-            PART_CHROME,
-        ),
-        latheZ(
-            [
-                [0, -0.007],
-                [0.004, -0.006],
-                [0.0065, -0.003],
-                [0.007, 0],
-                [0.0065, 0.003],
-                [0.004, 0.006],
-                [0, 0.007],
-            ],
-            s.small,
-            PART_CHROME,
-            1,
-            1,
-            [-0.034, 0.017, 0.055],
-        ),
-        // trigger guard under the wrist
-        smoothTube(
-            [
-                [0, -0.028, 0.035],
-                [0, -0.045, 0.045],
-                [0, -0.045, 0.075],
-                [0, -0.028, 0.085],
-            ],
-            0.0025,
-            s.small,
-            PART_CHROME,
-        ),
-    ];
-    // the sling: swivel to swivel under the body, sagging a little in between.
-    // The back swivel hangs from the stock's underside, which at z -0.22 is
-    // y -0.082 (the stock's 0.03 radius stretched by 2 and dropped by the
-    // 0.1 shear); the front one from the forestock's, at y -0.023.
-    const front: Vec3 = [0, -0.035, 0.45];
-    const back: Vec3 = [0, -0.095, -0.22];
-    const steps = 24;
-    // a flat strap: a round tube squashed wide across X and thin in Y. The
-    // squash scales about the origin, so the path's y is pre-divided by it
-    // and the squash puts the strap's ends back on the swivel tips.
+export const RIFLE_STATIONS: Station[] = [
+    { z: -0.3, top: 0.019, bottom: -0.094, half: 0.017, square: 5 },
+    { z: -0.292, top: 0.024, bottom: -0.1, half: 0.021, square: 5 },
+    { z: -0.2, top: 0.022, bottom: -0.086, half: 0.021, square: 5 },
+    { z: -0.12, top: 0.018, bottom: -0.064, half: 0.02, square: 4.5 },
+    { z: -0.06, top: 0.012, bottom: -0.044, half: 0.018, square: 4 },
+    { z: -0.02, top: 0.004, bottom: -0.03, half: 0.016, square: 3.5 },
+    { z: 0.02, top: 0.006, bottom: -0.027, half: 0.016, square: 3.5 },
+    { z: 0.05, top: 0.02, bottom: -0.026, half: 0.018, square: 4 },
+    { z: 0.1, top: 0.024, bottom: -0.026, half: 0.019, square: 4.5 },
+    { z: 0.25, top: 0.022, bottom: -0.024, half: 0.018, square: 4.5 },
+    { z: 0.45, top: 0.017, bottom: -0.019, half: 0.016, square: 4.5 },
+    { z: 0.6, top: 0.013, bottom: -0.014, half: 0.013, square: 3 },
+    { z: 0.61, top: 0.01, bottom: -0.011, half: 0.01, square: 3 },
+];
+
+/** Where the sling's swivels hang: under the butt and under the forestock. */
+export const RIFLE_SWIVELS = { back: -0.255, front: 0.4 };
+
+/** A rifle's sling: a flat strap drawn nearly straight from `back` to `front`. */
+function sling(back: Vec3, front: Vec3, s: SegmentCounts): Piece {
+    // The squash scales about the origin, so the path's y is pre-divided by
+    // it and the squash puts the strap's ends back on the tips.
     const strapY = 0.6;
-    const sling: Vec3[] = [];
+    const steps = 16;
+    const path: Vec3[] = [];
     for (let i = 0; i <= steps; i++) {
         const t = i / steps;
-        sling.push([
+        path.push([
             0,
             (front[1] +
                 (back[1] - front[1]) * t -
-                0.03 * Math.sin(Math.PI * t)) /
+                0.006 * Math.sin(Math.PI * t)) /
                 strapY,
             front[2] + (back[2] - front[2]) * t,
         ]);
     }
-    pieces.push(
-        mapPiece(smoothTube(sling, 0.005, s.tube, PART_BLACK), [
-            2.4,
-            0,
-            0,
-            0,
-            strapY,
-            0,
-            0,
-            0,
-            1,
-        ]),
-        // swivels
+    return mapPiece(smoothTube(path, 0.005, s.tube, PART_BLACK), [
+        2.4,
+        0,
+        0,
+        0,
+        strapY,
+        0,
+        0,
+        0,
+        1,
+    ]);
+}
+
+/**
+ * A drill rifle, 0.91 m: the white body, a chrome bolt plate let into its
+ * top with the bolt's shroud at the back, and a black sling drawn taut
+ * between swivels under the butt and the forestock.
+ */
+function rifle(s: SegmentCounts): Omit<InstrumentModel, "id"> {
+    const top = (z: number) => sectionAt(RIFLE_STATIONS, z).top;
+    const bottom = (z: number) => sectionAt(RIFLE_STATIONS, z).bottom;
+    // a thin plate riding the stock's top between `from` and `to`
+    const plate = (
+        from: number,
+        to: number,
+        above: number,
+        below: number,
+        half: number,
+        part: number,
+    ) =>
+        loft(
+            [from, (2 * from + to) / 3, (from + 2 * to) / 3, to].map((z) => ({
+                z,
+                top: top(z) + above,
+                bottom: top(z) - below,
+                half,
+                square: 8,
+            })),
+            2,
+            s.small,
+            part,
+        );
+    const shroudY = top(0.05) + 0.004;
+    const pieces: Piece[] = [
+        loft(RIFLE_STATIONS, s.loft, s.tube, PART_WOOD),
+        // the bolt plate, and the ejection port's dark slot in it
+        plate(0.045, 0.205, 0.0025, 0.004, 0.0115, PART_CHROME),
+        plate(0.1, 0.175, 0.0033, 0.001, 0.0045, PART_BLACK),
+        // the bolt's shroud: a stepped chrome cylinder at the plate's back end
         smoothTube(
             [
-                [0, -0.012, front[2]],
-                [0, front[1], front[2]],
+                [0, shroudY, 0.03],
+                [0, shroudY, 0.065],
             ],
-            0.003,
+            0.0085,
             s.small,
             PART_CHROME,
         ),
         smoothTube(
             [
-                [0, STOCK_UNDERSIDE + 0.004, back[2]],
-                [0, back[1], back[2]],
+                [0, shroudY, 0.018],
+                [0, shroudY, 0.03],
             ],
-            0.003,
+            0.0065,
             s.small,
             PART_CHROME,
         ),
-    );
+    ];
+    // the swivels: short chrome loops from inside the wood down below it
+    const swivel = (z: number): Vec3 => {
+        pieces.push(
+            smoothTube(
+                [
+                    [0, bottom(z) + 0.004, z],
+                    [0, bottom(z) - 0.012, z],
+                ],
+                0.003,
+                s.small,
+                PART_CHROME,
+            ),
+        );
+        return [0, bottom(z) - 0.012, z];
+    };
+    const back = swivel(RIFLE_SWIVELS.back);
+    const front = swivel(RIFLE_SWIVELS.front);
+    pieces.push(sling(back, front, s));
     return { pieces, leftGrip: [0, 0, 0.36], mouthpiece: [0, 0, 0] };
 }
 
 /**
- * A guard sabre: a curved chrome blade 0.8 m ahead of the guard, flat across
- * Y, edge toward +X; a brass guard, knuckle bow and pommel; a black grip
- * 0.12 m behind the origin.
+ * The sabre's blade, 25 mm wide at the guard to 19 mm under a white rubber
+ * tip cap, curving back toward −X 85 mm off straight at the point.
  */
-function sabre(s: SegmentCounts): Omit<InstrumentModel, "id"> {
+function sabreBlade(s: SegmentCounts): Piece[] {
     const length = 0.8;
     const base = 0.015;
+    const end = base + length;
+    const k = 0.085 / (length * length);
     const rings = s.blade;
     const profile: [number, number][] = [];
-    for (let i = 0; i < rings; i++) {
+    for (let i = 0; i <= rings; i++) {
         const t = i / rings;
-        // tapers from 15 mm to 4 mm, then sweeps to a point over the last tenth
-        const r =
-            t < 0.9
-                ? 0.015 + (0.004 - 0.015) * (t / 0.9)
-                : 0.004 * Math.sqrt((1 - t) / 0.1) + 0.0008;
-        profile.push([r, base + t * length]);
+        // 25 mm wide at the guard, 19 mm under the tip's cap
+        profile.push([0.0125 - 0.003 * t, base + t * (length - 0.01)]);
     }
-    profile.push([0, base + length]);
-    // a thin, flat blade (thick in Y a fifth of its width) curving back toward −X
-    const blade = latheZ(profile, s.lathe, PART_CHROME, 1, 0.2);
-    const k = 0.05 / (length * length);
-    const bent: Piece = { ...blade, positions: [], normals: [] };
-    for (let i = 0; i < blade.positions.length; i += 3) {
-        const [x, y, z] = [
-            blade.positions[i],
-            blade.positions[i + 1],
-            blade.positions[i + 2],
-        ];
-        const d = z - base;
-        bent.positions.push(x - k * d * d, y, z);
-        // x' = x + f(z): the normal's z loses f'(z) times its x
-        const [nx, ny, nz] = [
-            blade.normals[i],
-            blade.normals[i + 1],
-            blade.normals[i + 2] + 2 * k * d * blade.normals[i],
-        ];
-        const l = Math.hypot(nx, ny, nz) || 1;
-        bent.normals.push(nx / l, ny / l, nz / l);
-    }
-    // the grip: a wire-wrapped black barrel from the pommel to the guard
+    profile.push([0, end]);
+    const blade = latheZ(profile, s.lathe, PART_CHROME, 1, 0.16);
+    const tipCap = latheZ(
+        [
+            [0, end - 0.045],
+            [0.0105, end - 0.044],
+            [0.0115, end - 0.04],
+            [0.0115, end - 0.008],
+            [0.009, end + 0.002],
+            [0.005, end + 0.006],
+            [0, end + 0.007],
+        ],
+        s.small,
+        PART_WOOD,
+        1,
+        0.55,
+    );
+    return [bendX(blade, base, k), bendX(tipCap, base, k)];
+}
+
+/**
+ * The sabre's grip: an oval black barrel from the pommel to the guard, its
+ * edge side pressed into four finger grooves.
+ */
+function sabreGrip(s: SegmentCounts): Piece {
+    const gripRings = s.ridges;
     const grip: [number, number][] = [];
-    const ridges = s.ridges;
-    for (let i = 0; i <= ridges; i++) {
-        const t = i / ridges;
-        const swell = 0.013 + 0.002 * Math.sin(Math.PI * t);
-        grip.push([swell + (i % 2 ? 0.0008 : 0), -0.12 + 0.12 * t]);
+    for (let i = 0; i <= gripRings; i++) {
+        const t = i / gripRings;
+        grip.push([
+            0.0135 + 0.0015 * Math.sin(Math.PI * t),
+            -0.125 + 0.117 * t,
+        ]);
     }
+    const plain = latheZ(grip, s.lathe, PART_BLACK, 1, 0.8);
+    const grooved: Piece = { ...plain, positions: [...plain.positions] };
+    for (let i = 0; i < grooved.positions.length; i += 3) {
+        const x = grooved.positions[i];
+        if (x <= 0) continue;
+        const t = (grooved.positions[i + 2] + 0.125) / 0.117;
+        const dip = 0.5 + 0.5 * Math.cos(2 * Math.PI * 4 * t);
+        grooved.positions[i] = x * (1 - 0.3 * dip * Math.sin(Math.PI * t));
+    }
+    return smoothNormals(grooved);
+}
+
+/** A side bar from the sabre's cup into its bow, so the hilt reads as a basket. */
+const sabreBar = (y: number, s: SegmentCounts) =>
+    smoothTube(
+        curve(
+            [
+                [0.035, y, 0.008],
+                [0.055, y * 1.1, -0.012],
+                [0.066, y * 0.7, -0.045],
+            ],
+            Math.ceil(s.ridges / 2),
+        ),
+        0.0022,
+        s.small,
+        PART_CHROME,
+    );
+
+/**
+ * A guard sabre, modeled on a spinning sabre (a Zaber): a broad curved
+ * chrome blade 0.8 m ahead of the guard, flat across Y, its edge toward +X
+ * and its point capped in white rubber; a chrome cup guard and a wide
+ * D-shaped knuckle bow over the fingers; a black grip 0.12 m behind the
+ * origin, its finger grooves on the edge side.
+ */
+function sabre(s: SegmentCounts): Omit<InstrumentModel, "id"> {
+    // the knuckle bow: a flat chrome band from the cup's edge out around the
+    // fingers to the pommel, 24 mm wide across Y
+    const bowY = 4;
+    const bow = mapPiece(
+        smoothTube(
+            curve(
+                [
+                    [0.045, 0, 0.004],
+                    [0.062, 0, -0.018],
+                    [0.068, 0, -0.055],
+                    [0.062, 0, -0.095],
+                    [0.038, 0, -0.127],
+                    [0.006, 0, -0.133],
+                ],
+                s.ridges,
+            ),
+            0.003,
+            s.small,
+            PART_CHROME,
+        ),
+        [1, 0, 0, 0, bowY, 0, 0, 0, 1],
+    );
     const pieces: Piece[] = [
-        bent,
-        latheZ(grip, s.lathe, PART_BLACK, 0.85, 1),
-        // the guard: an oval brass plate, wider toward the edge side
+        ...sabreBlade(s),
+        sabreGrip(s),
+        // the ferrule where the blade meets the guard
         latheZ(
             [
-                [0, 0],
-                [0.025, 0],
-                [0.03, 0.003],
-                [0.03, 0.009],
-                [0.025, 0.012],
-                [0, 0.012],
+                [0.0135, 0.006],
+                [0.0135, 0.022],
+                [0.0125, 0.026],
+            ],
+            s.small,
+            PART_CHROME,
+            1,
+            0.55,
+        ),
+        // the cup guard: an oval chrome plate, deeper toward the edge side
+        latheZ(
+            [
+                [0, -0.004],
+                [0.026, -0.004],
+                [0.032, -0.001],
+                [0.033, 0.004],
+                [0.028, 0.009],
+                [0, 0.01],
             ],
             s.lathe,
-            PART_METAL,
-            1.3,
-            0.8,
-            [0.01, 0, 0.002],
+            PART_CHROME,
+            1.35,
+            0.85,
+            [0.012, 0, 0],
         ),
-        // the knuckle bow: from the guard's edge side back to the pommel
-        smoothTube(
-            [
-                [0.042, 0, 0.006],
-                [0.05, 0, -0.03],
-                [0.046, 0, -0.08],
-                [0.03, 0, -0.115],
-                [0.012, 0, -0.128],
-            ],
-            0.004,
-            s.small,
-            PART_METAL,
-        ),
+        bow,
+        sabreBar(0.014, s),
+        sabreBar(-0.014, s),
         // the pommel cap
         latheZ(
             [
-                [0, -0.14],
-                [0.007, -0.138],
-                [0.012, -0.132],
-                [0.0145, -0.124],
-                [0.014, -0.118],
-                [0.012, -0.116],
+                [0, -0.142],
+                [0.007, -0.14],
+                [0.012, -0.134],
+                [0.0145, -0.126],
+                [0.014, -0.12],
+                [0.012, -0.118],
             ],
             s.lathe,
-            PART_METAL,
+            PART_CHROME,
         ),
     ];
     return { pieces, leftGrip: [0, 0, -0.06], mouthpiece: [0, 0, 0] };

@@ -1,8 +1,10 @@
+// cspell:words metalnessmap roughnessmap
 /**
- * An instrument as rigid geometry on the right hand (docs/3d/instruments.md
- * §4), in the body's bind pose so om-pose's instanced skinning carries it
- * with the hand, colored per vertex in the look's finish, and the smooth
- * metallic material that draws it under the same bake.
+ * An instrument as rigid geometry (docs/3d/instruments.md §4), colored per
+ * vertex in the look's finish, and the smooth metallic material that draws
+ * it from the same composed bones as the bodies. Right-hand pieces skin to
+ * the prop bone (performer-behavior.md section 8.3), in the instrument's own
+ * frame; chest and left-hand pieces sit in their bone's bind pose.
  */
 import * as THREE from "three";
 import { BRASS_COLORS } from "@/view3d/core/instruments/brass";
@@ -13,14 +15,14 @@ import type {
 import type { Finish } from "@/view3d/core/instruments/catalog";
 import type { Hold } from "@/view3d/core/instruments/holds";
 import {
+    PART_BLACK,
+    PART_HEAD,
     PART_METAL,
     PART_SHELL,
     PART_SILK,
+    PART_WOOD,
 } from "@/view3d/core/instruments/mesh";
-import {
-    instancedSkinning,
-    type Bake,
-} from "@/view3d/vendor/om-pose/instanced-marchers.js";
+import { composedSkinning, type Composer } from "@/view3d/render/composer";
 import type { ArmPose } from "./armPose";
 
 /** The metal's sRGB color per finish: gold lacquer, silver lacquer. */
@@ -41,6 +43,26 @@ function placement(hold: Hold): THREE.Matrix4 {
         .setPosition(new THREE.Vector3(...hold.instrument.origin));
 }
 
+/**
+ * The right hand's grip on the instrument: the matrix that takes points in
+ * the instrument's own frame to the bind pose of a vertex skinned to the
+ * right hand, so that skinned with the hand posed by `hold` they land on the
+ * hold's placement. The prop bone is the hand's skinning matrix times this.
+ */
+export function gripMatrix(
+    skeleton: THREE.Skeleton,
+    pose: ArmPose,
+    hold: Hold,
+): THREE.Matrix4 {
+    const index = skeleton.bones.findIndex((b) => b.name === "DEF-handR");
+    if (index < 0) throw new Error("gripMatrix: no DEF-handR bone");
+    return skeleton.boneInverses[index]
+        .clone()
+        .invert()
+        .multiply(pose.handR.clone().invert())
+        .multiply(placement(hold));
+}
+
 const BONE_NAMES: Record<InstrumentBone, string> = {
     handR: "DEF-handR",
     handL: "DEF-handL",
@@ -48,6 +70,53 @@ const BONE_NAMES: Record<InstrumentBone, string> = {
 };
 
 const linear = (hex: number) => new THREE.Color(hex); // Color converts sRGB hex to linear
+
+/** Where a bone's pieces go: the bone's index, and the matrix to its bind pose. */
+export interface InstrumentFrame {
+    index: number;
+    /** Takes instrument-frame points to the bind pose of a vertex on this bone. */
+    toBind: THREE.Matrix4;
+}
+
+/**
+ * Per bone, how instrument-frame points skin to it under `hold`: right-hand
+ * pieces ride the prop bone (after the skeleton's bones), which is the
+ * right hand times the hold's grip (`gripMatrix`), baked into every Horn
+ * row, so they stay in the instrument's own frame and follow any hold or
+ * transition the channel plays; left-hand pieces move with the hold's left
+ * hand; chest pieces stay at bind.
+ */
+export function instrumentFrames(
+    skeleton: THREE.Skeleton,
+    pose: ArmPose,
+    hold: Hold,
+): (bone: InstrumentBone) => InstrumentFrame {
+    const place = placement(hold);
+    const frames = new Map<InstrumentBone, InstrumentFrame>();
+    return (bone) => {
+        let f = frames.get(bone);
+        if (f) return f;
+        if (bone === "handR") {
+            f = { index: skeleton.bones.length, toBind: new THREE.Matrix4() };
+            frames.set(bone, f);
+            return f;
+        }
+        const index = skeleton.bones.findIndex(
+            (b) => b.name === BONE_NAMES[bone],
+        );
+        if (index < 0)
+            throw new Error(`instrumentGeometry: no ${BONE_NAMES[bone]} bone`);
+        const bind = skeleton.boneInverses[index].clone().invert();
+        const posed = bone === "handL" ? pose.handL : bind;
+        const toBind = bind
+            .clone()
+            .multiply(posed.clone().invert())
+            .multiply(place);
+        f = { index, toBind };
+        frames.set(bone, f);
+        return f;
+    };
+}
 
 export function instrumentGeometry(
     skeleton: THREE.Skeleton,
@@ -58,36 +127,7 @@ export function instrumentGeometry(
     /** sRGB: the section's color, for drum shells and flag silks. */
     sectionColor = 0xffffff,
 ): THREE.BufferGeometry {
-    const place = placement(hold);
-    /** Per bone: its index and the matrix taking placed body-frame points to the bind pose. */
-    const frames = new Map<
-        InstrumentBone,
-        { index: number; toBind: THREE.Matrix4 }
-    >();
-    const frameOf = (bone: InstrumentBone) => {
-        let f = frames.get(bone);
-        if (f) return f;
-        const index = skeleton.bones.findIndex(
-            (b) => b.name === BONE_NAMES[bone],
-        );
-        if (index < 0)
-            throw new Error(`instrumentGeometry: no ${BONE_NAMES[bone]} bone`);
-        const bind = skeleton.boneInverses[index].clone().invert();
-        // the hands move with the hold; the chest stays at bind
-        const posed =
-            bone === "handR"
-                ? pose.handR
-                : bone === "handL"
-                  ? pose.handL
-                  : bind;
-        const toBind = bind
-            .clone()
-            .multiply(posed.clone().invert())
-            .multiply(place);
-        f = { index, toBind };
-        frames.set(bone, f);
-        return f;
-    };
+    const frameOf = instrumentFrames(skeleton, pose, hold);
     const metal = linear(FINISH_COLORS[finish]);
     const section = linear(sectionColor);
     const pos: number[] = [];
@@ -146,10 +186,57 @@ export function instrumentGeometry(
 }
 
 /**
- * The instruments' material: smooth, metallic, colored per vertex, driven
- * by the same bake as the bodies. One per marcher set.
+ * Parts that aren't metal: a drill rifle's painted stock, a silk, rubber and
+ * plastic, a drum's head. They draw matte, at {@link MATTE_ROUGHNESS}; a
+ * metallic surface shows only reflections, so a white stock would read as
+ * chrome.
  */
-export function instrumentMaterial(bake: Bake): THREE.MeshStandardMaterial {
+export const MATTE_PARTS = [PART_WOOD, PART_SILK, PART_BLACK, PART_HEAD];
+export const MATTE_ROUGHNESS = 0.65;
+
+/**
+ * Patches a standard material's shaders so vertices whose `_part` is one
+ * of the {@link MATTE_PARTS} draw non-metallic at {@link MATTE_ROUGHNESS}.
+ */
+export function matteShader(shader: {
+    vertexShader: string;
+    fragmentShader: string;
+}): void {
+    const isMatte = MATTE_PARTS.map(
+        (p) => `abs(_part - ${p.toFixed(1)}) < 0.5`,
+    ).join(" || ");
+    shader.vertexShader = shader.vertexShader
+        .replace(
+            "#include <common>",
+            "#include <common>\nattribute float _part;\nvarying float vMatte;",
+        )
+        .replace(
+            "#include <begin_vertex>",
+            `#include <begin_vertex>\n  vMatte = (${isMatte}) ? 1.0 : 0.0;`,
+        );
+    shader.fragmentShader = shader.fragmentShader
+        .replace(
+            "#include <common>",
+            "#include <common>\nvarying float vMatte;",
+        )
+        .replace(
+            "#include <metalnessmap_fragment>",
+            "#include <metalnessmap_fragment>\n  metalnessFactor *= 1.0 - vMatte;",
+        )
+        .replace(
+            "#include <roughnessmap_fragment>",
+            `#include <roughnessmap_fragment>\n  roughnessFactor = mix(roughnessFactor, ${MATTE_ROUGHNESS.toFixed(2)}, vMatte);`,
+        );
+}
+
+/**
+ * The instruments' material: smooth, metallic, colored per vertex, skinned
+ * from the same composed bones as the bodies, with the {@link MATTE_PARTS}
+ * matte. One per marcher set.
+ */
+export function instrumentMaterial(
+    composer: Composer,
+): THREE.MeshStandardMaterial {
     const material = new THREE.MeshStandardMaterial({
         color: 0xffffff,
         metalness: 1,
@@ -160,5 +247,7 @@ export function instrumentMaterial(bake: Bake): THREE.MeshStandardMaterial {
         // bells and tube ends are open surfaces: looking into a bell must show its inside
         side: THREE.DoubleSide,
     });
-    return instancedSkinning(THREE, material, bake);
+    // composedSkinning chains onto this, so it runs first
+    material.onBeforeCompile = matteShader;
+    return composedSkinning(material, composer);
 }

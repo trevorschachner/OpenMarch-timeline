@@ -1,15 +1,21 @@
 import { describe, expect, it } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
-import type { Manifest } from "@/view3d/vendor/om-pose/step-blend.js";
+import type { Manifest } from "@/view3d/render/step-blend.js";
 import type { MarcherTimeline } from "@/utilities/Keyframes";
 import FieldPropertiesTemplates from "@/global/classes/FieldProperties.templates";
 import { buildCountClock } from "@/view3d/core/marchers/countClock";
 import { eventRows } from "@/view3d/core/marchers/planner";
-import { MarcherMotion, planShow, STEP_AHEAD } from "../marchers/marcherMotion";
+import {
+    compileWindowCues,
+    MarcherMotion,
+    planShow,
+    STEP_AHEAD,
+} from "../marchers/marcherMotion";
+import { CUE_LEAD } from "@/view3d/core/marchers/cueInputs";
 import { planMarcher } from "@/view3d/core/marchers/planner";
 import type { MarcherBodies } from "../marchers/marcherBodies";
-import type { MarcherClip } from "@/view3d/vendor/om-pose/instanced-marchers.js";
+import type { MarcherClip } from "@/view3d/render/instanced-marchers.js";
 
 const manifest = JSON.parse(
     fs.readFileSync(
@@ -46,17 +52,18 @@ describe("planning the show", () => {
         timeline(830, 500, 90),
         timeline(860, 500, 0),
     ];
-    const first = planShow(ids, lines, [1, 1, 1], clock, fp, manifest, 0);
+    const first = planShow(ids, lines, [1, 1, 1], clock, fp, manifest, null);
 
     it("plans every marcher the first time", () => {
         expect(first.replanned).toBe(3);
         expect(first.plans.every((p) => p !== null)).toBe(true);
     });
 
-    it("marks time for the marcher who holds while others move", () => {
+    // This used to expect automatic mark time while others move; stand is
+    // the hold default now (performer-behavior.md section 3).
+    it("stands still for the marcher who holds while others move", () => {
         const clips = first.plans[2]!.events.map((e) => e.clip);
-        expect(clips).toContain("stepoff_marktime");
-        expect(clips).toContain("marktime");
+        expect(clips).toEqual(["attention"]);
     });
 
     it("reuses the plans of marchers whose drill didn't change", () => {
@@ -68,7 +75,7 @@ describe("planning the show", () => {
             clock,
             fp,
             manifest,
-            0,
+            null,
             first,
         );
         expect(next.replanned).toBe(1);
@@ -77,8 +84,8 @@ describe("planning the show", () => {
         expect(next.plans[2]).toBe(first.plans[2]);
     });
 
-    it("plans everyone again when the band's rests change", () => {
-        // marcher 1 and 2 stop moving: nobody moves, so marcher 3 stands at attention
+    it("keeps a holding marcher's plan when the others stop moving", () => {
+        // no more band rests: a holder's plan doesn't depend on the others
         const still = [timeline(800, 500, 0), timeline(830, 500, 0), lines[2]];
         const next = planShow(
             ids,
@@ -87,11 +94,11 @@ describe("planning the show", () => {
             clock,
             fp,
             manifest,
-            0,
+            null,
             first,
         );
-        expect(next.replanned).toBe(3);
-        expect(next.plans[2]!.events.map((e) => e.clip)).toEqual(["attention"]);
+        expect(next.replanned).toBe(2);
+        expect(next.plans[2]).toBe(first.plans[2]);
     });
 
     it("plans everyone again when the tempo changes", () => {
@@ -108,10 +115,79 @@ describe("planning the show", () => {
             faster,
             fp,
             manifest,
-            0,
+            null,
             first,
         );
         expect(next.replanned).toBe(3);
+    });
+});
+
+describe("planning from the window's cues", () => {
+    const ids = [1, 2];
+    const lines = [timeline(800, 500, 90), timeline(830, 500, 90)];
+    const beats = Array.from({ length: 16 }, (_, k) => ({
+        id: 50 + k,
+        timestamp: k * 0.5,
+        duration: 0.5,
+    }));
+    const marchers = ids.map((id) => ({ id, section: "Trumpet" }));
+
+    it("puts the cue counts and the plan clock one count apart, as the window plays them", () => {
+        expect(CUE_LEAD).toBe(STEP_AHEAD);
+    });
+
+    it("steps off on the window's foot, a preview of the show default", () => {
+        const right = planShow(
+            ids,
+            lines,
+            [1, 1],
+            clock,
+            fp,
+            manifest,
+            compileWindowCues(marchers, beats, "right"),
+        );
+        const moves = right.plans[0]!.events.filter((e) => e.kind !== "rest");
+        expect(moves.length).toBeGreaterThan(0);
+        expect(moves.every((e) => e.foot === "right")).toBe(true);
+        const left = planShow(
+            ids,
+            lines,
+            [1, 1],
+            clock,
+            fp,
+            manifest,
+            compileWindowCues(marchers, beats, "left"),
+        );
+        expect(left.plans[0]!.events.every((e) => e.foot === "left")).toBe(
+            true,
+        );
+    });
+
+    it("plans again when the cues change", () => {
+        const cues = compileWindowCues(marchers, beats, "left");
+        const first = planShow(ids, lines, [1, 1], clock, fp, manifest, cues);
+        const same = planShow(
+            ids,
+            lines,
+            [1, 1],
+            clock,
+            fp,
+            manifest,
+            cues,
+            first,
+        );
+        expect(same.replanned).toBe(0);
+        const next = planShow(
+            ids,
+            lines,
+            [1, 1],
+            clock,
+            fp,
+            manifest,
+            compileWindowCues(marchers, beats, "right"),
+            first,
+        );
+        expect(next.replanned).toBe(2);
     });
 });
 
@@ -133,7 +209,6 @@ describe("playing a crossfade", () => {
         heading: 0,
         positions,
         bpm: new Float64Array(9).fill(120),
-        bandMoving: Uint8Array.from([1, 1, 1, 1, 1, 1, 1, 1, 0]),
     });
     const fade = plan.events.find((e) => e.kind === "crossfade")!;
 
@@ -150,12 +225,11 @@ describe("playing a crossfade", () => {
         }
         const bodies = {
             bake: { rows },
-            holdOf: () => "none",
             setClip(slot: number, clip: MarcherClip) {
                 writes.push({ slot, clip });
             },
         } as unknown as MarcherBodies;
-        const m = new MarcherMotion([plan], manifest, bodies, 0);
+        const m = new MarcherMotion([plan], manifest, bodies);
         const xz = new Float32Array(2);
         const placed = Uint8Array.from([1]);
         return { m, writes, xz, placed };
@@ -202,7 +276,6 @@ describe("playing a slot's rows", () => {
         positions,
         heading: 0,
         bpm: new Float64Array(5).fill(120),
-        bandMoving: Uint8Array.from([1, 1, 1, 1, 0]),
     });
     const rows: Record<
         string,
@@ -210,21 +283,19 @@ describe("playing a slot's rows", () => {
     > = {};
     let r = 0;
     for (const e of plan.events) {
-        rows[`${e.clip}@brass:up`] = { row: r++, frames: 60, counts: 2 };
-        if (e.clip2)
-            rows[`${e.clip2}@brass:up`] = { row: r++, frames: 60, counts: 2 };
+        rows[e.clip] = { row: r++, frames: 60, counts: 2 };
+        if (e.clip2) rows[e.clip2] = { row: r++, frames: 60, counts: 2 };
     }
 
     function motion() {
         const writes: { slot: number; clip: MarcherClip }[] = [];
         const bodies = {
             bake: { rows },
-            holdOf: () => "brass:up",
             setClip(slot: number, clip: MarcherClip) {
                 writes.push({ slot, clip });
             },
         } as unknown as MarcherBodies;
-        const m = new MarcherMotion([plan], manifest, bodies, 0);
+        const m = new MarcherMotion([plan], manifest, bodies);
         return {
             m,
             writes,
@@ -233,13 +304,11 @@ describe("playing a slot's rows", () => {
         };
     }
 
-    it("looks rows up by the slot's hold", () => {
+    it("looks Feet rows up by clip, whatever the slot carries", () => {
         const { m, writes, xz, placed } = motion();
         m.update(0.5 - STEP_AHEAD, xz, placed);
         expect(writes.length).toBe(1);
-        expect(writes[0].clip.row).toBe(
-            rows[`${plan.events[0].clip}@brass:up`],
-        );
+        expect(writes[0].clip.row).toBe(rows[plan.events[0].clip]);
     });
 
     it("writes a loop once, not every frame", () => {
@@ -264,7 +333,6 @@ describe("landing each foot on its click", () => {
         positions,
         heading: 0,
         bpm: new Float64Array(8).fill(120),
-        bandMoving: Uint8Array.from([0, 1, 1, 1, 1, 0, 0, 0]),
     });
     const rows: Record<
         string,
@@ -279,12 +347,11 @@ describe("landing each foot on its click", () => {
         const writes: { slot: number; clip: MarcherClip }[] = [];
         const bodies = {
             bake: { rows },
-            holdOf: () => "none",
             setClip(slot: number, clip: MarcherClip) {
                 writes.push({ slot, clip });
             },
         } as unknown as MarcherBodies;
-        const m = new MarcherMotion([plan], manifest, bodies, 0);
+        const m = new MarcherMotion([plan], manifest, bodies);
         return {
             m,
             writes,

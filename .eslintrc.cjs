@@ -10,11 +10,12 @@ module.exports = {
         "**/node_modules/*",
         "**/dist/*",
         "**/dist-electron/*",
+        "**/dist-browser/*",
+        "**/dist-browser-host/*",
         "**/build/*",
         "**/src/styles/**/*.css",
         ".eslintrc.cjs",
         "**/astro.d.ts",
-        "**/view3d/vendor/**/*.js",
     ],
     parser: "@typescript-eslint/parser",
     parserOptions: {

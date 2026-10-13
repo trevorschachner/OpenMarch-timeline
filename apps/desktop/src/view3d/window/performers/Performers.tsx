@@ -47,8 +47,14 @@ import {
 } from "@/view3d/core/marchers/countClock";
 import { plannedClips, eventRows } from "@/view3d/core/marchers/planner";
 import {
+    performerCarryOf,
+    planHornChannel,
+} from "@/view3d/core/marchers/hornChannel";
+import {
     defaultPerformerBody,
     bassOptions,
+    DEFAULT_PRIMARY,
+    rgbToNumber,
     sectionUniform,
 } from "@/view3d/core/marchers/looks";
 import { usePerformerTimelines } from "@/view3d/positions";
@@ -70,9 +76,11 @@ import {
 } from "./performerData";
 import type { MarcherSlotLook } from "./marchers/marcherBodies";
 import {
+    compileWindowCues,
     MarcherMotion,
     planShow,
     STEP_AHEAD,
+    type HornSlot,
     type ShowPlans,
 } from "./marchers/marcherMotion";
 import {
@@ -80,7 +88,9 @@ import {
     useMarcherAssets,
     useMarcherBodies,
 } from "./marchers/useMarcherBodies";
-import { clipsToLoad, rowKey, slotHoldId } from "./marchers/marcherBodies";
+import { clipsToLoad } from "./marchers/marcherBodies";
+import { hornRowsOf } from "./marchers/hornRows";
+import { SilkMotion } from "./marchers/silkMotion";
 
 const CYLINDER_SEGMENTS = 20;
 const RING_SEGMENTS = 32;
@@ -95,6 +105,7 @@ export default function Performers({ fieldProperties }: PerformersProps) {
     const queryClient = useQueryClient();
     const quality = useView3dSceneStore((s) => s.quality);
     const hornState = useView3dSceneStore((s) => s.hornState);
+    const guardEquipment = useView3dSceneStore((s) => s.guardEquipment);
     const stepOffFoot = useView3dSceneStore((s) => s.stepOffFoot);
     const selectedPageId = useView3dSyncStore(
         (s) => s.selection.selectedPageId,
@@ -154,9 +165,17 @@ export default function Performers({ fieldProperties }: PerformersProps) {
         return rows.map(([id, section, fill], i) => ({
             // varied heights at high quality; one height (one bake class) at low
             body: defaultPerformerBody(id, { varyHeight: quality === "high" }),
-            uniform: sectionUniform(section, fill, hornState, options[i]),
+            uniform: sectionUniform(
+                section,
+                fill,
+                hornState,
+                options[i],
+                guardEquipment === "section" ? undefined : guardEquipment,
+            ),
+            // no Silk cues yet: a plain silk in the section's 2D color
+            silkColor: fill ? rgbToNumber(fill) : DEFAULT_PRIMARY,
         }));
-    }, [looksKey, quality, hornState]);
+    }, [looksKey, quality, hornState, guardEquipment]);
     const heightClasses = useMemo(
         () => [...new Set((marcherLooks ?? []).map((l) => l.body.heightClass))],
         [marcherLooks],
@@ -165,9 +184,46 @@ export default function Performers({ fieldProperties }: PerformersProps) {
     // The count clock and every marcher's clip plan for the whole show.
     const { beats } = useTimingObjects();
     const clock = useMemo(() => buildCountClock(beats), [beats]);
+    // What each marcher carries, for the cues that fit them; keyed on the
+    // carry alone, so a horn-state or quality change doesn't recompile.
+    const carriesKey = useMemo(
+        () =>
+            marcherLooks
+                ? JSON.stringify(
+                      slots.ids.map((id, i) => [
+                          id,
+                          performerCarryOf(
+                              marcherLooks[i]?.uniform.options.carry?.family ??
+                                  null,
+                          ),
+                      ]),
+                  )
+                : null,
+        [marcherLooks, slots.ids],
+    );
+    // The cues compiled for every marcher. No cues are stored yet, so this
+    // is the defaults (stand on holds, face the front, the look's horn
+    // hold), with the window's step-off foot as an unsaved preview of the
+    // show default.
+    const cues = useMemo(() => {
+        if (!marchers || !carriesKey) return null;
+        const carries = new Map(
+            JSON.parse(carriesKey) as [
+                number,
+                ReturnType<typeof performerCarryOf>,
+            ][],
+        );
+        return compileWindowCues(
+            marchers,
+            beats,
+            stepOffFoot,
+            [],
+            (id) => carries.get(id) ?? "none",
+        );
+    }, [marchers, beats, stepOffFoot, carriesKey]);
     const previousPlans = useRef<ShowPlans | null>(null);
     const showPlans = useMemo(() => {
-        if (!marcherAssets || !marcherLooks) return null;
+        if (!marcherAssets || !marcherLooks || !cues) return null;
         const planned = planShow(
             slots.ids,
             slots.timelines,
@@ -175,7 +231,7 @@ export default function Performers({ fieldProperties }: PerformersProps) {
             clock,
             fieldProperties,
             marcherAssets.manifest,
-            marcherHeading(),
+            cues,
             previousPlans.current,
         );
         previousPlans.current = planned;
@@ -186,37 +242,64 @@ export default function Performers({ fieldProperties }: PerformersProps) {
                 `${clock.counts} counts in ${planned.planMs.toFixed(0)} ms`,
         );
         return planned;
-    }, [marcherAssets, marcherLooks, slots, clock, fieldProperties]);
+    }, [marcherAssets, marcherLooks, slots, clock, fieldProperties, cues]);
     const clipNames = useMemo(() => {
         const names = plannedClips(
             (showPlans?.plans ?? []).filter((p) => p !== null),
         );
         for (const h of heightClasses) names.add(clipName("attention", h));
-        // on the right foot every row is baked from its mirrored partner
-        return clipsToLoad([...names], stepOffFoot);
-    }, [showPlans, heightClasses, stepOffFoot]);
-    // Only the rows some marcher plays: its planned clips in its own hold,
-    // and attention for its height class.
+        // a right-foot move's rows are baked from their mirrored partners
+        return clipsToLoad([...names], "left");
+    }, [showPlans, heightClasses]);
+    // Only the Feet rows some marcher plays: its planned clips, and
+    // attention for its height class.
     const bakeRows = useMemo(() => {
         if (!marcherLooks) return undefined;
         const out = new Set<string>();
         marcherLooks.forEach((look, i) => {
-            const hold = slotHoldId(look.uniform);
-            out.add(rowKey(clipName("attention", look.body.heightClass), hold));
+            out.add(clipName("attention", look.body.heightClass));
             const plan = showPlans?.plans[i];
             if (!plan) return;
             for (const e of plan.events)
-                for (const c of eventRows(e)) if (c) out.add(rowKey(c, hold));
+                for (const c of eventRows(e)) if (c) out.add(c);
         });
         return [...out];
     }, [marcherLooks, showPlans]);
+    // Each carrier's Horn/Equipment channel over the show: its look's hold
+    // (the window's horn state), then whatever the cues say.
+    const hornSlots = useMemo<(HornSlot | null)[] | null>(() => {
+        if (!marcherLooks || !cues) return null;
+        const secondsPerCount = (k: number) =>
+            60 / (clock.bpm[Math.min(k, clock.bpm.length - 1)] || 120);
+        return marcherLooks.map((look, i) => {
+            const carry = look.uniform.options.carry;
+            if (!carry) return null;
+            return {
+                family: carry.family,
+                events: planHornChannel(
+                    cues.segments(slots.ids[i], "horn_equipment"),
+                    {
+                        defaultState: look.uniform.options.hold,
+                        secondsPerCount,
+                    },
+                ),
+            };
+        });
+    }, [marcherLooks, cues, clock, slots.ids]);
+    const hornRows = useMemo(() => {
+        const out = new Set<string>();
+        for (const h of hornSlots ?? [])
+            if (h) for (const r of hornRowsOf(h.events, h.family)) out.add(r);
+        return [...out];
+    }, [hornSlots]);
     const marcherBodies = useMarcherBodies(
         marcherAssets,
         clipNames,
         marcherLooks,
         quality,
-        stepOffFoot,
+        "left",
         bakeRows,
+        hornRows,
     );
     // Meshes, bakes and plans land outside React's props: draw them.
     useEffect(() => requestDraw(1000));
@@ -227,10 +310,17 @@ export default function Performers({ fieldProperties }: PerformersProps) {
                       showPlans.plans,
                       marcherAssets.manifest,
                       marcherBodies,
-                      marcherHeading(),
+                      hornSlots ?? [],
                   )
                 : null,
-        [marcherBodies, showPlans, marcherAssets],
+        [marcherBodies, showPlans, marcherAssets, hornSlots],
+    );
+    const silkMotion = useMemo(
+        () =>
+            marcherBodies && showPlans && marcherBodies.silkSlots.length > 0
+                ? new SilkMotion(showPlans, clock, marcherBodies.silkSlots)
+                : null,
+        [marcherBodies, showPlans, clock],
     );
     const headings = useMemo(
         () => new Float32Array(count).fill(marcherHeading()),
@@ -348,7 +438,15 @@ export default function Performers({ fieldProperties }: PerformersProps) {
     const dirtyRef = useRef(true);
     useEffect(() => {
         dirtyRef.current = true;
-    }, [meshes, slots, fieldProperties, appearances, marcherBodies, motion]);
+    }, [
+        meshes,
+        slots,
+        fieldProperties,
+        appearances,
+        marcherBodies,
+        motion,
+        silkMotion,
+    ]);
 
     // Colors and visibility, only when the looks change.
     useEffect(() => {
@@ -415,6 +513,7 @@ export default function Performers({ fieldProperties }: PerformersProps) {
                     countRef.current,
                     cam,
                 );
+                marcherBodies.compose(state.gl);
                 lod[0] = cam[0];
                 lod[1] = cam[1];
                 lod[2] = cam[2];
@@ -437,8 +536,16 @@ export default function Performers({ fieldProperties }: PerformersProps) {
             );
             if (marcherBodies) {
                 countRef.current = c;
-                motion?.update(c, xz, placed);
-                marcherBodies.writeFrame(xz, headings, placed, c, cam);
+                motion?.update(c, xz, placed, headings);
+                marcherBodies.writeFrame(
+                    xz,
+                    headings,
+                    placed,
+                    c,
+                    cam,
+                    silkMotion?.update(c) ?? null,
+                );
+                marcherBodies.compose(state.gl);
                 lod[0] = cam[0];
                 lod[1] = cam[1];
                 lod[2] = cam[2];
