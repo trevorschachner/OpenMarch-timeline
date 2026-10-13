@@ -129,10 +129,13 @@ drum 2.
 | Model             | What it is                                                                                                   | Working dimensions                    | Hold            |
 | ----------------- | ------------------------------------------------------------------------------------------------------------ | ------------------------------------- | --------------- |
 | 6 ft flag         | chrome pole, rubber end caps, tape, a silk in the section's color                                            | pole 1.83, silk 36 × 54 in            | flag            |
-| Swing flag        | held in one fist at the butt, a bare tab above the hand, the silk sleeved along the rest                     | pole 1.02 (tab 0.32), silk 1.5 × 0.7  | swingFlag       |
+| Swing flag        | held in one fist at the butt, a bare tab above the hand, the silk sleeved along the rest                     | pole 1.02 (tab 0.32), silk 1.5 × 0.7¹ | swingFlag       |
 | Double swing flag | two swing flags, one in each hand, mirrored                                                                  | as the swing flag                     | doubleSwingFlag |
 | Rifle             | white spinning rifle (an Ultra Spin): flat-sided stock, wrist dip, chrome bolt plate, black sling drawn taut | 0.91 long, butt 0.12 deep             | rifle           |
 | Sabre             | spinning sabre (a Zaber): broad curved chrome blade, rubber tip, chrome cup and D-bow, finger-grooved grip   | blade 0.8 (85 mm of curve), grip 0.12 | sabre           |
+
+¹ Fly × header, `SWING_SILK` in `guard.ts`; C4.11 makes it the 44 × 66 in
+swing cut.
 
 Today the Color Guard and Flag sections carry the 6 ft flag and the Rifle
 section the rifle. The swing flag, the double swing flag and the sabre are
@@ -195,6 +198,17 @@ to color by. Parts that aren't metal (the rifle's painted stock, silks,
 rubber and plastic, drum heads: `MATTE_PARTS` in `instrumentGeometry.ts`)
 draw non-metallic at roughness 0.65, because a fully metallic white stock
 shows only reflections and reads as chrome (owner, 2026-10-09).
+
+**Silks** are not instrument pieces (C4.4, props-spec.md section 7). A flag
+model lists its silks as `SilkSpec`s (size, frame in the instrument frame,
+bone, mirror); `silkSet.ts` draws every silk in the band in one instanced
+cloth mesh per detail tier (24 × 16 cells near, 12 × 8 far and at `low`):
+metalness 0, roughness 0.8, double-sided, no shadows, plain in the
+section's 2D color. The vertex shader waves each silk in its own frame
+before skinning (`silkWave.ts`, the silk prototype's variant B: it hangs
+at rest and billows on the move), from per-instance inputs written by
+count: the show clock, a phase seed, ground speed, distance covered and
+turn rate. Only the swing flag's sleeve stays a silk-colored piece.
 
 **Parts and finish.** The uniform shader paints parts by id; it knows ids 0
 to 15 today. Instruments take new ids from 16 upward: 16 brass finish (gold
