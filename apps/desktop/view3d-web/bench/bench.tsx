@@ -15,11 +15,15 @@
  *   silkReplace=1        hide the window's own flag meshes (pole + silk)
  *   tex=L                L artwork layers in one DataArrayTexture, sampled by the silks
  *   texSize=1024x1536    layer size
+ *   performers=N         keep N of the show's marchers, spread evenly (C4.9)
+ *   garment=N|all        the test Garment on N performers, spread evenly (C4.9)
+ *   garmentSubdiv=1      subdivision levels: 0 is 788 triangles a fit, 1 is 3,152
+ *   garmentOffset=0.012  how far outside the body the Garment sits, m
  *   warmup=5 seconds=15  playback warm-up and measured window
  *
  * Results land in `window.__bench` for run-bench.mjs.
  */
-// cspell:ignore beginnormal dwdx dwdy highp tris travelling webgl untextured
+// cspell:ignore Subdiv beginnormal dwdx dwdy highp tris travelling webgl untextured
 import * as THREE from "three";
 import React from "react";
 import ReactDOM from "react-dom/client";
@@ -31,6 +35,9 @@ import { DEMOS } from "../demos";
 import { host } from "../host";
 import { openDemo } from "../open";
 import { useView3dSceneStore } from "@/view3d/window/sceneStore";
+import { Composer } from "@/view3d/render/composer";
+import { pickSpread } from "./garment";
+import { TestGarment } from "./garmentMesh";
 
 const q = new URLSearchParams(window.location.search);
 const num = (k: string, d: number) => Number(q.get(k) ?? d);
@@ -45,6 +52,11 @@ const P = {
     silkReplace: q.get("silkReplace") === "1",
     tex: num("tex", 0),
     texSize: dims("texSize", "1024x1536"),
+    performers: q.has("performers") ? num("performers", 0) : null,
+    /** -1: every performer */
+    garment: q.get("garment") === "all" ? -1 : num("garment", 0),
+    garmentSubdiv: num("garmentSubdiv", 1),
+    garmentOffset: num("garmentOffset", 0.012),
     warmup: num("warmup", 5),
     seconds: num("seconds", 15),
 };
@@ -115,6 +127,36 @@ function addLooks(db: Database, n: number) {
         );
         log(`look ${k}: ${ids.length} marchers from ${base}, ${fill}`);
     }
+}
+
+// ----- Performers: keep N of the show's marchers -----
+
+/**
+ * Keeps `n` marchers spread evenly through the show (by id, so every
+ * section keeps about its share), deleting the rest and every row that
+ * names them.
+ */
+function trimShow(db: Database, n: number) {
+    const ids =
+        db
+            .exec("SELECT id FROM marchers ORDER BY id")[0]
+            ?.values.map((v) => Number(v[0])) ?? [];
+    const keep = new Set(pickSpread(ids.length, n).map((i) => ids[i]));
+    const drop = ids.filter((id) => !keep.has(id));
+    const tables =
+        db
+            .exec(
+                "SELECT name FROM sqlite_master WHERE type = 'table' AND name != 'marchers'",
+            )[0]
+            ?.values.map((v) => String(v[0])) ?? [];
+    const list = drop.join(",");
+    for (const t of tables) {
+        const cols = db.exec(`PRAGMA table_info("${t}")`)[0]?.values ?? [];
+        if (cols.some((c) => c[1] === "marcher_id"))
+            db.run(`DELETE FROM "${t}" WHERE marcher_id IN (${list})`);
+    }
+    db.run(`DELETE FROM marchers WHERE id IN (${list})`);
+    log(`performers: kept ${keep.size} of ${ids.length}`);
 }
 
 // ----- Silks: one InstancedMesh, stateless vertex-shader wave -----
@@ -301,6 +343,14 @@ function pollQueries(gl: WebGL2RenderingContext, ext: TimerExt) {
     }
 }
 
+/** The window's composer, from its once-a-frame update (step 6's renderer). */
+let composer: Composer | null = null;
+const composerUpdate = Composer.prototype.update;
+Composer.prototype.update = function (this: Composer, ...args) {
+    composer = this;
+    return composerUpdate.apply(this, args);
+} as Composer["update"];
+
 const seenScenes = new Set<THREE.Scene>();
 (window as unknown as { __benchCtx: unknown }).__benchCtx = { ctx, seenScenes };
 /**
@@ -412,6 +462,7 @@ async function run() {
     const demo = DEMOS.find((d) => d.id === P.demo) ?? DEMOS[0];
     await openDemo(demo);
     const db = (host as unknown as { db: Database }).db;
+    if (P.performers !== null) trimShow(db, P.performers);
     if (P.looks > 0) addLooks(db, P.looks);
 
     const store = useView3dSceneStore.getState();
@@ -481,6 +532,64 @@ async function run() {
         log(
             `silks: ${P.silks} at ${P.silkGrid.join("x")}, flag meshes ${flagMeshes.length}`,
         );
+    }
+
+    let garment: TestGarment | null = null;
+    let garmentBuildMs: number | null = null;
+    if (P.garment !== 0) {
+        const bodyMeshes = () => {
+            const out: THREE.InstancedMesh[] = [];
+            scene.getObjectByName("view3d-marchers")?.children.forEach((o) => {
+                if (o.name.startsWith("view3d-marchers-"))
+                    out.push(o as THREE.InstancedMesh);
+            });
+            return out;
+        };
+        let builtFor: { composer: Composer; bodies: THREE.Object3D[] } | null =
+            null;
+        const currentComposer = () => {
+            if (!composer)
+                throw new Error("no composer: is step 6's renderer here?");
+            return composer;
+        };
+        const build = () => {
+            const c = currentComposer();
+            const bodies = bodyMeshes();
+            if (
+                builtFor &&
+                builtFor.composer === c &&
+                builtFor.bodies.length === bodies.length &&
+                builtFor.bodies.every((b, i) => b === bodies[i])
+            )
+                return;
+            garment?.dispose();
+            const tb = performance.now();
+            const total = c.n;
+            const wearers = new Set(
+                pickSpread(total, P.garment < 0 ? total : P.garment),
+            );
+            garment = new TestGarment(bodies, wearers, c, {
+                subdivide: P.garmentSubdiv,
+                offset: P.garmentOffset,
+            });
+            scene.add(garment.group);
+            garmentBuildMs = performance.now() - tb;
+            builtFor = { composer: c, bodies };
+            log(
+                `garment: ${garment.instances} wearers of ${total}, ${garment.drawCalls} fits, ` +
+                    `${JSON.stringify(garment.trianglesByFit)} triangles, built ${garmentBuildMs.toFixed(0)} ms`,
+            );
+        };
+        if (useView3dSceneStore.getState().quality !== "high")
+            log("WARNING: the test Garment is drawn at high quality only");
+        build();
+        const silkHook = ctx.beforeRender;
+        let n = 0;
+        ctx.beforeRender = () => {
+            silkHook?.();
+            if (++n % 120 === 0) build();
+            garment?.writeFrame();
+        };
     }
 
     // play from the first page
@@ -583,6 +692,15 @@ async function run() {
         programs: renderer.info.programs?.length ?? null,
         artUploadMs: artUploadMs === null ? null : r2(artUploadMs),
         artTextureBytes: textureBytes,
+        performers: composer?.n ?? null,
+        garment: garment
+            ? {
+                  wearers: (garment as TestGarment).instances,
+                  drawCalls: (garment as TestGarment).drawCalls,
+                  trianglesByFit: (garment as TestGarment).trianglesByFit,
+                  buildMs: garmentBuildMs === null ? null : r2(garmentBuildMs),
+              }
+            : null,
         ...sceneBreakdown(scene),
     };
     window.__bench.result = result;

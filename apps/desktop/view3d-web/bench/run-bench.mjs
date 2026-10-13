@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// cspell:ignore blocklist swiftshader vsync tris webgl
+// cspell:ignore blocklist swiftshader vsync tris webgl Subdiv
 /**
  * THROWAWAY (task/gpu-benchmark, ticket 15). Serves view3d-web/bench/dist and
  * drives each scenario in Playwright's Chromium, printing one JSON line per
@@ -45,6 +45,20 @@ export const SCENARIOS = [
     { name: "silks40-tex8", q: { silks: 40, tex: 8 } },
     { name: "silks40-tex8-2k", q: { silks: 40, tex: 8, texSize: "2048x3072" } },
     { name: "worst-looks16-silks40-tex8", q: { looks: 16, silks: 40, tex: 8 } },
+    // C4.9: the test Garment on the whole show (385), on N of its performers
+    { name: "garment40", q: { garment: 40 } },
+    { name: "garment150", q: { garment: 150 } },
+    { name: "garment300", q: { garment: 300 } },
+    { name: "garment-all", q: { garment: "all" } },
+    // the same at 788 triangles a fit (no subdivision)
+    { name: "garment-all-788", q: { garment: "all", garmentSubdiv: 0 } },
+    // C4.9: shows cut to N performers, Garment off and on everyone
+    { name: "p40", q: { performers: 40 } },
+    { name: "p40-garment", q: { performers: 40, garment: "all" } },
+    { name: "p150", q: { performers: 150 } },
+    { name: "p150-garment", q: { performers: 150, garment: "all" } },
+    { name: "p300", q: { performers: 300 } },
+    { name: "p300-garment", q: { performers: 300, garment: "all" } },
 ];
 
 const TYPES = {
@@ -142,6 +156,8 @@ for (let r = 0; r < REPEAT; r++) {
                 tris: row.triangles?.p50,
                 body: row.bodyMeshes,
                 horn: row.hornMeshes,
+                garment: row.garment,
+                performers: row.performers,
                 tex: row.memory?.textures,
                 up: row.artUploadMs,
                 q: row.quality,

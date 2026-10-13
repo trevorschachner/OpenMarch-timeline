@@ -24,9 +24,9 @@ for (const file of process.argv.slice(2)) {
             `Renderer: ${first?.renderer}.\n`,
     );
     console.log(
-        "| Scenario | fps | frame ms p50 / p95 | GPU ms p50 / p95 | Δ GPU ms | draw calls | Δ calls | triangles | body / horn meshes | textures | art MB | upload ms |",
+        "| Scenario | fps | frame ms p50 / p95 | GPU ms p50 / p95 | Δ GPU ms | draw calls | Δ calls | triangles | body / horn meshes | garment draws / wearers | textures | art MB | upload ms |",
     );
-    console.log("|---|---|---|---|---|---|---|---|---|---|---|---|");
+    console.log("|---|---|---|---|---|---|---|---|---|---|---|---|---|");
     const by = new Map();
     for (const r of d.results) {
         if (!by.has(r.scenario)) by.set(r.scenario, []);
@@ -46,7 +46,7 @@ for (const file of process.argv.slice(2)) {
         console.log(
             `| ${name} | ${f(med(ok.map((r) => r.fps)), 1)} | ${f(med(ok.map((r) => r.frameMs.p50)))} / ${f(med(ok.map((r) => r.frameMs.p95)))} | ` +
                 `${f(gpu)} / ${f(med(ok.map((r) => r.gpuMs?.p95)))} | ${f(gpu - baseGpu)} | ${calls} | ${calls - baseCalls >= 0 ? "+" : ""}${calls - baseCalls} | ` +
-                `${(med(ok.map((r) => r.triangles.p50)) / 1e6).toFixed(2)} M | ${ok[0].bodyMeshes} / ${ok[0].hornMeshes} | ${ok[0].memory.textures} | ` +
+                `${(med(ok.map((r) => r.triangles.p50)) / 1e6).toFixed(2)} M | ${ok[0].bodyMeshes} / ${ok[0].hornMeshes} | ${ok[0].garment ? `${ok[0].garment.drawCalls} / ${ok[0].garment.wearers}` : "–"} | ${ok[0].memory.textures} | ` +
                 `${f(ok[0].artTextureBytes / 2 ** 20, 1)} | ${f(med(ok.map((r) => r.artUploadMs ?? NaN)), 0)} |`,
         );
     }
