@@ -10,10 +10,68 @@ import {
     PART_WOOD,
     PART_METAL,
 } from "../mesh";
-import { guardModel, sectionAt, RIFLE_STATIONS, RIFLE_SWIVELS } from "../guard";
+import {
+    guardModel,
+    sectionAt,
+    FLAG6_SILK,
+    RIFLE_STATIONS,
+    RIFLE_SWIVELS,
+    SWING_SILK,
+} from "../guard";
 import { hold } from "../holds";
-import type { Piece } from "../mesh";
-import type { GuardModelId } from "../model";
+import type { Piece, Vec3 } from "../mesh";
+import type { Detail, GuardModelId, InstrumentModel, SilkSpec } from "../model";
+import { SILK_GRID, silkPoint } from "../silkWave";
+
+/** Triangles drawn for a model: its pieces and its silks' grids. */
+const drawn = (m: InstrumentModel, detail: Detail) =>
+    triangleCount(m.pieces) +
+    (m.silks?.length ?? 0) *
+        2 *
+        SILK_GRID[detail].fly *
+        SILK_GRID[detail].header;
+
+/** A silk-frame point in the instrument frame. */
+function silkToInstrument(silk: SilkSpec, p: number[]): Vec3 {
+    const b = silk.basis;
+    return [0, 1, 2].map(
+        (r) =>
+            b[r * 3] * p[0] +
+            b[r * 3 + 1] * p[1] +
+            b[r * 3 + 2] * p[2] +
+            silk.origin[r],
+    ) as Vec3;
+}
+
+/** The silk's points over a grid, in the instrument frame, moving or at rest. */
+function silkPoints(silk: SilkSpec, speed = 0, turn = 0): Vec3[] {
+    const out: Vec3[] = [];
+    const p = [0, 0, 0];
+    for (let i = 0; i <= 6; i++)
+        for (let j = 0; j <= 4; j++) {
+            silkPoint(
+                i / 6,
+                j / 4,
+                {
+                    fly: silk.fly,
+                    header: silk.header,
+                    mirror: silk.mirror,
+                    wavePhase: 1,
+                    bellyPhase: 1,
+                    speed,
+                    turn,
+                },
+                p,
+            );
+            out.push(silkToInstrument(silk, p));
+        }
+    return out;
+}
+
+const det = (b: SilkSpec["basis"]) =>
+    b[0] * (b[4] * b[8] - b[5] * b[7]) -
+    b[1] * (b[3] * b[8] - b[5] * b[6]) +
+    b[2] * (b[3] * b[7] - b[4] * b[6]);
 
 const IDS: GuardModelId[] = [
     "flag6",
@@ -25,15 +83,13 @@ const IDS: GuardModelId[] = [
 
 describe("guard equipment", () => {
     it.each(IDS)("%s stays within the triangle budgets", (id) => {
-        expect(
-            triangleCount(guardModel(id, "high").pieces),
-        ).toBeLessThanOrEqual(12000);
-        expect(
-            triangleCount(guardModel(id, "high").pieces),
-        ).toBeGreaterThanOrEqual(1000);
-        expect(triangleCount(guardModel(id, "low").pieces)).toBeLessThanOrEqual(
-            3500,
+        expect(drawn(guardModel(id, "high"), "high")).toBeLessThanOrEqual(
+            12000,
         );
+        expect(drawn(guardModel(id, "high"), "high")).toBeGreaterThanOrEqual(
+            1000,
+        );
+        expect(drawn(guardModel(id, "low"), "low")).toBeLessThanOrEqual(3500);
     });
 
     it("makes a 6 ft flag: pole along +Z with a silk at the top", () => {
@@ -41,28 +97,36 @@ describe("guard equipment", () => {
         const pole = m.pieces.filter((p) => p.part === PART_CHROME);
         const b = bounds(pole);
         expect(b.max[2] - b.min[2]).toBeCloseTo(1.83, 1);
-        const silk = m.pieces.filter((p) => p.part === PART_SILK);
-        expect(silk.length).toBeGreaterThan(0);
-        const s = bounds(silk);
-        expect(s.max[2]).toBeGreaterThan(1.1);
-        expect(s.max[0] - s.min[0]).toBeCloseTo(1.37, 1);
-        // a real surface, not a line: many triangles with normals mostly along +Y
-        const tris = triangleCount(silk);
-        expect(tris).toBeGreaterThan(20);
-        let up = 0;
-        for (const p of silk)
-            for (let i = 1; i < p.normals.length; i += 3)
-                if (p.normals[i] > 0.5) up++;
-        expect(up).toBeGreaterThan(0);
+        // the silk is drawn by the silk mesh, not with the pieces
+        expect(m.pieces.some((p) => p.part === PART_SILK)).toBe(false);
+        expect(m.silks).toHaveLength(1);
+        const silk = m.silks![0];
+        expect(silk).toMatchObject({ ...FLAG6_SILK, mirror: 1 });
+        expect(det(silk.basis)).toBeCloseTo(1, 12);
+        // flat and lifted, it hangs from the pole's top out along +X
+        const s = bounds([
+            {
+                part: PART_SILK,
+                positions: silkPoints(silk, 1.5).flat(),
+                normals: [],
+                indices: [],
+            },
+        ]);
+        expect(s.max[2]).toBeCloseTo(b.max[2], 6);
+        expect(s.min[2]).toBeCloseTo(b.max[2] - 0.9, 6);
+        expect(s.max[0]).toBeCloseTo(1.37 + 0.012, 1);
     });
 
     it("gives the double swing flag a second flag in the left hand", () => {
         const m = guardModel("doubleSwingFlag");
-        const left = m.pieces.filter((p) => p.bone === "handL");
-        expect(left.some((p) => p.part === PART_SILK)).toBe(true);
-        expect(
-            m.pieces.filter((p) => p.part === PART_SILK && !p.bone).length,
-        ).toBeGreaterThan(0);
+        expect(m.silks).toHaveLength(2);
+        const [right, left] = m.silks!;
+        expect(right.bone).toBeUndefined();
+        expect(left.bone).toBe("handL");
+        expect(left.mirror).toBe(-1);
+        // both frames stay rotations: the mirror is in the wave
+        expect(det(right.basis)).toBeCloseTo(1, 12);
+        expect(det(left.basis)).toBeCloseTo(1, 12);
     });
 
     it("makes the rifle and sabre run along +Z from the grip", () => {
@@ -144,19 +208,18 @@ describe("guard equipment", () => {
 
     it("holds a swing flag at its butt, a bare tab above the fist", () => {
         const m = guardModel("swingFlag");
-        const silk = m.pieces.filter((p) => p.part === PART_SILK);
         const pole = bounds(m.pieces.filter((p) => p.part === PART_CHROME));
         // the butt just past the fist, the pole running on from it
         expect(pole.min[2]).toBeGreaterThan(-0.12);
         expect(pole.max[2]).toBeGreaterThan(0.9);
-        // the sheet: the silk piece that reaches out from the pole
-        const sheet = silk.find((p) => bounds([p]).max[0] > 1);
-        expect(sheet).toBeDefined();
+        // the sheet, drawn by the silk mesh, at the swing silk's size
+        expect(m.silks).toHaveLength(1);
+        const sheet = m.silks![0];
+        expect(sheet).toMatchObject(SWING_SILK);
         // a bare tab between the hand and the silk
-        expect(bounds([sheet!]).min[2]).toBeGreaterThan(0.2);
-        expect(bounds([sheet!]).max[0]).toBeGreaterThan(1.2);
-        // a sleeve of silk around the pole
-        expect(silk.length).toBe(2);
+        expect(sheet.origin[2] - sheet.header).toBeGreaterThan(0.2);
+        // a sleeve of silk around the pole: the one silk piece
+        expect(m.pieces.filter((p) => p.part === PART_SILK)).toHaveLength(1);
     });
 
     it("mirrors the second swing flag onto the left hand", () => {
@@ -194,11 +257,32 @@ describe("guard equipment", () => {
                 expect(l[k + 2]).toBeCloseTo(r[k + 2], 6);
             }
         }
-        // and the silks stay off the ground
-        for (const p of m.pieces.filter((q) => q.part === PART_SILK)) {
-            const b = toBody(p);
-            for (let k = 1; k < b.length; k += 3)
-                expect(b[k]).toBeGreaterThan(0);
+        // the left silk, waving, is the right one's mirror image
+        const [rs, ls] = m.silks!;
+        for (const [speed, turn] of [
+            [0, 0],
+            [1.4, 0.6],
+        ]) {
+            const r = toBody({
+                part: PART_SILK,
+                positions: silkPoints(rs, speed, turn).flat(),
+                normals: [],
+                indices: [],
+            });
+            const l = toBody({
+                part: PART_SILK,
+                positions: silkPoints(ls, speed, turn).flat(),
+                normals: [],
+                indices: [],
+            });
+            for (let k = 0; k < r.length; k += 3) {
+                expect(l[k]).toBeCloseTo(-r[k], 6);
+                expect(l[k + 1]).toBeCloseTo(r[k + 1], 6);
+                expect(l[k + 2]).toBeCloseTo(r[k + 2], 6);
+            }
+            // and the silks stay off the ground
+            for (let k = 1; k < r.length; k += 3)
+                expect(r[k]).toBeGreaterThan(0);
         }
     });
 

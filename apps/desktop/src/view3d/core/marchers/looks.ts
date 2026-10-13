@@ -193,7 +193,8 @@ const SHOE_BLACK = 0x0b0b0d;
 /** Lifted from om-pose's 0x1c1f2b, which renders as black legs. */
 const NAVY = 0x2b3150;
 
-const rgbToNumber = (c: RgbaColor) =>
+/** An sRGB hex number from a 2D color. */
+export const rgbToNumber = (c: RgbaColor) =>
     ((Math.round(c.r) & 255) << 16) |
     ((Math.round(c.g) & 255) << 8) |
     (Math.round(c.b) & 255);
