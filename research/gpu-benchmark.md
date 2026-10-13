@@ -1,4 +1,4 @@
-<!-- cspell:ignore blocklist Chipset KHTML swiftshader travelling tris untextured vsync webgl -->
+<!-- cspell:ignore blocklist Chipset KHTML swiftshader travelling tris untextured vsync webgl Subdiv -->
 
 # GPU cost of extra uniform looks, silks and artwork textures
 
@@ -239,6 +239,23 @@ Buffer 3840 × 2073 at pixel ratio 2, kit hs, quality high, flags --ignore-gpu-b
   cost. KTX2 wasn't tested.
 - Headless Chromium, not Electron. Both use ANGLE on Metal on macOS, but
   compositor pacing differs.
+
+## C4.9: the test Garment
+
+Added 2026-10-13 on `3d/c4-test-garment`, which merges `3d/c4-silk` (ADR
+0004 step 6) into this harness. `garment=N|all` draws the test Garment
+(`bench/garment.ts`, `bench/garmentMesh.ts`) on N performers spread through
+the show, and `performers=N` cuts the show to N marchers.
+`garmentSubdiv=0` gives 788 triangles a fit instead of 3,152. Results are
+in `gpu-benchmark-garment-*.json`, and the reading is in
+`docs/3d/findings.md`, "C4.9". The baseline on step 6 is 131 calls and
+1.23 M triangles, not the 130 and 1.07 M above.
+
+```bash
+node view3d-web/bench/run-bench.mjs --uncapped --dpr 1 --repeat 2 --only baseline,garment40,garment150,garment300,garment-all,p40,p40-garment,p150,p150-garment,p300,p300-garment --out ../../research/gpu-benchmark-garment-1080p-1x.json
+node view3d-web/bench/run-bench.mjs --uncapped --dpr 2 --repeat 2 --only baseline,garment-all,p300,p300-garment --out ../../research/gpu-benchmark-garment-1080p-2x.json
+node view3d-web/bench/run-bench.mjs --uncapped --dpr 1 --repeat 2 --only baseline,garment-all,garment-all-788 --out ../../research/gpu-benchmark-garment-788-1080p-1x.json
+```
 
 ## Rerun
 

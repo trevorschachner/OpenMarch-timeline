@@ -482,6 +482,64 @@ a flat silk needs few cells, and `guard.test.ts` pins their own budgets.
   per-instance inputs and vertices after a scrub.
 - Not measured: a base M1, Intel Iris Xe (C4.7).
 
+### 2026-10-13 · trevor (3d/c4-test-garment) · C4.9, test Garment in the GPU harness
+
+- Change measured: a test Garment on the exact v4 rig, drawn through step
+  6's renderer (`composedGeometry` and `composedSkinning`, skinned from the
+  shared bake's composed texture), one `InstancedMesh` a fitted body type,
+  one primitive, no shadows, on N performers. Measurement only: it lives in
+  the `task/gpu-benchmark` harness (`view3d-web/bench/garment*.ts`), with
+  nothing in `src/`. Branch `3d/c4-test-garment`: `task/gpu-benchmark` with
+  `3d/c4-silk` merged in.
+- The Garment: C1.7's fixture (`garment-clean.glb` on `3d/c1-model-import`)
+  has 2 fits and 192 triangles, too light to measure, so the harness makes
+  one in the browser from each body type's own jacket, sleeves and pants
+  (`_PART` 1–3, 788 triangles), subdivided once to 3,152 (about props-spec's
+  provisional 3k a body type) and pushed 12 mm out along the welded normal.
+  All seven fits, each on its own body's v4 skin weights, painted by
+  `_PART` with the uniform shader. The bodies keep the parts it covers, as
+  a per-instance hide would still skin them.
+- Method: `run-bench.mjs --uncapped`, LHB '26 Daft Punk demo (385
+  marchers), `hs`, High, Press box, playing, 15 s measured, 2 repeats in
+  alternating order, headless Chromium, ANGLE Metal, Apple M1 Pro.
+  `garment=N` puts it on N performers spread through the show;
+  `performers=N` cuts the show to N marchers first. Mean frame ms is the
+  median of the 2 runs' means. Raw data:
+  `research/gpu-benchmark-garment-*.json`.
+- Draw calls: **+7 in every Garment scenario** (7 fits × 1 primitive; 40
+  wearers already span all seven body types). Baseline 131.
+- Triangles: +3,152 a wearer (+1.21 M on all 385).
+- Frame time, 1920 × 1036, 1×:
+
+  | Show | Garment on | calls     | triangles     | frame ms    | Δ ms  |
+  | ---- | ---------- | --------- | ------------- | ----------- | ----- |
+  | 385  | 0          | 131       | 1.23 M        | 4.99        | 0     |
+  | 385  | 40         | 138       | 1.35 M        | 5.28        | +0.29 |
+  | 385  | 150        | 138       | 1.70 M        | 5.93        | +0.94 |
+  | 385  | 300        | 138       | 2.17 M        | 7.06        | +2.07 |
+  | 385  | all 385    | 138       | 2.44 M        | 7.62        | +2.63 |
+  | 40   | off / all  | 75 / 82   | 0.15 / 0.28 M | 2.55 / 2.80 | +0.25 |
+  | 150  | off / all  | 114 / 121 | 0.50 / 0.97 M | 3.42 / 4.29 | +0.87 |
+  | 300  | off / all  | 130 / 137 | 0.96 / 1.91 M | 4.61 / 6.67 | +2.06 |
+
+- At 2× (3840 × 2073): 385 off / all 10.71 / 14.44 ms (+3.73); 300 off /
+  all 10.11 / 13.25 ms (+3.14).
+- Triangle count matters: a separate run (baseline 4.82 ms) put all 385 at
+  3,152 triangles a fit at 7.30 ms (+2.48) and at 788 a fit at 6.39 ms
+  (+1.57).
+- Build: 51–59 ms to make the seven fits and their meshes, once.
+- Checked in a screenshot: the Garment follows each marcher's stride and
+  arms, under the hat and over the body.
+- Reading: a Garment's draws are cheap and fixed (+7); its cost is skinned
+  vertices, about 7 µs a wearer at 3k triangles on this M1 Pro, so
+  300 wearers add about 2 ms at 1× and 3 ms at 2×. That's
+  roughly what a second body costs, since the Garment is drawn over the
+  body, not instead of it.
+- Not measured: a base M1, Intel Iris Xe, `pro`, a field-level camera
+  (C4.7). The harness's older silk scenarios still look for
+  `view3d-horn-flag6-*` meshes, which step 6 no longer draws, so they
+  weren't rerun here.
+
 ## Verdicts
 
 ### 2026-10-09 · trevor (3d/architecture-props) · rifle, sabre and swing flag models
