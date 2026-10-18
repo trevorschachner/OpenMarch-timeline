@@ -9,7 +9,10 @@ import fs from "node:fs";
 
 const med = (a) => {
     const s = a.filter((x) => Number.isFinite(x)).sort((x, y) => x - y);
-    return s.length ? s[Math.floor((s.length - 1) / 2)] : NaN;
+    if (s.length === 0) return NaN;
+    const m = s.length >> 1;
+    // an even count (2 repeats) takes the mean of the middle two, not the lower
+    return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
 };
 const f = (x, d = 2) => (Number.isFinite(x) ? x.toFixed(d) : "–");
 

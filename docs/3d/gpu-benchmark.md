@@ -308,6 +308,66 @@ C4.4's silk mesh and wave, which aren't on `main` yet. On `main` they place
 their silks from the window's `view3d-horn-flag6-*` meshes, which `main`
 draws again.
 
+### M1 Pro on `main`, 2026-10-18
+
+Build `3d/c4-bench-main` @ `da7a2fe05` (`main` at `72976f001` plus this
+harness), same machine and method as above: LHB '26 Daft Punk demo (385
+marchers), `hs`, High, Press box, playing, 1920 × 1036 at 1×, uncapped, 15 s
+measured, 2 repeats in alternating order. Mean frame ms is the median (the
+mean) of the 2 runs' means. Raw data:
+`gpu-benchmark/gpu-benchmark-main-garment-1080p-1x.json`.
+
+| Show | Garment on        | calls     | triangles     | frame ms    | Δ ms  |
+| ---- | ----------------- | --------- | ------------- | ----------- | ----- |
+| 385  | 0                 | 130       | 1.22 M        | 5.33        | 0     |
+| 385  | 40                | 137       | 1.35 M        | 5.63        | +0.30 |
+| 385  | 150               | 137       | 1.69 M        | 6.23        | +0.90 |
+| 385  | 300               | 137       | 2.17 M        | 7.09        | +1.76 |
+| 385  | all 385           | 137       | 2.44 M        | 7.63        | +2.30 |
+| 385  | all, 788 tris/fit | 137       | 1.53 M        | 6.65        | +1.32 |
+| 300  | off / all         | 129 / 136 | 0.96 / 1.91 M | 4.63 / 7.25 | +2.62 |
+
+- Draws: +7 in every Garment scenario again (seven fits, one primitive
+  each). `main`'s baseline is 130 calls, one fewer than step 6's branch.
+- Frame time matches the 2026-10-13 step 6 run within the noise: about
+  +0.3 ms for 40 wearers, +1.8 to +2.1 ms for 300, +2.3 to +2.6 ms for all 385. The cost is still the Garment's skinned vertices: 788 triangles a fit
+  cost about 57 % of 3,152.
+- The second repeat ran 0.2 to 0.7 ms slower than the first in every
+  scenario (thermal drift), so compare deltas, not single runs.
+- `silks40` (the harness's own silks, placed from `main`'s flag meshes):
+  +1 call, +0.10 ms.
+- Checked in a screenshot of each scenario: performers play, the Garment
+  follows each body, and the silks sit beside the flags.
+- Not measured: a base M1, Intel Iris Xe, `pro`, a field-level camera, 2×
+  (C4.7).
+
+Generated (`summarize.mjs`; the even-count median is now the mean of the
+middle two, not the lower):
+
+#### gpu-benchmark-main-garment-1080p-1x.json
+
+Buffer 1920 × 1036 at pixel ratio 1, kit hs, quality high, uncapped, 15 s measured per run, 2 repeat(s). Renderer: ANGLE (Apple, ANGLE Metal Renderer: Apple M1 Pro, Unspecified Version). Build: 3d/c4-bench-main @ da7a2fe05.
+
+| Scenario        | fps   | frame ms mean | frame ms p50 / p95 | GPU ms p50 / p95 | Δ GPU ms | draw calls | Δ calls | triangles | body / horn meshes | garment draws / wearers | textures | art MB | upload ms |
+| --------------- | ----- | ------------- | ------------------ | ---------------- | -------- | ---------- | ------- | --------- | ------------------ | ----------------------- | -------- | ------ | --------- |
+| baseline        | 188.7 | 5.33          | 4.90 / 7.95        | 7.30 / 9.86      | 0.00     | 130        | +0      | 1.22 M    | 87 / 13            | –                       | 9        | 0.0    | –         |
+| silks40         | 184.8 | 5.43          | 4.95 / 8.55        | 7.55 / 10.26     | 0.25     | 131        | +1      | 1.25 M    | 87 / 13            | –                       | 9        | 0.0    | –         |
+| garment40       | 178.2 | 5.63          | 5.40 / 8.65        | 7.72 / 10.40     | 0.42     | 137        | +7      | 1.35 M    | 87 / 13            | 7 / 40                  | 9        | 0.0    | –         |
+| garment150      | 160.9 | 6.23          | 5.85 / 9.30        | 8.79 / 11.71     | 1.50     | 137        | +7      | 1.69 M    | 87 / 13            | 7 / 150                 | 9        | 0.0    | –         |
+| garment300      | 141.0 | 7.09          | 6.90 / 9.70        | 10.27 / 12.35    | 2.97     | 137        | +7      | 2.17 M    | 87 / 13            | 7 / 300                 | 9        | 0.0    | –         |
+| garment-all     | 131.1 | 7.63          | 7.25 / 10.25       | 11.06 / 13.16    | 3.76     | 137        | +7      | 2.44 M    | 87 / 13            | 7 / 385                 | 9        | 0.0    | –         |
+| garment-all-788 | 150.3 | 6.65          | 6.60 / 9.30        | 9.59 / 11.71     | 2.29     | 137        | +7      | 1.53 M    | 87 / 13            | 7 / 385                 | 9        | 0.0    | –         |
+| p300            | 215.9 | 4.63          | 4.45 / 7.40        | 6.30 / 8.56      | -1.00    | 129        | -1      | 0.96 M    | 86 / 13            | –                       | 9        | 0.0    | –         |
+| p300-garment    | 138.3 | 7.25          | 6.90 / 11.25       | 10.08 / 14.31    | 2.78     | 136        | +6      | 1.91 M    | 86 / 13            | 7 / 300                 | 9        | 0.0    | –         |
+
+### Preview host gaps on `main`
+
+`view3d-web/host.ts` on `main` (2026-10-18) has no `sqlReadBatch` (#224)
+and sends clocks without `speed`, `chosenSpeed` and `playLoops`, so the web
+preview draws no performers and never plays (`isView3dClock` drops the
+clock). `bench.tsx` fills these in for itself (`benchApi`) and leaves
+host.ts alone; each stand-in steps aside once host.ts has its own.
+
 ## Rerun
 
 From the worktree root, once per checkout:
@@ -320,7 +380,9 @@ pnpm --filter "@openmarch/desktop^..." build
 Then, from `apps/desktop`:
 
 ```bash
-npx vite build --config view3d-web/bench/vite.bench.config.mts
+pnpm run view3d-bench:build   # vite build --config view3d-web/bench/vite.bench.config.mts
+# the Garment on main (2026-10-18), about 8 min
+node view3d-web/bench/run-bench.mjs --uncapped --dpr 1 --repeat 2 --only baseline,garment40,garment150,garment300,garment-all,garment-all-788,p300,p300-garment,silks40 --out ../../docs/3d/gpu-benchmark/gpu-benchmark-main-garment-1080p-1x.json
 # 1920 x 1080 at 1x, uncapped (about 12 min)
 node view3d-web/bench/run-bench.mjs --uncapped --dpr 1 --repeat 2 --out ../../docs/3d/gpu-benchmark/gpu-benchmark-1080p-1x.json
 # the same at 2x

@@ -239,6 +239,18 @@ Nothing yet.
 
 ## Progress log
 
+- 2026-10-18, C4.9 on `main` (branch `3d/c4-bench-main`): the GPU harness
+  and the test Garment are ported onto `main` (after #120) in
+  `apps/desktop/view3d-web/bench/`, with no renderer code from the old
+  branch; the write-up and raw JSON moved to `docs/3d/gpu-benchmark.md` and
+  `docs/3d/gpu-benchmark/`, beside the findings. Each result names the build
+  it measured (branch, commit), so C4.3's `3d/c4-look-texture` can merge it
+  for an A/B. M1 Pro, 385 marchers, `hs`, 1080p, 1×, uncapped: +7 draws in
+  every Garment case (baseline 130); frame time 5.33 ms off, +0.30 ms for
+  40 wearers, +0.90 for 150, +1.76 for 300, +2.30 for all (+1.32 at 788
+  triangles a fit). The harness fills in what main's preview host lacks
+  (`sqlReadBatch`, the clock's speed fields), without which the preview
+  draws no performers.
 - 2026-10-12, Cross-phase note from C1.12 (branch `3d/c1-artwork-templates`):
   the silk Cut outlines now live in `view3d/core/sizes/silkCuts.ts` (lines
   and cubic Bezier curves in inches at the catalog size, `silkCutPath` for meters
