@@ -42,6 +42,7 @@ import { host } from "../host";
 import { openDemo } from "../open";
 import { useView3dSceneStore } from "@/view3d/window/sceneStore";
 import { Composer } from "@/view3d/render/composer";
+import { VIEW3D_CLOCK_CHANNEL } from "@/view3d/sync/protocol";
 import { pickSpread } from "./garment";
 import { TestGarment } from "./garmentMesh";
 
@@ -473,8 +474,47 @@ async function waitFor<T>(
     }
 }
 
+/**
+ * The preview host's `window.view3d`, with what view3d-web/host.ts lacks on
+ * `main` (2026-10-18) filled in, or the window draws no performers and
+ * doesn't play:
+ * - `sqlReadBatch` (#224): without it the window can't read the show.
+ * - the clock's `speed`, `chosenSpeed` and `playLoops`: without them
+ *   `isView3dClock` drops every clock, so playback never starts.
+ * - `requestPlaybackSpeed`, a no-op.
+ * Each stand-in steps aside once host.ts sends its own.
+ */
+function benchApi(): Window["view3d"] {
+    const api: Partial<Window["view3d"]> = host.api;
+    const on: Window["view3d"]["on"] = (channel, callback) =>
+        host.api.on(channel, (payload) => {
+            if (channel !== VIEW3D_CLOCK_CHANNEL) return callback(payload);
+            callback({
+                speed: 1,
+                chosenSpeed: 1,
+                playLoops: false,
+                ...payload,
+            } as typeof payload);
+        });
+    return {
+        ...host.api,
+        on,
+        sqlReadBatch:
+            api.sqlReadBatch ??
+            (async (queries) => ({
+                busy: false,
+                results: await Promise.all(
+                    queries.map((query) =>
+                        host.api.sqlRead(query.sql, query.params, query.method),
+                    ),
+                ),
+            })),
+        requestPlaybackSpeed: api.requestPlaybackSpeed ?? (() => {}),
+    };
+}
+
 async function run() {
-    window.view3d = host.api;
+    window.view3d = benchApi();
     const demo = DEMOS.find((d) => d.id === P.demo) ?? DEMOS[0];
     await openDemo(demo);
     const db = (host as unknown as { db: Database }).db;
