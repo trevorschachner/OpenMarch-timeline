@@ -36,6 +36,13 @@ describe("drill edits in Visuals mode (performer-behavior.md 7.1)", () => {
             );
     });
 
+    it("include the number keys' beat taps, which change the show's timing", () => {
+        for (let count = 1; count <= 9; count++)
+            expect(
+                isDrillEditingAction(`timelineTapBeats${count}` as ActionId),
+            ).toBe(true);
+    });
+
     it("include every moving, aligning, batch, cursor and shape action", () => {
         const drillCategories = new Set<ActionCategory>([
             "movement",

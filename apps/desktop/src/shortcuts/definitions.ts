@@ -172,7 +172,8 @@ function buildTapBeatsActions(): Record<TapBeatsActionId, ActionDefinition> {
             labelKey: "actions.timeline.tapBeats",
             labelParams: { count },
             category: "timeline",
-            editsDrill: false,
+            // A tap changes the show's timing, so it is off in Visuals mode
+            editsDrill: true,
             scope: "timeline",
             defaultBindings: [String(count)],
             args: { count },

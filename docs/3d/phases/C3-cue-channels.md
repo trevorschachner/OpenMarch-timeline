@@ -345,3 +345,21 @@ move (#266), the C2 props stack and #290's graphics settings:
 - **3D window:** the preview rows stay in the Graphics section, headed
   "Preview only" by the first of them, until #290 moves the quality rows
   out.
+
+### 2026-10-18 · Trevor (3d/visuals-workspace) · the workspace defaults
+
+The owner settled Visuals mode's four open defaults:
+
+- **Page selection:** one selection for both workspaces. A page picked in
+  Visuals is the page selected in the Editor, and back (already so: both
+  read `TimelineSelectionStore`).
+- **Field drags:** never move the drill in Visuals. The field chooses who
+  a cue is for and where it points; drags on the field may later edit
+  cues (a facing direction, where a prop is set down), never positions.
+- **Isolation:** an isolated move stays isolated in Visuals, its bar over
+  the field included, so the lanes line up with it; the "from start" badge
+  stays hidden there.
+- **Tap keys:** the number keys' beat taps (`timelineTapBeats1`–`9`)
+  change the show's timing, so they are drill edits and off in Visuals
+  (`editsDrill` in `shortcuts/definitions.ts`). Tapping cues in at the playhead instead is a
+  separate, later feature.
