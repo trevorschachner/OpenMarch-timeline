@@ -300,6 +300,8 @@ ignorePaths:
   - docs/timeline/ref/**
   - node_modules/**
   - docs/3d/ref/**
+  # GPU benchmark raw results, written by apps/desktop/view3d-web/bench/run-bench.mjs
+  - docs/3d/gpu-benchmark/*.json
   # Verbatim license texts (CC0 1.0, GPL-3.0) in the Blender Starter kit
   - apps/desktop/starter-kit/**/LICENSE
   - "**/view3d/assets/om-pose/**"

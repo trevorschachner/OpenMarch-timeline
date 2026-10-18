@@ -1,0 +1,2336 @@
+{
+    "uncapped": true,
+    "chromiumFlags": "see gpu-benchmark.md",
+    "width": 1920,
+    "height": 1080,
+    "dpr": 1,
+    "seconds": 15,
+    "results": [
+        {
+            "scenario": "baseline",
+            "repeat": 0,
+            "params": {
+                "demo": "lhb-daft-punk",
+                "quality": "high",
+                "looks": 0,
+                "silks": 0,
+                "silkGrid": [24, 16],
+                "silkReplace": false,
+                "tex": 0,
+                "texSize": [1024, 1536],
+                "warmup": 5,
+                "seconds": 15
+            },
+            "renderer": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1 Pro, Unspecified Version)",
+            "drawingBuffer": [1920, 1036],
+            "pixelRatio": 1,
+            "kit": "hs",
+            "quality": "high",
+            "shadowMap": true,
+            "frames": 2815,
+            "restarts": 0,
+            "frameMs": {
+                "mean": 5.35,
+                "p50": 5,
+                "p95": 9.9,
+                "p99": 11.8
+            },
+            "fps": 186.83,
+            "renderCpuMs": {
+                "p50": 4.2,
+                "p95": 8.9
+            },
+            "gpuMs": {
+                "n": 976,
+                "disjoint": 0,
+                "p50": 7.47,
+                "p95": 9.25,
+                "mean": 7.54
+            },
+            "drawCalls": {
+                "min": 130,
+                "p50": 130,
+                "max": 130
+            },
+            "triangles": {
+                "min": 1070305,
+                "p50": 1070305,
+                "max": 1070305
+            },
+            "memory": {
+                "geometries": 127,
+                "textures": 7
+            },
+            "programs": 16,
+            "artUploadMs": null,
+            "artTextureBytes": 0,
+            "bodyMeshes": 87,
+            "hornMeshes": 13,
+            "instancedMeshesByName": {
+                "treads": 2,
+                "bench": 2,
+                "crowd": 1,
+                "view3d-marcher-contact": 1,
+                "view3d-marchers-feminine-average": 13,
+                "view3d-marchers-neutral-full": 10,
+                "view3d-marchers-neutral-broad": 13,
+                "view3d-marchers-neutral-slim": 11,
+                "view3d-marchers-neutral-average": 12,
+                "view3d-marchers-masculine-average": 13,
+                "view3d-marchers-neutral-athletic": 14,
+                "view3d-horn-piccolo-low": 1,
+                "view3d-horn-cymbals-low": 1,
+                "view3d-horn-rifle-low": 1,
+                "view3d-horn-contra-low": 1,
+                "view3d-horn-tenorSax-low": 1,
+                "view3d-horn-mellophone-low": 1,
+                "view3d-horn-trumpet-low": 1,
+                "view3d-horn-altoSax-low": 1,
+                "view3d-horn-euphonium-low": 1,
+                "view3d-horn-snare-low": 1,
+                "view3d-horn-tenors-low": 1,
+                "view3d-horn-trombone-low": 1,
+                "view3d-horn-flag6-low": 1
+            },
+            "log": ["marchers built after 2007 ms", "done"],
+            "consoleErrors": []
+        },
+        {
+            "scenario": "looks1",
+            "repeat": 0,
+            "params": {
+                "demo": "lhb-daft-punk",
+                "quality": "high",
+                "looks": 1,
+                "silks": 0,
+                "silkGrid": [24, 16],
+                "silkReplace": false,
+                "tex": 0,
+                "texSize": [1024, 1536],
+                "warmup": 5,
+                "seconds": 15
+            },
+            "renderer": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1 Pro, Unspecified Version)",
+            "drawingBuffer": [1920, 1036],
+            "pixelRatio": 1,
+            "kit": "hs",
+            "quality": "high",
+            "shadowMap": true,
+            "frames": 2767,
+            "restarts": 0,
+            "frameMs": {
+                "mean": 5.43,
+                "p50": 5.1,
+                "p95": 9.9,
+                "p99": 12
+            },
+            "fps": 184.24,
+            "renderCpuMs": {
+                "p50": 4.4,
+                "p95": 9
+            },
+            "gpuMs": {
+                "n": 1000,
+                "disjoint": 0,
+                "p50": 7.6,
+                "p95": 9.51,
+                "mean": 7.6
+            },
+            "drawCalls": {
+                "min": 137,
+                "p50": 137,
+                "max": 137
+            },
+            "triangles": {
+                "min": 1070305,
+                "p50": 1070305,
+                "max": 1070305
+            },
+            "memory": {
+                "geometries": 135,
+                "textures": 7
+            },
+            "programs": 16,
+            "artUploadMs": null,
+            "artTextureBytes": 0,
+            "bodyMeshes": 93,
+            "hornMeshes": 14,
+            "instancedMeshesByName": {
+                "treads": 2,
+                "bench": 2,
+                "crowd": 1,
+                "view3d-marcher-contact": 1,
+                "view3d-marchers-feminine-average": 14,
+                "view3d-marchers-neutral-full": 11,
+                "view3d-marchers-neutral-broad": 14,
+                "view3d-marchers-neutral-slim": 12,
+                "view3d-marchers-neutral-average": 13,
+                "view3d-marchers-masculine-average": 13,
+                "view3d-marchers-neutral-athletic": 15,
+                "view3d-horn-piccolo-low": 1,
+                "view3d-horn-cymbals-low": 1,
+                "view3d-horn-rifle-low": 1,
+                "view3d-horn-contra-low": 1,
+                "view3d-horn-tenorSax-low": 1,
+                "view3d-horn-mellophone-low": 1,
+                "view3d-horn-trumpet-low": 2,
+                "view3d-horn-altoSax-low": 1,
+                "view3d-horn-euphonium-low": 1,
+                "view3d-horn-snare-low": 1,
+                "view3d-horn-tenors-low": 1,
+                "view3d-horn-trombone-low": 1,
+                "view3d-horn-flag6-low": 1
+            },
+            "log": [
+                "look 1: 15 marchers from Trumpet, rgba(195,91,34,1)",
+                "marchers built after 2016 ms",
+                "done"
+            ],
+            "consoleErrors": []
+        },
+        {
+            "scenario": "looks4",
+            "repeat": 0,
+            "params": {
+                "demo": "lhb-daft-punk",
+                "quality": "high",
+                "looks": 4,
+                "silks": 0,
+                "silkGrid": [24, 16],
+                "silkReplace": false,
+                "tex": 0,
+                "texSize": [1024, 1536],
+                "warmup": 5,
+                "seconds": 15
+            },
+            "renderer": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1 Pro, Unspecified Version)",
+            "drawingBuffer": [1920, 1036],
+            "pixelRatio": 1,
+            "kit": "hs",
+            "quality": "high",
+            "shadowMap": true,
+            "frames": 2764,
+            "restarts": 0,
+            "frameMs": {
+                "mean": 5.44,
+                "p50": 5.1,
+                "p95": 9.8,
+                "p99": 11.7
+            },
+            "fps": 183.68,
+            "renderCpuMs": {
+                "p50": 4.4,
+                "p95": 8.8
+            },
+            "gpuMs": {
+                "n": 1144,
+                "disjoint": 0,
+                "p50": 7.35,
+                "p95": 9.14,
+                "mean": 7.36
+            },
+            "drawCalls": {
+                "min": 160,
+                "p50": 160,
+                "max": 160
+            },
+            "triangles": {
+                "min": 1070305,
+                "p50": 1070305,
+                "max": 1070305
+            },
+            "memory": {
+                "geometries": 161,
+                "textures": 7
+            },
+            "programs": 16,
+            "artUploadMs": null,
+            "artTextureBytes": 0,
+            "bodyMeshes": 113,
+            "hornMeshes": 17,
+            "instancedMeshesByName": {
+                "treads": 2,
+                "bench": 2,
+                "crowd": 1,
+                "view3d-marcher-contact": 1,
+                "view3d-marchers-feminine-average": 17,
+                "view3d-marchers-neutral-full": 13,
+                "view3d-marchers-neutral-broad": 17,
+                "view3d-marchers-neutral-slim": 15,
+                "view3d-marchers-neutral-average": 16,
+                "view3d-marchers-masculine-average": 16,
+                "view3d-marchers-neutral-athletic": 18,
+                "view3d-horn-piccolo-low": 1,
+                "view3d-horn-cymbals-low": 2,
+                "view3d-horn-rifle-low": 1,
+                "view3d-horn-contra-low": 1,
+                "view3d-horn-tenorSax-low": 1,
+                "view3d-horn-mellophone-low": 2,
+                "view3d-horn-trumpet-low": 2,
+                "view3d-horn-altoSax-low": 1,
+                "view3d-horn-euphonium-low": 1,
+                "view3d-horn-snare-low": 1,
+                "view3d-horn-tenors-low": 1,
+                "view3d-horn-trombone-low": 1,
+                "view3d-horn-flag6-low": 2
+            },
+            "log": [
+                "look 1: 15 marchers from Trumpet, rgba(195,91,34,1)",
+                "look 2: 15 marchers from Cymbals, rgba(195,148,34,1)",
+                "look 3: 15 marchers from Mellophone, rgba(186,195,34,1)",
+                "look 4: 15 marchers from Color Guard, rgba(129,195,34,1)",
+                "marchers built after 2000 ms",
+                "done"
+            ],
+            "consoleErrors": []
+        },
+        {
+            "scenario": "looks8",
+            "repeat": 0,
+            "params": {
+                "demo": "lhb-daft-punk",
+                "quality": "high",
+                "looks": 8,
+                "silks": 0,
+                "silkGrid": [24, 16],
+                "silkReplace": false,
+                "tex": 0,
+                "texSize": [1024, 1536],
+                "warmup": 5,
+                "seconds": 15
+            },
+            "renderer": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1 Pro, Unspecified Version)",
+            "drawingBuffer": [1920, 1036],
+            "pixelRatio": 1,
+            "kit": "hs",
+            "quality": "high",
+            "shadowMap": true,
+            "frames": 2753,
+            "restarts": 0,
+            "frameMs": {
+                "mean": 5.48,
+                "p50": 5.1,
+                "p95": 9.9,
+                "p99": 12.3
+            },
+            "fps": 182.32,
+            "renderCpuMs": {
+                "p50": 4.4,
+                "p95": 8.9
+            },
+            "gpuMs": {
+                "n": 1313,
+                "disjoint": 0,
+                "p50": 7.15,
+                "p95": 8.83,
+                "mean": 7.11
+            },
+            "drawCalls": {
+                "min": 190,
+                "p50": 190,
+                "max": 190
+            },
+            "triangles": {
+                "min": 1070305,
+                "p50": 1070305,
+                "max": 1070305
+            },
+            "memory": {
+                "geometries": 195,
+                "textures": 7
+            },
+            "programs": 16,
+            "artUploadMs": null,
+            "artTextureBytes": 0,
+            "bodyMeshes": 139,
+            "hornMeshes": 21,
+            "instancedMeshesByName": {
+                "treads": 2,
+                "bench": 2,
+                "crowd": 1,
+                "view3d-marcher-contact": 1,
+                "view3d-marchers-feminine-average": 21,
+                "view3d-marchers-neutral-full": 17,
+                "view3d-marchers-neutral-broad": 21,
+                "view3d-marchers-neutral-slim": 19,
+                "view3d-marchers-neutral-average": 20,
+                "view3d-marchers-masculine-average": 19,
+                "view3d-marchers-neutral-athletic": 21,
+                "view3d-horn-piccolo-low": 2,
+                "view3d-horn-cymbals-low": 3,
+                "view3d-horn-rifle-low": 1,
+                "view3d-horn-contra-low": 1,
+                "view3d-horn-tenorSax-low": 1,
+                "view3d-horn-mellophone-low": 2,
+                "view3d-horn-trumpet-low": 3,
+                "view3d-horn-altoSax-low": 2,
+                "view3d-horn-euphonium-low": 1,
+                "view3d-horn-snare-low": 1,
+                "view3d-horn-tenors-low": 1,
+                "view3d-horn-trombone-low": 1,
+                "view3d-horn-flag6-low": 2
+            },
+            "log": [
+                "look 1: 15 marchers from Trumpet, rgba(195,91,34,1)",
+                "look 2: 15 marchers from Cymbals, rgba(195,148,34,1)",
+                "look 3: 15 marchers from Mellophone, rgba(186,195,34,1)",
+                "look 4: 15 marchers from Color Guard, rgba(129,195,34,1)",
+                "look 5: 15 marchers from Alto Sax, rgba(72,195,34,1)",
+                "look 6: 15 marchers from Piccolo, rgba(34,195,53,1)",
+                "look 7: 15 marchers from Trumpet, rgba(34,195,110,1)",
+                "look 8: 15 marchers from Cymbals, rgba(34,195,167,1)",
+                "marchers built after 2018 ms",
+                "done"
+            ],
+            "consoleErrors": []
+        },
+        {
+            "scenario": "looks16",
+            "repeat": 0,
+            "params": {
+                "demo": "lhb-daft-punk",
+                "quality": "high",
+                "looks": 16,
+                "silks": 0,
+                "silkGrid": [24, 16],
+                "silkReplace": false,
+                "tex": 0,
+                "texSize": [1024, 1536],
+                "warmup": 5,
+                "seconds": 15
+            },
+            "renderer": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1 Pro, Unspecified Version)",
+            "drawingBuffer": [1920, 1036],
+            "pixelRatio": 1,
+            "kit": "hs",
+            "quality": "high",
+            "shadowMap": true,
+            "frames": 2631,
+            "restarts": 0,
+            "frameMs": {
+                "mean": 5.72,
+                "p50": 5.4,
+                "p95": 10.5,
+                "p99": 12.8
+            },
+            "fps": 174.79,
+            "renderCpuMs": {
+                "p50": 4.5,
+                "p95": 9.5
+            },
+            "gpuMs": {
+                "n": 1516,
+                "disjoint": 0,
+                "p50": 7.11,
+                "p95": 8.82,
+                "mean": 7.09
+            },
+            "drawCalls": {
+                "min": 231,
+                "p50": 231,
+                "max": 231
+            },
+            "triangles": {
+                "min": 1070305,
+                "p50": 1070305,
+                "max": 1070305
+            },
+            "memory": {
+                "geometries": 244,
+                "textures": 7
+            },
+            "programs": 16,
+            "artUploadMs": null,
+            "artTextureBytes": 0,
+            "bodyMeshes": 172,
+            "hornMeshes": 29,
+            "instancedMeshesByName": {
+                "treads": 2,
+                "bench": 2,
+                "crowd": 1,
+                "view3d-marcher-contact": 1,
+                "view3d-marchers-feminine-average": 27,
+                "view3d-marchers-neutral-full": 22,
+                "view3d-marchers-neutral-broad": 26,
+                "view3d-marchers-neutral-slim": 24,
+                "view3d-marchers-neutral-average": 25,
+                "view3d-marchers-masculine-average": 23,
+                "view3d-marchers-neutral-athletic": 24,
+                "view3d-horn-piccolo-low": 3,
+                "view3d-horn-cymbals-low": 4,
+                "view3d-horn-rifle-low": 2,
+                "view3d-horn-contra-low": 1,
+                "view3d-horn-tenorSax-low": 1,
+                "view3d-horn-mellophone-low": 3,
+                "view3d-horn-trumpet-low": 5,
+                "view3d-horn-altoSax-low": 3,
+                "view3d-horn-euphonium-low": 1,
+                "view3d-horn-snare-low": 1,
+                "view3d-horn-tenors-low": 1,
+                "view3d-horn-trombone-low": 1,
+                "view3d-horn-flag6-low": 3
+            },
+            "log": [
+                "look 1: 15 marchers from Trumpet, rgba(195,91,34,1)",
+                "look 2: 15 marchers from Cymbals, rgba(195,148,34,1)",
+                "look 3: 15 marchers from Mellophone, rgba(186,195,34,1)",
+                "look 4: 15 marchers from Color Guard, rgba(129,195,34,1)",
+                "look 5: 15 marchers from Alto Sax, rgba(72,195,34,1)",
+                "look 6: 15 marchers from Piccolo, rgba(34,195,53,1)",
+                "look 7: 15 marchers from Trumpet, rgba(34,195,110,1)",
+                "look 8: 15 marchers from Cymbals, rgba(34,195,167,1)",
+                "look 9: 15 marchers from Mellophone, rgba(34,167,195,1)",
+                "look 10: 15 marchers from Color Guard, rgba(34,110,195,1)",
+                "look 11: 15 marchers from Alto Sax, rgba(34,53,195,1)",
+                "look 12: 15 marchers from Piccolo, rgba(72,34,195,1)",
+                "look 13: 15 marchers from Trumpet, rgba(129,34,195,1)",
+                "look 14: 15 marchers from Cymbals, rgba(186,34,195,1)",
+                "look 15: 15 marchers from Rifle, rgba(195,34,148,1)",
+                "look 16: 15 marchers from Trumpet, rgba(195,34,91,1)",
+                "marchers built after 2119 ms",
+                "done"
+            ],
+            "consoleErrors": []
+        },
+        {
+            "scenario": "silks40",
+            "repeat": 0,
+            "params": {
+                "demo": "lhb-daft-punk",
+                "quality": "high",
+                "looks": 0,
+                "silks": 40,
+                "silkGrid": [24, 16],
+                "silkReplace": false,
+                "tex": 0,
+                "texSize": [1024, 1536],
+                "warmup": 5,
+                "seconds": 15
+            },
+            "renderer": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1 Pro, Unspecified Version)",
+            "drawingBuffer": [1920, 1036],
+            "pixelRatio": 1,
+            "kit": "hs",
+            "quality": "high",
+            "shadowMap": true,
+            "frames": 2723,
+            "restarts": 0,
+            "frameMs": {
+                "mean": 5.52,
+                "p50": 5.2,
+                "p95": 10.3,
+                "p99": 12.3
+            },
+            "fps": 181.01,
+            "renderCpuMs": {
+                "p50": 4.5,
+                "p95": 9.4
+            },
+            "gpuMs": {
+                "n": 948,
+                "disjoint": 0,
+                "p50": 7.86,
+                "p95": 9.72,
+                "mean": 7.91
+            },
+            "drawCalls": {
+                "min": 131,
+                "p50": 131,
+                "max": 131
+            },
+            "triangles": {
+                "min": 1101025,
+                "p50": 1101025,
+                "max": 1101025
+            },
+            "memory": {
+                "geometries": 128,
+                "textures": 7
+            },
+            "programs": 17,
+            "artUploadMs": null,
+            "artTextureBytes": 0,
+            "bodyMeshes": 87,
+            "hornMeshes": 13,
+            "instancedMeshesByName": {
+                "treads": 2,
+                "bench": 2,
+                "crowd": 1,
+                "view3d-marcher-contact": 1,
+                "view3d-marchers-feminine-average": 13,
+                "view3d-marchers-neutral-full": 10,
+                "view3d-marchers-neutral-broad": 13,
+                "view3d-marchers-neutral-slim": 11,
+                "view3d-marchers-neutral-average": 12,
+                "view3d-marchers-masculine-average": 13,
+                "view3d-marchers-neutral-athletic": 14,
+                "view3d-horn-piccolo-low": 1,
+                "view3d-horn-cymbals-low": 1,
+                "view3d-horn-rifle-low": 1,
+                "view3d-horn-contra-low": 1,
+                "view3d-horn-tenorSax-low": 1,
+                "view3d-horn-mellophone-low": 1,
+                "view3d-horn-trumpet-low": 1,
+                "view3d-horn-altoSax-low": 1,
+                "view3d-horn-euphonium-low": 1,
+                "view3d-horn-snare-low": 1,
+                "view3d-horn-tenors-low": 1,
+                "view3d-horn-trombone-low": 1,
+                "view3d-horn-flag6-low": 1,
+                "bench-silks": 1
+            },
+            "log": [
+                "marchers built after 1986 ms",
+                "silks: 40 at 24x16, flag meshes 2",
+                "done"
+            ],
+            "consoleErrors": []
+        },
+        {
+            "scenario": "silks40-replace",
+            "repeat": 0,
+            "params": {
+                "demo": "lhb-daft-punk",
+                "quality": "high",
+                "looks": 0,
+                "silks": 40,
+                "silkGrid": [24, 16],
+                "silkReplace": true,
+                "tex": 0,
+                "texSize": [1024, 1536],
+                "warmup": 5,
+                "seconds": 15
+            },
+            "renderer": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1 Pro, Unspecified Version)",
+            "drawingBuffer": [1920, 1036],
+            "pixelRatio": 1,
+            "kit": "hs",
+            "quality": "high",
+            "shadowMap": true,
+            "frames": 2741,
+            "restarts": 0,
+            "frameMs": {
+                "mean": 5.47,
+                "p50": 5.1,
+                "p95": 10,
+                "p99": 12
+            },
+            "fps": 182.67,
+            "renderCpuMs": {
+                "p50": 4.3,
+                "p95": 9
+            },
+            "gpuMs": {
+                "n": 944,
+                "disjoint": 0,
+                "p50": 7.85,
+                "p95": 9.48,
+                "mean": 7.86
+            },
+            "drawCalls": {
+                "min": 130,
+                "p50": 130,
+                "max": 130
+            },
+            "triangles": {
+                "min": 1089505,
+                "p50": 1089505,
+                "max": 1089505
+            },
+            "memory": {
+                "geometries": 128,
+                "textures": 7
+            },
+            "programs": 17,
+            "artUploadMs": null,
+            "artTextureBytes": 0,
+            "bodyMeshes": 87,
+            "hornMeshes": 12,
+            "instancedMeshesByName": {
+                "treads": 2,
+                "bench": 2,
+                "crowd": 1,
+                "view3d-marcher-contact": 1,
+                "view3d-marchers-feminine-average": 13,
+                "view3d-marchers-neutral-full": 10,
+                "view3d-marchers-neutral-broad": 13,
+                "view3d-marchers-neutral-slim": 11,
+                "view3d-marchers-neutral-average": 12,
+                "view3d-marchers-masculine-average": 13,
+                "view3d-marchers-neutral-athletic": 14,
+                "view3d-horn-piccolo-low": 1,
+                "view3d-horn-cymbals-low": 1,
+                "view3d-horn-rifle-low": 1,
+                "view3d-horn-contra-low": 1,
+                "view3d-horn-tenorSax-low": 1,
+                "view3d-horn-mellophone-low": 1,
+                "view3d-horn-trumpet-low": 1,
+                "view3d-horn-altoSax-low": 1,
+                "view3d-horn-euphonium-low": 1,
+                "view3d-horn-snare-low": 1,
+                "view3d-horn-tenors-low": 1,
+                "view3d-horn-trombone-low": 1,
+                "bench-silks": 1
+            },
+            "log": [
+                "marchers built after 1996 ms",
+                "silks: 40 at 24x16, flag meshes 2",
+                "done"
+            ],
+            "consoleErrors": []
+        },
+        {
+            "scenario": "silks40-56x36",
+            "repeat": 0,
+            "params": {
+                "demo": "lhb-daft-punk",
+                "quality": "high",
+                "looks": 0,
+                "silks": 40,
+                "silkGrid": [56, 36],
+                "silkReplace": false,
+                "tex": 0,
+                "texSize": [1024, 1536],
+                "warmup": 5,
+                "seconds": 15
+            },
+            "renderer": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1 Pro, Unspecified Version)",
+            "drawingBuffer": [1920, 1036],
+            "pixelRatio": 1,
+            "kit": "hs",
+            "quality": "high",
+            "shadowMap": true,
+            "frames": 2664,
+            "restarts": 0,
+            "frameMs": {
+                "mean": 5.67,
+                "p50": 5.3,
+                "p95": 10.5,
+                "p99": 12.1
+            },
+            "fps": 176.5,
+            "renderCpuMs": {
+                "p50": 4.6,
+                "p95": 9.5
+            },
+            "gpuMs": {
+                "n": 928,
+                "disjoint": 0,
+                "p50": 8.16,
+                "p95": 9.76,
+                "mean": 8.17
+            },
+            "drawCalls": {
+                "min": 131,
+                "p50": 131,
+                "max": 131
+            },
+            "triangles": {
+                "min": 1231585,
+                "p50": 1231585,
+                "max": 1231585
+            },
+            "memory": {
+                "geometries": 128,
+                "textures": 7
+            },
+            "programs": 17,
+            "artUploadMs": null,
+            "artTextureBytes": 0,
+            "bodyMeshes": 87,
+            "hornMeshes": 13,
+            "instancedMeshesByName": {
+                "treads": 2,
+                "bench": 2,
+                "crowd": 1,
+                "view3d-marcher-contact": 1,
+                "view3d-marchers-feminine-average": 13,
+                "view3d-marchers-neutral-full": 10,
+                "view3d-marchers-neutral-broad": 13,
+                "view3d-marchers-neutral-slim": 11,
+                "view3d-marchers-neutral-average": 12,
+                "view3d-marchers-masculine-average": 13,
+                "view3d-marchers-neutral-athletic": 14,
+                "view3d-horn-piccolo-low": 1,
+                "view3d-horn-cymbals-low": 1,
+                "view3d-horn-rifle-low": 1,
+                "view3d-horn-contra-low": 1,
+                "view3d-horn-tenorSax-low": 1,
+                "view3d-horn-mellophone-low": 1,
+                "view3d-horn-trumpet-low": 1,
+                "view3d-horn-altoSax-low": 1,
+                "view3d-horn-euphonium-low": 1,
+                "view3d-horn-snare-low": 1,
+                "view3d-horn-tenors-low": 1,
+                "view3d-horn-trombone-low": 1,
+                "view3d-horn-flag6-low": 1,
+                "bench-silks": 1
+            },
+            "log": [
+                "marchers built after 1981 ms",
+                "silks: 40 at 56x36, flag meshes 2",
+                "done"
+            ],
+            "consoleErrors": []
+        },
+        {
+            "scenario": "silks40-tex4",
+            "repeat": 0,
+            "params": {
+                "demo": "lhb-daft-punk",
+                "quality": "high",
+                "looks": 0,
+                "silks": 40,
+                "silkGrid": [24, 16],
+                "silkReplace": false,
+                "tex": 4,
+                "texSize": [1024, 1536],
+                "warmup": 5,
+                "seconds": 15
+            },
+            "renderer": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1 Pro, Unspecified Version)",
+            "drawingBuffer": [1920, 1036],
+            "pixelRatio": 1,
+            "kit": "hs",
+            "quality": "high",
+            "shadowMap": true,
+            "frames": 2712,
+            "restarts": 0,
+            "frameMs": {
+                "mean": 5.55,
+                "p50": 5.3,
+                "p95": 10.3,
+                "p99": 11.8
+            },
+            "fps": 180.29,
+            "renderCpuMs": {
+                "p50": 4.5,
+                "p95": 9.4
+            },
+            "gpuMs": {
+                "n": 945,
+                "disjoint": 0,
+                "p50": 7.93,
+                "p95": 9.54,
+                "mean": 7.94
+            },
+            "drawCalls": {
+                "min": 131,
+                "p50": 131,
+                "max": 131
+            },
+            "triangles": {
+                "min": 1101025,
+                "p50": 1101025,
+                "max": 1101025
+            },
+            "memory": {
+                "geometries": 128,
+                "textures": 8
+            },
+            "programs": 17,
+            "artUploadMs": 21.9,
+            "artTextureBytes": 33554432,
+            "bodyMeshes": 87,
+            "hornMeshes": 13,
+            "instancedMeshesByName": {
+                "treads": 2,
+                "bench": 2,
+                "crowd": 1,
+                "view3d-marcher-contact": 1,
+                "view3d-marchers-feminine-average": 13,
+                "view3d-marchers-neutral-full": 10,
+                "view3d-marchers-neutral-broad": 13,
+                "view3d-marchers-neutral-slim": 11,
+                "view3d-marchers-neutral-average": 12,
+                "view3d-marchers-masculine-average": 13,
+                "view3d-marchers-neutral-athletic": 14,
+                "view3d-horn-piccolo-low": 1,
+                "view3d-horn-cymbals-low": 1,
+                "view3d-horn-rifle-low": 1,
+                "view3d-horn-contra-low": 1,
+                "view3d-horn-tenorSax-low": 1,
+                "view3d-horn-mellophone-low": 1,
+                "view3d-horn-trumpet-low": 1,
+                "view3d-horn-altoSax-low": 1,
+                "view3d-horn-euphonium-low": 1,
+                "view3d-horn-snare-low": 1,
+                "view3d-horn-tenors-low": 1,
+                "view3d-horn-trombone-low": 1,
+                "view3d-horn-flag6-low": 1,
+                "bench-silks": 1
+            },
+            "log": [
+                "marchers built after 1984 ms",
+                "art: 4 x 1024x1536 built 16 ms, uploaded 22 ms",
+                "silks: 40 at 24x16, flag meshes 2",
+                "done"
+            ],
+            "consoleErrors": []
+        },
+        {
+            "scenario": "silks40-tex8",
+            "repeat": 0,
+            "params": {
+                "demo": "lhb-daft-punk",
+                "quality": "high",
+                "looks": 0,
+                "silks": 40,
+                "silkGrid": [24, 16],
+                "silkReplace": false,
+                "tex": 8,
+                "texSize": [1024, 1536],
+                "warmup": 5,
+                "seconds": 15
+            },
+            "renderer": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1 Pro, Unspecified Version)",
+            "drawingBuffer": [1920, 1036],
+            "pixelRatio": 1,
+            "kit": "hs",
+            "quality": "high",
+            "shadowMap": true,
+            "frames": 2697,
+            "restarts": 0,
+            "frameMs": {
+                "mean": 5.59,
+                "p50": 5.2,
+                "p95": 10.4,
+                "p99": 12
+            },
+            "fps": 179.01,
+            "renderCpuMs": {
+                "p50": 4.5,
+                "p95": 9.5
+            },
+            "gpuMs": {
+                "n": 944,
+                "disjoint": 0,
+                "p50": 7.99,
+                "p95": 9.95,
+                "mean": 8.04
+            },
+            "drawCalls": {
+                "min": 131,
+                "p50": 131,
+                "max": 131
+            },
+            "triangles": {
+                "min": 1101025,
+                "p50": 1101025,
+                "max": 1101025
+            },
+            "memory": {
+                "geometries": 128,
+                "textures": 8
+            },
+            "programs": 17,
+            "artUploadMs": 61.5,
+            "artTextureBytes": 67108864,
+            "bodyMeshes": 87,
+            "hornMeshes": 13,
+            "instancedMeshesByName": {
+                "treads": 2,
+                "bench": 2,
+                "crowd": 1,
+                "view3d-marcher-contact": 1,
+                "view3d-marchers-feminine-average": 13,
+                "view3d-marchers-neutral-full": 10,
+                "view3d-marchers-neutral-broad": 13,
+                "view3d-marchers-neutral-slim": 11,
+                "view3d-marchers-neutral-average": 12,
+                "view3d-marchers-masculine-average": 13,
+                "view3d-marchers-neutral-athletic": 14,
+                "view3d-horn-piccolo-low": 1,
+                "view3d-horn-cymbals-low": 1,
+                "view3d-horn-rifle-low": 1,
+                "view3d-horn-contra-low": 1,
+                "view3d-horn-tenorSax-low": 1,
+                "view3d-horn-mellophone-low": 1,
+                "view3d-horn-trumpet-low": 1,
+                "view3d-horn-altoSax-low": 1,
+                "view3d-horn-euphonium-low": 1,
+                "view3d-horn-snare-low": 1,
+                "view3d-horn-tenors-low": 1,
+                "view3d-horn-trombone-low": 1,
+                "view3d-horn-flag6-low": 1,
+                "bench-silks": 1
+            },
+            "log": [
+                "marchers built after 1980 ms",
+                "art: 8 x 1024x1536 built 29 ms, uploaded 62 ms",
+                "silks: 40 at 24x16, flag meshes 2",
+                "done"
+            ],
+            "consoleErrors": []
+        },
+        {
+            "scenario": "silks40-tex8-2k",
+            "repeat": 0,
+            "params": {
+                "demo": "lhb-daft-punk",
+                "quality": "high",
+                "looks": 0,
+                "silks": 40,
+                "silkGrid": [24, 16],
+                "silkReplace": false,
+                "tex": 8,
+                "texSize": [2048, 3072],
+                "warmup": 5,
+                "seconds": 15
+            },
+            "renderer": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1 Pro, Unspecified Version)",
+            "drawingBuffer": [1920, 1036],
+            "pixelRatio": 1,
+            "kit": "hs",
+            "quality": "high",
+            "shadowMap": true,
+            "frames": 2676,
+            "restarts": 0,
+            "frameMs": {
+                "mean": 5.61,
+                "p50": 5.3,
+                "p95": 10.4,
+                "p99": 12.2
+            },
+            "fps": 178.24,
+            "renderCpuMs": {
+                "p50": 4.5,
+                "p95": 9.5
+            },
+            "gpuMs": {
+                "n": 931,
+                "disjoint": 0,
+                "p50": 7.96,
+                "p95": 9.89,
+                "mean": 8.01
+            },
+            "drawCalls": {
+                "min": 131,
+                "p50": 131,
+                "max": 131
+            },
+            "triangles": {
+                "min": 1101025,
+                "p50": 1101025,
+                "max": 1101025
+            },
+            "memory": {
+                "geometries": 128,
+                "textures": 8
+            },
+            "programs": 17,
+            "artUploadMs": 303.9,
+            "artTextureBytes": 268435456,
+            "bodyMeshes": 87,
+            "hornMeshes": 13,
+            "instancedMeshesByName": {
+                "treads": 2,
+                "bench": 2,
+                "crowd": 1,
+                "view3d-marcher-contact": 1,
+                "view3d-marchers-feminine-average": 13,
+                "view3d-marchers-neutral-full": 10,
+                "view3d-marchers-neutral-broad": 13,
+                "view3d-marchers-neutral-slim": 11,
+                "view3d-marchers-neutral-average": 12,
+                "view3d-marchers-masculine-average": 13,
+                "view3d-marchers-neutral-athletic": 14,
+                "view3d-horn-piccolo-low": 1,
+                "view3d-horn-cymbals-low": 1,
+                "view3d-horn-rifle-low": 1,
+                "view3d-horn-contra-low": 1,
+                "view3d-horn-tenorSax-low": 1,
+                "view3d-horn-mellophone-low": 1,
+                "view3d-horn-trumpet-low": 1,
+                "view3d-horn-altoSax-low": 1,
+                "view3d-horn-euphonium-low": 1,
+                "view3d-horn-snare-low": 1,
+                "view3d-horn-tenors-low": 1,
+                "view3d-horn-trombone-low": 1,
+                "view3d-horn-flag6-low": 1,
+                "bench-silks": 1
+            },
+            "log": [
+                "marchers built after 1998 ms",
+                "art: 8 x 2048x3072 built 111 ms, uploaded 304 ms",
+                "silks: 40 at 24x16, flag meshes 2",
+                "done"
+            ],
+            "consoleErrors": []
+        },
+        {
+            "scenario": "worst-looks16-silks40-tex8",
+            "repeat": 0,
+            "params": {
+                "demo": "lhb-daft-punk",
+                "quality": "high",
+                "looks": 16,
+                "silks": 40,
+                "silkGrid": [24, 16],
+                "silkReplace": false,
+                "tex": 8,
+                "texSize": [1024, 1536],
+                "warmup": 5,
+                "seconds": 15
+            },
+            "renderer": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1 Pro, Unspecified Version)",
+            "drawingBuffer": [1920, 1036],
+            "pixelRatio": 1,
+            "kit": "hs",
+            "quality": "high",
+            "shadowMap": true,
+            "frames": 2550,
+            "restarts": 0,
+            "frameMs": {
+                "mean": 5.9,
+                "p50": 5.5,
+                "p95": 10.7,
+                "p99": 12.8
+            },
+            "fps": 169.48,
+            "renderCpuMs": {
+                "p50": 4.7,
+                "p95": 9.7
+            },
+            "gpuMs": {
+                "n": 1464,
+                "disjoint": 0,
+                "p50": 7.47,
+                "p95": 9.13,
+                "mean": 7.41
+            },
+            "drawCalls": {
+                "min": 232,
+                "p50": 232,
+                "max": 232
+            },
+            "triangles": {
+                "min": 1101025,
+                "p50": 1101025,
+                "max": 1101025
+            },
+            "memory": {
+                "geometries": 245,
+                "textures": 8
+            },
+            "programs": 17,
+            "artUploadMs": 61.1,
+            "artTextureBytes": 67108864,
+            "bodyMeshes": 172,
+            "hornMeshes": 29,
+            "instancedMeshesByName": {
+                "treads": 2,
+                "bench": 2,
+                "crowd": 1,
+                "view3d-marcher-contact": 1,
+                "view3d-marchers-feminine-average": 27,
+                "view3d-marchers-neutral-full": 22,
+                "view3d-marchers-neutral-broad": 26,
+                "view3d-marchers-neutral-slim": 24,
+                "view3d-marchers-neutral-average": 25,
+                "view3d-marchers-masculine-average": 23,
+                "view3d-marchers-neutral-athletic": 24,
+                "view3d-horn-piccolo-low": 3,
+                "view3d-horn-cymbals-low": 4,
+                "view3d-horn-rifle-low": 2,
+                "view3d-horn-contra-low": 1,
+                "view3d-horn-tenorSax-low": 1,
+                "view3d-horn-mellophone-low": 3,
+                "view3d-horn-trumpet-low": 5,
+                "view3d-horn-altoSax-low": 3,
+                "view3d-horn-euphonium-low": 1,
+                "view3d-horn-snare-low": 1,
+                "view3d-horn-tenors-low": 1,
+                "view3d-horn-trombone-low": 1,
+                "view3d-horn-flag6-low": 3,
+                "bench-silks": 1
+            },
+            "log": [
+                "look 1: 15 marchers from Trumpet, rgba(195,91,34,1)",
+                "look 2: 15 marchers from Cymbals, rgba(195,148,34,1)",
+                "look 3: 15 marchers from Mellophone, rgba(186,195,34,1)",
+                "look 4: 15 marchers from Color Guard, rgba(129,195,34,1)",
+                "look 5: 15 marchers from Alto Sax, rgba(72,195,34,1)",
+                "look 6: 15 marchers from Piccolo, rgba(34,195,53,1)",
+                "look 7: 15 marchers from Trumpet, rgba(34,195,110,1)",
+                "look 8: 15 marchers from Cymbals, rgba(34,195,167,1)",
+                "look 9: 15 marchers from Mellophone, rgba(34,167,195,1)",
+                "look 10: 15 marchers from Color Guard, rgba(34,110,195,1)",
+                "look 11: 15 marchers from Alto Sax, rgba(34,53,195,1)",
+                "look 12: 15 marchers from Piccolo, rgba(72,34,195,1)",
+                "look 13: 15 marchers from Trumpet, rgba(129,34,195,1)",
+                "look 14: 15 marchers from Cymbals, rgba(186,34,195,1)",
+                "look 15: 15 marchers from Rifle, rgba(195,34,148,1)",
+                "look 16: 15 marchers from Trumpet, rgba(195,34,91,1)",
+                "marchers built after 2030 ms",
+                "art: 8 x 1024x1536 built 29 ms, uploaded 61 ms",
+                "silks: 40 at 24x16, flag meshes 6",
+                "done"
+            ],
+            "consoleErrors": []
+        },
+        {
+            "scenario": "worst-looks16-silks40-tex8",
+            "repeat": 1,
+            "params": {
+                "demo": "lhb-daft-punk",
+                "quality": "high",
+                "looks": 16,
+                "silks": 40,
+                "silkGrid": [24, 16],
+                "silkReplace": false,
+                "tex": 8,
+                "texSize": [1024, 1536],
+                "warmup": 5,
+                "seconds": 15
+            },
+            "renderer": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1 Pro, Unspecified Version)",
+            "drawingBuffer": [1920, 1036],
+            "pixelRatio": 1,
+            "kit": "hs",
+            "quality": "high",
+            "shadowMap": true,
+            "frames": 2535,
+            "restarts": 0,
+            "frameMs": {
+                "mean": 5.96,
+                "p50": 5.6,
+                "p95": 10.8,
+                "p99": 12.8
+            },
+            "fps": 167.85,
+            "renderCpuMs": {
+                "p50": 4.7,
+                "p95": 9.8
+            },
+            "gpuMs": {
+                "n": 1454,
+                "disjoint": 0,
+                "p50": 7.63,
+                "p95": 9.46,
+                "mean": 7.58
+            },
+            "drawCalls": {
+                "min": 232,
+                "p50": 232,
+                "max": 232
+            },
+            "triangles": {
+                "min": 1101025,
+                "p50": 1101025,
+                "max": 1101025
+            },
+            "memory": {
+                "geometries": 245,
+                "textures": 8
+            },
+            "programs": 17,
+            "artUploadMs": 61.4,
+            "artTextureBytes": 67108864,
+            "bodyMeshes": 172,
+            "hornMeshes": 29,
+            "instancedMeshesByName": {
+                "treads": 2,
+                "bench": 2,
+                "crowd": 1,
+                "view3d-marcher-contact": 1,
+                "view3d-marchers-feminine-average": 27,
+                "view3d-marchers-neutral-full": 22,
+                "view3d-marchers-neutral-broad": 26,
+                "view3d-marchers-neutral-slim": 24,
+                "view3d-marchers-neutral-average": 25,
+                "view3d-marchers-masculine-average": 23,
+                "view3d-marchers-neutral-athletic": 24,
+                "view3d-horn-piccolo-low": 3,
+                "view3d-horn-cymbals-low": 4,
+                "view3d-horn-rifle-low": 2,
+                "view3d-horn-contra-low": 1,
+                "view3d-horn-tenorSax-low": 1,
+                "view3d-horn-mellophone-low": 3,
+                "view3d-horn-trumpet-low": 5,
+                "view3d-horn-altoSax-low": 3,
+                "view3d-horn-euphonium-low": 1,
+                "view3d-horn-snare-low": 1,
+                "view3d-horn-tenors-low": 1,
+                "view3d-horn-trombone-low": 1,
+                "view3d-horn-flag6-low": 3,
+                "bench-silks": 1
+            },
+            "log": [
+                "look 1: 15 marchers from Trumpet, rgba(195,91,34,1)",
+                "look 2: 15 marchers from Cymbals, rgba(195,148,34,1)",
+                "look 3: 15 marchers from Mellophone, rgba(186,195,34,1)",
+                "look 4: 15 marchers from Color Guard, rgba(129,195,34,1)",
+                "look 5: 15 marchers from Alto Sax, rgba(72,195,34,1)",
+                "look 6: 15 marchers from Piccolo, rgba(34,195,53,1)",
+                "look 7: 15 marchers from Trumpet, rgba(34,195,110,1)",
+                "look 8: 15 marchers from Cymbals, rgba(34,195,167,1)",
+                "look 9: 15 marchers from Mellophone, rgba(34,167,195,1)",
+                "look 10: 15 marchers from Color Guard, rgba(34,110,195,1)",
+                "look 11: 15 marchers from Alto Sax, rgba(34,53,195,1)",
+                "look 12: 15 marchers from Piccolo, rgba(72,34,195,1)",
+                "look 13: 15 marchers from Trumpet, rgba(129,34,195,1)",
+                "look 14: 15 marchers from Cymbals, rgba(186,34,195,1)",
+                "look 15: 15 marchers from Rifle, rgba(195,34,148,1)",
+                "look 16: 15 marchers from Trumpet, rgba(195,34,91,1)",
+                "marchers built after 2045 ms",
+                "art: 8 x 1024x1536 built 29 ms, uploaded 61 ms",
+                "silks: 40 at 24x16, flag meshes 6",
+                "done"
+            ],
+            "consoleErrors": []
+        },
+        {
+            "scenario": "silks40-tex8-2k",
+            "repeat": 1,
+            "params": {
+                "demo": "lhb-daft-punk",
+                "quality": "high",
+                "looks": 0,
+                "silks": 40,
+                "silkGrid": [24, 16],
+                "silkReplace": false,
+                "tex": 8,
+                "texSize": [2048, 3072],
+                "warmup": 5,
+                "seconds": 15
+            },
+            "renderer": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1 Pro, Unspecified Version)",
+            "drawingBuffer": [1920, 1036],
+            "pixelRatio": 1,
+            "kit": "hs",
+            "quality": "high",
+            "shadowMap": true,
+            "frames": 2726,
+            "restarts": 0,
+            "frameMs": {
+                "mean": 5.53,
+                "p50": 5.2,
+                "p95": 10.3,
+                "p99": 11.9
+            },
+            "fps": 180.86,
+            "renderCpuMs": {
+                "p50": 4.5,
+                "p95": 9.4
+            },
+            "gpuMs": {
+                "n": 949,
+                "disjoint": 0,
+                "p50": 7.86,
+                "p95": 9.36,
+                "mean": 7.88
+            },
+            "drawCalls": {
+                "min": 131,
+                "p50": 131,
+                "max": 131
+            },
+            "triangles": {
+                "min": 1101025,
+                "p50": 1101025,
+                "max": 1101025
+            },
+            "memory": {
+                "geometries": 128,
+                "textures": 8
+            },
+            "programs": 17,
+            "artUploadMs": 302.3,
+            "artTextureBytes": 268435456,
+            "bodyMeshes": 87,
+            "hornMeshes": 13,
+            "instancedMeshesByName": {
+                "treads": 2,
+                "bench": 2,
+                "crowd": 1,
+                "view3d-marcher-contact": 1,
+                "view3d-marchers-feminine-average": 13,
+                "view3d-marchers-neutral-full": 10,
+                "view3d-marchers-neutral-broad": 13,
+                "view3d-marchers-neutral-slim": 11,
+                "view3d-marchers-neutral-average": 12,
+                "view3d-marchers-masculine-average": 13,
+                "view3d-marchers-neutral-athletic": 14,
+                "view3d-horn-piccolo-low": 1,
+                "view3d-horn-cymbals-low": 1,
+                "view3d-horn-rifle-low": 1,
+                "view3d-horn-contra-low": 1,
+                "view3d-horn-tenorSax-low": 1,
+                "view3d-horn-mellophone-low": 1,
+                "view3d-horn-trumpet-low": 1,
+                "view3d-horn-altoSax-low": 1,
+                "view3d-horn-euphonium-low": 1,
+                "view3d-horn-snare-low": 1,
+                "view3d-horn-tenors-low": 1,
+                "view3d-horn-trombone-low": 1,
+                "view3d-horn-flag6-low": 1,
+                "bench-silks": 1
+            },
+            "log": [
+                "marchers built after 2009 ms",
+                "art: 8 x 2048x3072 built 112 ms, uploaded 302 ms",
+                "silks: 40 at 24x16, flag meshes 2",
+                "done"
+            ],
+            "consoleErrors": []
+        },
+        {
+            "scenario": "silks40-tex8",
+            "repeat": 1,
+            "params": {
+                "demo": "lhb-daft-punk",
+                "quality": "high",
+                "looks": 0,
+                "silks": 40,
+                "silkGrid": [24, 16],
+                "silkReplace": false,
+                "tex": 8,
+                "texSize": [1024, 1536],
+                "warmup": 5,
+                "seconds": 15
+            },
+            "renderer": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1 Pro, Unspecified Version)",
+            "drawingBuffer": [1920, 1036],
+            "pixelRatio": 1,
+            "kit": "hs",
+            "quality": "high",
+            "shadowMap": true,
+            "frames": 2687,
+            "restarts": 0,
+            "frameMs": {
+                "mean": 5.6,
+                "p50": 5.3,
+                "p95": 10.6,
+                "p99": 12.3
+            },
+            "fps": 178.43,
+            "renderCpuMs": {
+                "p50": 4.6,
+                "p95": 9.6
+            },
+            "gpuMs": {
+                "n": 941,
+                "disjoint": 0,
+                "p50": 7.97,
+                "p95": 9.79,
+                "mean": 8.02
+            },
+            "drawCalls": {
+                "min": 131,
+                "p50": 131,
+                "max": 131
+            },
+            "triangles": {
+                "min": 1101025,
+                "p50": 1101025,
+                "max": 1101025
+            },
+            "memory": {
+                "geometries": 128,
+                "textures": 8
+            },
+            "programs": 17,
+            "artUploadMs": 61.5,
+            "artTextureBytes": 67108864,
+            "bodyMeshes": 87,
+            "hornMeshes": 13,
+            "instancedMeshesByName": {
+                "treads": 2,
+                "bench": 2,
+                "crowd": 1,
+                "view3d-marcher-contact": 1,
+                "view3d-marchers-feminine-average": 13,
+                "view3d-marchers-neutral-full": 10,
+                "view3d-marchers-neutral-broad": 13,
+                "view3d-marchers-neutral-slim": 11,
+                "view3d-marchers-neutral-average": 12,
+                "view3d-marchers-masculine-average": 13,
+                "view3d-marchers-neutral-athletic": 14,
+                "view3d-horn-piccolo-low": 1,
+                "view3d-horn-cymbals-low": 1,
+                "view3d-horn-rifle-low": 1,
+                "view3d-horn-contra-low": 1,
+                "view3d-horn-tenorSax-low": 1,
+                "view3d-horn-mellophone-low": 1,
+                "view3d-horn-trumpet-low": 1,
+                "view3d-horn-altoSax-low": 1,
+                "view3d-horn-euphonium-low": 1,
+                "view3d-horn-snare-low": 1,
+                "view3d-horn-tenors-low": 1,
+                "view3d-horn-trombone-low": 1,
+                "view3d-horn-flag6-low": 1,
+                "bench-silks": 1
+            },
+            "log": [
+                "marchers built after 2034 ms",
+                "art: 8 x 1024x1536 built 29 ms, uploaded 62 ms",
+                "silks: 40 at 24x16, flag meshes 2",
+                "done"
+            ],
+            "consoleErrors": []
+        },
+        {
+            "scenario": "silks40-tex4",
+            "repeat": 1,
+            "params": {
+                "demo": "lhb-daft-punk",
+                "quality": "high",
+                "looks": 0,
+                "silks": 40,
+                "silkGrid": [24, 16],
+                "silkReplace": false,
+                "tex": 4,
+                "texSize": [1024, 1536],
+                "warmup": 5,
+                "seconds": 15
+            },
+            "renderer": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1 Pro, Unspecified Version)",
+            "drawingBuffer": [1920, 1036],
+            "pixelRatio": 1,
+            "kit": "hs",
+            "quality": "high",
+            "shadowMap": true,
+            "frames": 2709,
+            "restarts": 0,
+            "frameMs": {
+                "mean": 5.55,
+                "p50": 5.2,
+                "p95": 10.4,
+                "p99": 12
+            },
+            "fps": 180.27,
+            "renderCpuMs": {
+                "p50": 4.5,
+                "p95": 9.5
+            },
+            "gpuMs": {
+                "n": 944,
+                "disjoint": 0,
+                "p50": 8,
+                "p95": 9.53,
+                "mean": 7.97
+            },
+            "drawCalls": {
+                "min": 131,
+                "p50": 131,
+                "max": 131
+            },
+            "triangles": {
+                "min": 1101025,
+                "p50": 1101025,
+                "max": 1101025
+            },
+            "memory": {
+                "geometries": 128,
+                "textures": 8
+            },
+            "programs": 17,
+            "artUploadMs": 22.5,
+            "artTextureBytes": 33554432,
+            "bodyMeshes": 87,
+            "hornMeshes": 13,
+            "instancedMeshesByName": {
+                "treads": 2,
+                "bench": 2,
+                "crowd": 1,
+                "view3d-marcher-contact": 1,
+                "view3d-marchers-feminine-average": 13,
+                "view3d-marchers-neutral-full": 10,
+                "view3d-marchers-neutral-broad": 13,
+                "view3d-marchers-neutral-slim": 11,
+                "view3d-marchers-neutral-average": 12,
+                "view3d-marchers-masculine-average": 13,
+                "view3d-marchers-neutral-athletic": 14,
+                "view3d-horn-piccolo-low": 1,
+                "view3d-horn-cymbals-low": 1,
+                "view3d-horn-rifle-low": 1,
+                "view3d-horn-contra-low": 1,
+                "view3d-horn-tenorSax-low": 1,
+                "view3d-horn-mellophone-low": 1,
+                "view3d-horn-trumpet-low": 1,
+                "view3d-horn-altoSax-low": 1,
+                "view3d-horn-euphonium-low": 1,
+                "view3d-horn-snare-low": 1,
+                "view3d-horn-tenors-low": 1,
+                "view3d-horn-trombone-low": 1,
+                "view3d-horn-flag6-low": 1,
+                "bench-silks": 1
+            },
+            "log": [
+                "marchers built after 1993 ms",
+                "art: 4 x 1024x1536 built 15 ms, uploaded 23 ms",
+                "silks: 40 at 24x16, flag meshes 2",
+                "done"
+            ],
+            "consoleErrors": []
+        },
+        {
+            "scenario": "silks40-56x36",
+            "repeat": 1,
+            "params": {
+                "demo": "lhb-daft-punk",
+                "quality": "high",
+                "looks": 0,
+                "silks": 40,
+                "silkGrid": [56, 36],
+                "silkReplace": false,
+                "tex": 0,
+                "texSize": [1024, 1536],
+                "warmup": 5,
+                "seconds": 15
+            },
+            "renderer": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1 Pro, Unspecified Version)",
+            "drawingBuffer": [1920, 1036],
+            "pixelRatio": 1,
+            "kit": "hs",
+            "quality": "high",
+            "shadowMap": true,
+            "frames": 2642,
+            "restarts": 0,
+            "frameMs": {
+                "mean": 5.7,
+                "p50": 5.3,
+                "p95": 10.6,
+                "p99": 12.4
+            },
+            "fps": 175.56,
+            "renderCpuMs": {
+                "p50": 4.6,
+                "p95": 9.6
+            },
+            "gpuMs": {
+                "n": 919,
+                "disjoint": 0,
+                "p50": 8.16,
+                "p95": 9.86,
+                "mean": 8.2
+            },
+            "drawCalls": {
+                "min": 131,
+                "p50": 131,
+                "max": 131
+            },
+            "triangles": {
+                "min": 1231585,
+                "p50": 1231585,
+                "max": 1231585
+            },
+            "memory": {
+                "geometries": 128,
+                "textures": 7
+            },
+            "programs": 17,
+            "artUploadMs": null,
+            "artTextureBytes": 0,
+            "bodyMeshes": 87,
+            "hornMeshes": 13,
+            "instancedMeshesByName": {
+                "treads": 2,
+                "bench": 2,
+                "crowd": 1,
+                "view3d-marcher-contact": 1,
+                "view3d-marchers-feminine-average": 13,
+                "view3d-marchers-neutral-full": 10,
+                "view3d-marchers-neutral-broad": 13,
+                "view3d-marchers-neutral-slim": 11,
+                "view3d-marchers-neutral-average": 12,
+                "view3d-marchers-masculine-average": 13,
+                "view3d-marchers-neutral-athletic": 14,
+                "view3d-horn-piccolo-low": 1,
+                "view3d-horn-cymbals-low": 1,
+                "view3d-horn-rifle-low": 1,
+                "view3d-horn-contra-low": 1,
+                "view3d-horn-tenorSax-low": 1,
+                "view3d-horn-mellophone-low": 1,
+                "view3d-horn-trumpet-low": 1,
+                "view3d-horn-altoSax-low": 1,
+                "view3d-horn-euphonium-low": 1,
+                "view3d-horn-snare-low": 1,
+                "view3d-horn-tenors-low": 1,
+                "view3d-horn-trombone-low": 1,
+                "view3d-horn-flag6-low": 1,
+                "bench-silks": 1
+            },
+            "log": [
+                "marchers built after 1993 ms",
+                "silks: 40 at 56x36, flag meshes 2",
+                "done"
+            ],
+            "consoleErrors": []
+        },
+        {
+            "scenario": "silks40-replace",
+            "repeat": 1,
+            "params": {
+                "demo": "lhb-daft-punk",
+                "quality": "high",
+                "looks": 0,
+                "silks": 40,
+                "silkGrid": [24, 16],
+                "silkReplace": true,
+                "tex": 0,
+                "texSize": [1024, 1536],
+                "warmup": 5,
+                "seconds": 15
+            },
+            "renderer": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1 Pro, Unspecified Version)",
+            "drawingBuffer": [1920, 1036],
+            "pixelRatio": 1,
+            "kit": "hs",
+            "quality": "high",
+            "shadowMap": true,
+            "frames": 2759,
+            "restarts": 0,
+            "frameMs": {
+                "mean": 5.47,
+                "p50": 5.1,
+                "p95": 10,
+                "p99": 12
+            },
+            "fps": 182.77,
+            "renderCpuMs": {
+                "p50": 4.3,
+                "p95": 9
+            },
+            "gpuMs": {
+                "n": 952,
+                "disjoint": 0,
+                "p50": 7.86,
+                "p95": 9.54,
+                "mean": 7.87
+            },
+            "drawCalls": {
+                "min": 130,
+                "p50": 130,
+                "max": 130
+            },
+            "triangles": {
+                "min": 1089505,
+                "p50": 1089505,
+                "max": 1089505
+            },
+            "memory": {
+                "geometries": 128,
+                "textures": 7
+            },
+            "programs": 17,
+            "artUploadMs": null,
+            "artTextureBytes": 0,
+            "bodyMeshes": 87,
+            "hornMeshes": 12,
+            "instancedMeshesByName": {
+                "treads": 2,
+                "bench": 2,
+                "crowd": 1,
+                "view3d-marcher-contact": 1,
+                "view3d-marchers-feminine-average": 13,
+                "view3d-marchers-neutral-full": 10,
+                "view3d-marchers-neutral-broad": 13,
+                "view3d-marchers-neutral-slim": 11,
+                "view3d-marchers-neutral-average": 12,
+                "view3d-marchers-masculine-average": 13,
+                "view3d-marchers-neutral-athletic": 14,
+                "view3d-horn-piccolo-low": 1,
+                "view3d-horn-cymbals-low": 1,
+                "view3d-horn-rifle-low": 1,
+                "view3d-horn-contra-low": 1,
+                "view3d-horn-tenorSax-low": 1,
+                "view3d-horn-mellophone-low": 1,
+                "view3d-horn-trumpet-low": 1,
+                "view3d-horn-altoSax-low": 1,
+                "view3d-horn-euphonium-low": 1,
+                "view3d-horn-snare-low": 1,
+                "view3d-horn-tenors-low": 1,
+                "view3d-horn-trombone-low": 1,
+                "bench-silks": 1
+            },
+            "log": [
+                "marchers built after 2000 ms",
+                "silks: 40 at 24x16, flag meshes 2",
+                "done"
+            ],
+            "consoleErrors": []
+        },
+        {
+            "scenario": "silks40",
+            "repeat": 1,
+            "params": {
+                "demo": "lhb-daft-punk",
+                "quality": "high",
+                "looks": 0,
+                "silks": 40,
+                "silkGrid": [24, 16],
+                "silkReplace": false,
+                "tex": 0,
+                "texSize": [1024, 1536],
+                "warmup": 5,
+                "seconds": 15
+            },
+            "renderer": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1 Pro, Unspecified Version)",
+            "drawingBuffer": [1920, 1036],
+            "pixelRatio": 1,
+            "kit": "hs",
+            "quality": "high",
+            "shadowMap": true,
+            "frames": 2731,
+            "restarts": 0,
+            "frameMs": {
+                "mean": 5.5,
+                "p50": 5.2,
+                "p95": 10.2,
+                "p99": 12
+            },
+            "fps": 181.74,
+            "renderCpuMs": {
+                "p50": 4.5,
+                "p95": 9.2
+            },
+            "gpuMs": {
+                "n": 953,
+                "disjoint": 0,
+                "p50": 7.84,
+                "p95": 9.29,
+                "mean": 7.82
+            },
+            "drawCalls": {
+                "min": 131,
+                "p50": 131,
+                "max": 131
+            },
+            "triangles": {
+                "min": 1101025,
+                "p50": 1101025,
+                "max": 1101025
+            },
+            "memory": {
+                "geometries": 128,
+                "textures": 7
+            },
+            "programs": 17,
+            "artUploadMs": null,
+            "artTextureBytes": 0,
+            "bodyMeshes": 87,
+            "hornMeshes": 13,
+            "instancedMeshesByName": {
+                "treads": 2,
+                "bench": 2,
+                "crowd": 1,
+                "view3d-marcher-contact": 1,
+                "view3d-marchers-feminine-average": 13,
+                "view3d-marchers-neutral-full": 10,
+                "view3d-marchers-neutral-broad": 13,
+                "view3d-marchers-neutral-slim": 11,
+                "view3d-marchers-neutral-average": 12,
+                "view3d-marchers-masculine-average": 13,
+                "view3d-marchers-neutral-athletic": 14,
+                "view3d-horn-piccolo-low": 1,
+                "view3d-horn-cymbals-low": 1,
+                "view3d-horn-rifle-low": 1,
+                "view3d-horn-contra-low": 1,
+                "view3d-horn-tenorSax-low": 1,
+                "view3d-horn-mellophone-low": 1,
+                "view3d-horn-trumpet-low": 1,
+                "view3d-horn-altoSax-low": 1,
+                "view3d-horn-euphonium-low": 1,
+                "view3d-horn-snare-low": 1,
+                "view3d-horn-tenors-low": 1,
+                "view3d-horn-trombone-low": 1,
+                "view3d-horn-flag6-low": 1,
+                "bench-silks": 1
+            },
+            "log": [
+                "marchers built after 2003 ms",
+                "silks: 40 at 24x16, flag meshes 2",
+                "done"
+            ],
+            "consoleErrors": []
+        },
+        {
+            "scenario": "looks16",
+            "repeat": 1,
+            "params": {
+                "demo": "lhb-daft-punk",
+                "quality": "high",
+                "looks": 16,
+                "silks": 0,
+                "silkGrid": [24, 16],
+                "silkReplace": false,
+                "tex": 0,
+                "texSize": [1024, 1536],
+                "warmup": 5,
+                "seconds": 15
+            },
+            "renderer": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1 Pro, Unspecified Version)",
+            "drawingBuffer": [1920, 1036],
+            "pixelRatio": 1,
+            "kit": "hs",
+            "quality": "high",
+            "shadowMap": true,
+            "frames": 2631,
+            "restarts": 0,
+            "frameMs": {
+                "mean": 5.71,
+                "p50": 5.3,
+                "p95": 10.5,
+                "p99": 12.5
+            },
+            "fps": 174.99,
+            "renderCpuMs": {
+                "p50": 4.5,
+                "p95": 9.5
+            },
+            "gpuMs": {
+                "n": 1513,
+                "disjoint": 0,
+                "p50": 7.09,
+                "p95": 8.88,
+                "mean": 7.07
+            },
+            "drawCalls": {
+                "min": 231,
+                "p50": 231,
+                "max": 231
+            },
+            "triangles": {
+                "min": 1070305,
+                "p50": 1070305,
+                "max": 1070305
+            },
+            "memory": {
+                "geometries": 244,
+                "textures": 7
+            },
+            "programs": 16,
+            "artUploadMs": null,
+            "artTextureBytes": 0,
+            "bodyMeshes": 172,
+            "hornMeshes": 29,
+            "instancedMeshesByName": {
+                "treads": 2,
+                "bench": 2,
+                "crowd": 1,
+                "view3d-marcher-contact": 1,
+                "view3d-marchers-feminine-average": 27,
+                "view3d-marchers-neutral-full": 22,
+                "view3d-marchers-neutral-broad": 26,
+                "view3d-marchers-neutral-slim": 24,
+                "view3d-marchers-neutral-average": 25,
+                "view3d-marchers-masculine-average": 23,
+                "view3d-marchers-neutral-athletic": 24,
+                "view3d-horn-piccolo-low": 3,
+                "view3d-horn-cymbals-low": 4,
+                "view3d-horn-rifle-low": 2,
+                "view3d-horn-contra-low": 1,
+                "view3d-horn-tenorSax-low": 1,
+                "view3d-horn-mellophone-low": 3,
+                "view3d-horn-trumpet-low": 5,
+                "view3d-horn-altoSax-low": 3,
+                "view3d-horn-euphonium-low": 1,
+                "view3d-horn-snare-low": 1,
+                "view3d-horn-tenors-low": 1,
+                "view3d-horn-trombone-low": 1,
+                "view3d-horn-flag6-low": 3
+            },
+            "log": [
+                "look 1: 15 marchers from Trumpet, rgba(195,91,34,1)",
+                "look 2: 15 marchers from Cymbals, rgba(195,148,34,1)",
+                "look 3: 15 marchers from Mellophone, rgba(186,195,34,1)",
+                "look 4: 15 marchers from Color Guard, rgba(129,195,34,1)",
+                "look 5: 15 marchers from Alto Sax, rgba(72,195,34,1)",
+                "look 6: 15 marchers from Piccolo, rgba(34,195,53,1)",
+                "look 7: 15 marchers from Trumpet, rgba(34,195,110,1)",
+                "look 8: 15 marchers from Cymbals, rgba(34,195,167,1)",
+                "look 9: 15 marchers from Mellophone, rgba(34,167,195,1)",
+                "look 10: 15 marchers from Color Guard, rgba(34,110,195,1)",
+                "look 11: 15 marchers from Alto Sax, rgba(34,53,195,1)",
+                "look 12: 15 marchers from Piccolo, rgba(72,34,195,1)",
+                "look 13: 15 marchers from Trumpet, rgba(129,34,195,1)",
+                "look 14: 15 marchers from Cymbals, rgba(186,34,195,1)",
+                "look 15: 15 marchers from Rifle, rgba(195,34,148,1)",
+                "look 16: 15 marchers from Trumpet, rgba(195,34,91,1)",
+                "marchers built after 2035 ms",
+                "done"
+            ],
+            "consoleErrors": []
+        },
+        {
+            "scenario": "looks8",
+            "repeat": 1,
+            "params": {
+                "demo": "lhb-daft-punk",
+                "quality": "high",
+                "looks": 8,
+                "silks": 0,
+                "silkGrid": [24, 16],
+                "silkReplace": false,
+                "tex": 0,
+                "texSize": [1024, 1536],
+                "warmup": 5,
+                "seconds": 15
+            },
+            "renderer": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1 Pro, Unspecified Version)",
+            "drawingBuffer": [1920, 1036],
+            "pixelRatio": 1,
+            "kit": "hs",
+            "quality": "high",
+            "shadowMap": true,
+            "frames": 2729,
+            "restarts": 0,
+            "frameMs": {
+                "mean": 5.53,
+                "p50": 5.1,
+                "p95": 9.9,
+                "p99": 11.9
+            },
+            "fps": 180.91,
+            "renderCpuMs": {
+                "p50": 4.4,
+                "p95": 8.9
+            },
+            "gpuMs": {
+                "n": 1301,
+                "disjoint": 0,
+                "p50": 7.22,
+                "p95": 8.86,
+                "mean": 7.18
+            },
+            "drawCalls": {
+                "min": 190,
+                "p50": 190,
+                "max": 190
+            },
+            "triangles": {
+                "min": 1070305,
+                "p50": 1070305,
+                "max": 1070305
+            },
+            "memory": {
+                "geometries": 195,
+                "textures": 7
+            },
+            "programs": 16,
+            "artUploadMs": null,
+            "artTextureBytes": 0,
+            "bodyMeshes": 139,
+            "hornMeshes": 21,
+            "instancedMeshesByName": {
+                "treads": 2,
+                "bench": 2,
+                "crowd": 1,
+                "view3d-marcher-contact": 1,
+                "view3d-marchers-feminine-average": 21,
+                "view3d-marchers-neutral-full": 17,
+                "view3d-marchers-neutral-broad": 21,
+                "view3d-marchers-neutral-slim": 19,
+                "view3d-marchers-neutral-average": 20,
+                "view3d-marchers-masculine-average": 19,
+                "view3d-marchers-neutral-athletic": 21,
+                "view3d-horn-piccolo-low": 2,
+                "view3d-horn-cymbals-low": 3,
+                "view3d-horn-rifle-low": 1,
+                "view3d-horn-contra-low": 1,
+                "view3d-horn-tenorSax-low": 1,
+                "view3d-horn-mellophone-low": 2,
+                "view3d-horn-trumpet-low": 3,
+                "view3d-horn-altoSax-low": 2,
+                "view3d-horn-euphonium-low": 1,
+                "view3d-horn-snare-low": 1,
+                "view3d-horn-tenors-low": 1,
+                "view3d-horn-trombone-low": 1,
+                "view3d-horn-flag6-low": 2
+            },
+            "log": [
+                "look 1: 15 marchers from Trumpet, rgba(195,91,34,1)",
+                "look 2: 15 marchers from Cymbals, rgba(195,148,34,1)",
+                "look 3: 15 marchers from Mellophone, rgba(186,195,34,1)",
+                "look 4: 15 marchers from Color Guard, rgba(129,195,34,1)",
+                "look 5: 15 marchers from Alto Sax, rgba(72,195,34,1)",
+                "look 6: 15 marchers from Piccolo, rgba(34,195,53,1)",
+                "look 7: 15 marchers from Trumpet, rgba(34,195,110,1)",
+                "look 8: 15 marchers from Cymbals, rgba(34,195,167,1)",
+                "marchers built after 2011 ms",
+                "done"
+            ],
+            "consoleErrors": []
+        },
+        {
+            "scenario": "looks4",
+            "repeat": 1,
+            "params": {
+                "demo": "lhb-daft-punk",
+                "quality": "high",
+                "looks": 4,
+                "silks": 0,
+                "silkGrid": [24, 16],
+                "silkReplace": false,
+                "tex": 0,
+                "texSize": [1024, 1536],
+                "warmup": 5,
+                "seconds": 15
+            },
+            "renderer": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1 Pro, Unspecified Version)",
+            "drawingBuffer": [1920, 1036],
+            "pixelRatio": 1,
+            "kit": "hs",
+            "quality": "high",
+            "shadowMap": true,
+            "frames": 2770,
+            "restarts": 0,
+            "frameMs": {
+                "mean": 5.45,
+                "p50": 5.1,
+                "p95": 9.9,
+                "p99": 11.9
+            },
+            "fps": 183.33,
+            "renderCpuMs": {
+                "p50": 4.4,
+                "p95": 8.9
+            },
+            "gpuMs": {
+                "n": 1145,
+                "disjoint": 0,
+                "p50": 7.36,
+                "p95": 9.17,
+                "mean": 7.39
+            },
+            "drawCalls": {
+                "min": 160,
+                "p50": 160,
+                "max": 160
+            },
+            "triangles": {
+                "min": 1070305,
+                "p50": 1070305,
+                "max": 1070305
+            },
+            "memory": {
+                "geometries": 161,
+                "textures": 7
+            },
+            "programs": 16,
+            "artUploadMs": null,
+            "artTextureBytes": 0,
+            "bodyMeshes": 113,
+            "hornMeshes": 17,
+            "instancedMeshesByName": {
+                "treads": 2,
+                "bench": 2,
+                "crowd": 1,
+                "view3d-marcher-contact": 1,
+                "view3d-marchers-feminine-average": 17,
+                "view3d-marchers-neutral-full": 13,
+                "view3d-marchers-neutral-broad": 17,
+                "view3d-marchers-neutral-slim": 15,
+                "view3d-marchers-neutral-average": 16,
+                "view3d-marchers-masculine-average": 16,
+                "view3d-marchers-neutral-athletic": 18,
+                "view3d-horn-piccolo-low": 1,
+                "view3d-horn-cymbals-low": 2,
+                "view3d-horn-rifle-low": 1,
+                "view3d-horn-contra-low": 1,
+                "view3d-horn-tenorSax-low": 1,
+                "view3d-horn-mellophone-low": 2,
+                "view3d-horn-trumpet-low": 2,
+                "view3d-horn-altoSax-low": 1,
+                "view3d-horn-euphonium-low": 1,
+                "view3d-horn-snare-low": 1,
+                "view3d-horn-tenors-low": 1,
+                "view3d-horn-trombone-low": 1,
+                "view3d-horn-flag6-low": 2
+            },
+            "log": [
+                "look 1: 15 marchers from Trumpet, rgba(195,91,34,1)",
+                "look 2: 15 marchers from Cymbals, rgba(195,148,34,1)",
+                "look 3: 15 marchers from Mellophone, rgba(186,195,34,1)",
+                "look 4: 15 marchers from Color Guard, rgba(129,195,34,1)",
+                "marchers built after 1997 ms",
+                "done"
+            ],
+            "consoleErrors": []
+        },
+        {
+            "scenario": "looks1",
+            "repeat": 1,
+            "params": {
+                "demo": "lhb-daft-punk",
+                "quality": "high",
+                "looks": 1,
+                "silks": 0,
+                "silkGrid": [24, 16],
+                "silkReplace": false,
+                "tex": 0,
+                "texSize": [1024, 1536],
+                "warmup": 5,
+                "seconds": 15
+            },
+            "renderer": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1 Pro, Unspecified Version)",
+            "drawingBuffer": [1920, 1036],
+            "pixelRatio": 1,
+            "kit": "hs",
+            "quality": "high",
+            "shadowMap": true,
+            "frames": 2812,
+            "restarts": 0,
+            "frameMs": {
+                "mean": 5.35,
+                "p50": 5,
+                "p95": 9.8,
+                "p99": 11.8
+            },
+            "fps": 187.06,
+            "renderCpuMs": {
+                "p50": 4.4,
+                "p95": 8.8
+            },
+            "gpuMs": {
+                "n": 1019,
+                "disjoint": 0,
+                "p50": 7.45,
+                "p95": 9,
+                "mean": 7.44
+            },
+            "drawCalls": {
+                "min": 137,
+                "p50": 137,
+                "max": 137
+            },
+            "triangles": {
+                "min": 1070305,
+                "p50": 1070305,
+                "max": 1070305
+            },
+            "memory": {
+                "geometries": 135,
+                "textures": 7
+            },
+            "programs": 16,
+            "artUploadMs": null,
+            "artTextureBytes": 0,
+            "bodyMeshes": 93,
+            "hornMeshes": 14,
+            "instancedMeshesByName": {
+                "treads": 2,
+                "bench": 2,
+                "crowd": 1,
+                "view3d-marcher-contact": 1,
+                "view3d-marchers-feminine-average": 14,
+                "view3d-marchers-neutral-full": 11,
+                "view3d-marchers-neutral-broad": 14,
+                "view3d-marchers-neutral-slim": 12,
+                "view3d-marchers-neutral-average": 13,
+                "view3d-marchers-masculine-average": 13,
+                "view3d-marchers-neutral-athletic": 15,
+                "view3d-horn-piccolo-low": 1,
+                "view3d-horn-cymbals-low": 1,
+                "view3d-horn-rifle-low": 1,
+                "view3d-horn-contra-low": 1,
+                "view3d-horn-tenorSax-low": 1,
+                "view3d-horn-mellophone-low": 1,
+                "view3d-horn-trumpet-low": 2,
+                "view3d-horn-altoSax-low": 1,
+                "view3d-horn-euphonium-low": 1,
+                "view3d-horn-snare-low": 1,
+                "view3d-horn-tenors-low": 1,
+                "view3d-horn-trombone-low": 1,
+                "view3d-horn-flag6-low": 1
+            },
+            "log": [
+                "look 1: 15 marchers from Trumpet, rgba(195,91,34,1)",
+                "marchers built after 1991 ms",
+                "done"
+            ],
+            "consoleErrors": []
+        },
+        {
+            "scenario": "baseline",
+            "repeat": 1,
+            "params": {
+                "demo": "lhb-daft-punk",
+                "quality": "high",
+                "looks": 0,
+                "silks": 0,
+                "silkGrid": [24, 16],
+                "silkReplace": false,
+                "tex": 0,
+                "texSize": [1024, 1536],
+                "warmup": 5,
+                "seconds": 15
+            },
+            "renderer": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1 Pro, Unspecified Version)",
+            "drawingBuffer": [1920, 1036],
+            "pixelRatio": 1,
+            "kit": "hs",
+            "quality": "high",
+            "shadowMap": true,
+            "frames": 2820,
+            "restarts": 0,
+            "frameMs": {
+                "mean": 5.35,
+                "p50": 5,
+                "p95": 9.8,
+                "p99": 11.7
+            },
+            "fps": 187.01,
+            "renderCpuMs": {
+                "p50": 4.3,
+                "p95": 8.9
+            },
+            "gpuMs": {
+                "n": 978,
+                "disjoint": 0,
+                "p50": 7.59,
+                "p95": 9.3,
+                "mean": 7.62
+            },
+            "drawCalls": {
+                "min": 130,
+                "p50": 130,
+                "max": 130
+            },
+            "triangles": {
+                "min": 1070305,
+                "p50": 1070305,
+                "max": 1070305
+            },
+            "memory": {
+                "geometries": 127,
+                "textures": 7
+            },
+            "programs": 16,
+            "artUploadMs": null,
+            "artTextureBytes": 0,
+            "bodyMeshes": 87,
+            "hornMeshes": 13,
+            "instancedMeshesByName": {
+                "treads": 2,
+                "bench": 2,
+                "crowd": 1,
+                "view3d-marcher-contact": 1,
+                "view3d-marchers-feminine-average": 13,
+                "view3d-marchers-neutral-full": 10,
+                "view3d-marchers-neutral-broad": 13,
+                "view3d-marchers-neutral-slim": 11,
+                "view3d-marchers-neutral-average": 12,
+                "view3d-marchers-masculine-average": 13,
+                "view3d-marchers-neutral-athletic": 14,
+                "view3d-horn-piccolo-low": 1,
+                "view3d-horn-cymbals-low": 1,
+                "view3d-horn-rifle-low": 1,
+                "view3d-horn-contra-low": 1,
+                "view3d-horn-tenorSax-low": 1,
+                "view3d-horn-mellophone-low": 1,
+                "view3d-horn-trumpet-low": 1,
+                "view3d-horn-altoSax-low": 1,
+                "view3d-horn-euphonium-low": 1,
+                "view3d-horn-snare-low": 1,
+                "view3d-horn-tenors-low": 1,
+                "view3d-horn-trombone-low": 1,
+                "view3d-horn-flag6-low": 1
+            },
+            "log": ["marchers built after 1992 ms", "done"],
+            "consoleErrors": []
+        }
+    ]
+}
