@@ -9,6 +9,7 @@ import {
     tagAppearanceByPageIdMapQueryOptions,
 } from "@/hooks/queries";
 import { buildMarcherAppearancesByPageId } from "./utils/exportAppearances";
+import { useExportChanges } from "./useExportChanges";
 import {
     buildCoordinateSheets,
     coordinateSheetMarchers,
@@ -133,6 +134,8 @@ function CoordinateSheetExport() {
     const [roundingDenominator, setRoundingDenominator] = useState(4);
     const [organizeBySection, setOrganizeBySection] = useState(false);
     const [quarterPages, setQuarterPages] = useState(false);
+    const [includeChanges, setIncludeChanges] = useState(false);
+    const changes = useExportChanges();
     const { data: marchers, isSuccess: marchersLoaded } = useQuery(
         allMarchersQueryOptions(),
     );
@@ -239,7 +242,9 @@ function CoordinateSheetExport() {
                     includeMeasures,
                     useXY,
                     roundingDenominator,
+                    includeChanges,
                 },
+                changes,
                 t,
             });
 
@@ -364,6 +369,8 @@ function CoordinateSheetExport() {
         isTerse,
         useXY,
         includeMeasures,
+        includeChanges,
+        changes,
     ]);
 
     return (
@@ -437,6 +444,29 @@ function CoordinateSheetExport() {
                     <Form.Label className="text-body">
                         <T keyName="exportCoordinates.quarterPageLayout" />
                     </Form.Label>
+                </Form.Field>
+
+                <Form.Field
+                    name="includeChanges"
+                    className="flex w-full items-center gap-12"
+                >
+                    <Form.Control asChild>
+                        <Checkbox
+                            checked={includeChanges && !quarterPages}
+                            disabled={quarterPages || !changes}
+                            onCheckedChange={(checked: boolean) =>
+                                setIncludeChanges(checked)
+                            }
+                        />
+                    </Form.Control>
+                    <Form.Label className="text-body">
+                        <T keyName="exportCoordinates.includeChanges" />
+                    </Form.Label>
+                    {quarterPages && (
+                        <span className="text-sub text-text/60">
+                            <T keyName="exportCoordinates.includeChangesQuarterPages" />
+                        </span>
+                    )}
                 </Form.Field>
 
                 <Form.Field

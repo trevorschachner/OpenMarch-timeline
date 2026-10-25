@@ -188,6 +188,45 @@ describe("buildCoordinateSheets", () => {
         });
     });
 
+    describe("changes (C3.8)", () => {
+        const build = (options: CoordinateSheetOptions) => {
+            const data = show(5);
+            const marcher = data.marchers[0]!;
+            const page = data.pages[1]!;
+            const sheets = buildCoordinateSheets({
+                marchers: data.marchers,
+                pages: data.pages,
+                positions: pagePositionMapFromRows(data.positions),
+                fieldProperties,
+                options,
+                changes: new Map([
+                    [
+                        marcher.id,
+                        new Map([[page.id, ["from count 3: Red silk"]]]),
+                    ],
+                ]),
+                t,
+            });
+            return sheets.filter((s) => s.renderedPage.includes("Red silk"));
+        };
+
+        it("lists the changes on the performer's sheet when asked", () => {
+            expect(
+                build({
+                    ...optionSets[0]!,
+                    quarterPages: false,
+                    includeChanges: true,
+                }),
+            ).toHaveLength(1);
+        });
+
+        it("leaves them off unless asked", () => {
+            expect(
+                build({ ...optionSets[0]!, quarterPages: false }),
+            ).toHaveLength(0);
+        });
+    });
+
     describe("positions", () => {
         it("shows the sampled position", () => {
             const data = show(5);

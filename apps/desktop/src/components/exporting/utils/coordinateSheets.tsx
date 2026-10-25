@@ -4,6 +4,7 @@ import type { FieldProperties } from "@openmarch/core";
 import type Marcher from "@/global/classes/Marcher";
 import type Page from "@/global/classes/Page";
 import type tolgee from "@/global/singletons/Tolgee";
+import type { ExportChanges } from "./exportChanges";
 import {
     StaticMarcherCoordinateSheet,
     StaticQuarterMarcherSheet,
@@ -31,6 +32,8 @@ export interface CoordinateSheetOptions {
     includeMeasures: boolean;
     useXY: boolean;
     roundingDenominator: number;
+    /** List each page's Carry, Silk, Uniform and Placement changes under it (full sheets only) */
+    includeChanges?: boolean;
 }
 
 type TFunction = (typeof tolgee)["t"];
@@ -88,6 +91,7 @@ export function buildCoordinateSheets({
     positions,
     fieldProperties,
     options,
+    changes,
     t,
 }: {
     marchers: readonly (Marcher & { name: string })[];
@@ -95,6 +99,8 @@ export function buildCoordinateSheets({
     positions: Pick<PagePositionMap, "marcherPagesByMarcher">;
     fieldProperties: FieldProperties;
     options: CoordinateSheetOptions;
+    /** The show's changes, listed when `options.includeChanges` is on */
+    changes?: ExportChanges | null;
     t: TFunction;
 }): CoordinateSheet[] {
     const { quarterPages, terse, includeMeasures, useXY, roundingDenominator } =
@@ -119,6 +125,11 @@ export function buildCoordinateSheets({
                     terse={terse}
                     useXY={useXY}
                     roundingDenominator={roundingDenominator}
+                    changes={
+                        options.includeChanges
+                            ? changes?.get(marcher.id)
+                            : undefined
+                    }
                 />,
             ),
         }));

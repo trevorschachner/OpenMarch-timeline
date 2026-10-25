@@ -221,4 +221,77 @@ describe("StaticMarcherCoordinateSheet", () => {
     });
 
     /** TODO - Finish these tests */
+
+    describe("changes (C3.8)", () => {
+        const rows = mockMarcherPages.filter(
+            (p) => p.marcher_id === mockMarcher.id,
+        );
+        const sheet = (
+            changes?: ReadonlyMap<number, readonly string[]>,
+            includeMeasures = true,
+        ) =>
+            render(
+                <Providers>
+                    <StaticMarcherCoordinateSheet
+                        marcher={mockMarcher}
+                        fieldProperties={mockFieldProperties}
+                        marcherPages={rows}
+                        pages={mockPages}
+                        includeMeasures={includeMeasures}
+                        changes={changes}
+                    />
+                </Providers>,
+            );
+
+        it("lists a page's changes in a row under it", () => {
+            const page = mockPages[1]!;
+            sheet(
+                new Map([
+                    [
+                        page.id,
+                        [
+                            "from count 3: Red silk",
+                            "from count 9: carrying Rifle; holding Flag · F1",
+                        ],
+                    ],
+                ]),
+            );
+            const changeRows = screen.getAllByRole("row", {
+                name: "page changes",
+            });
+            expect(changeRows).toHaveLength(1);
+            const row = changeRows[0]!;
+            expect(
+                [...row.querySelectorAll("td > div")].map((d) => d.textContent),
+            ).toEqual([
+                "from count 3: Red silk",
+                "from count 9: carrying Rifle; holding Flag · F1",
+            ]);
+            // under its page's row, across every column
+            const pageRow = row.previousElementSibling!;
+            expect(
+                pageRow.querySelector('[aria-label="page name"]')?.textContent,
+            ).toBe(page.name);
+            expect(row.querySelector("td")?.colSpan).toBe(5);
+        });
+
+        it("spans the columns without measures", () => {
+            sheet(
+                new Map([[mockPages[0]!.id, ["from the start: Red silk"]]]),
+                false,
+            );
+            expect(
+                screen
+                    .getByRole("row", { name: "page changes" })
+                    .querySelector("td")?.colSpan,
+            ).toBe(4);
+        });
+
+        it("adds no rows without changes", () => {
+            sheet();
+            expect(
+                screen.queryAllByRole("row", { name: "page changes" }),
+            ).toHaveLength(0);
+        });
+    });
 });

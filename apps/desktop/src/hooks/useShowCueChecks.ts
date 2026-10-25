@@ -65,8 +65,19 @@ export function carryChangesOf(
     return out;
 }
 
-/** The show's cue checks, or null while the show loads. */
-export function useShowCueChecks(): ShowCueChecks | null {
+/** The show compiled as the 3D View compiles it, with what reads it, or null while it loads. */
+export interface ShowCompiledCues {
+    compiled: CompiledCues;
+    marchers: readonly { id: number; section: string }[];
+    /** Each compile count's beat id: the timed beats in order */
+    countBeatIds: readonly number[];
+    lookup: ReturnType<typeof cueValueLookup>;
+    /** Each cue's beat id */
+    cueBeatId: ReadonlyMap<number, number>;
+}
+
+/** The show's cues compiled, or null while the show loads. */
+export function useShowCompiledCues(): ShowCompiledCues | null {
     const { data: marchers } = useQuery(allMarchersQueryOptions());
     const { data: showLibrary } = useQuery(showLibraryItemsQueryOptions());
     const { beats } = useTimingObjects();
@@ -85,7 +96,6 @@ export function useShowCueChecks(): ShowCueChecks | null {
         const timed = beats
             .filter((b) => b.duration > 0)
             .sort((a, b) => a.timestamp - b.timestamp);
-        const countBeatIds = timed.map((b) => b.id);
         const compiled = compileCues({
             beats: timed.map((b) => ({ id: b.id, duration: b.duration })),
             marchers: marchers.map((m, i) => ({
@@ -101,15 +111,35 @@ export function useShowCueChecks(): ShowCueChecks | null {
             sections,
             showDefaults: { stepOffFoot: defaults.stepOffFoot },
         });
-        const lookup = cueValueLookup(
-            stored.phraseAssets,
-            { stepOffFoot: defaults.stepOffFoot },
-            libraryItems,
-        );
         return {
-            notes: compiled.notes,
+            compiled,
+            marchers,
+            countBeatIds: timed.map((b) => b.id),
+            lookup: cueValueLookup(
+                stored.phraseAssets,
+                { stepOffFoot: defaults.stepOffFoot },
+                libraryItems,
+            ),
             cueBeatId: new Map(stored.cues.map((c) => [c.id, c.beatId])),
-            carries: carryChangesOf(compiled, marchers, countBeatIds, lookup),
         };
     }, [marchers, showLibrary, beats, stored, defaults]);
+}
+
+/** The show's cue checks, or null while the show loads. */
+export function useShowCueChecks(): ShowCueChecks | null {
+    const show = useShowCompiledCues();
+    return useMemo(
+        () =>
+            show && {
+                notes: show.compiled.notes,
+                cueBeatId: show.cueBeatId,
+                carries: carryChangesOf(
+                    show.compiled,
+                    show.marchers,
+                    show.countBeatIds,
+                    show.lookup,
+                ),
+            },
+        [show],
+    );
 }

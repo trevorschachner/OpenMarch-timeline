@@ -152,8 +152,8 @@ Each field is on its own line so that concurrent claims merge cleanly. Edit only
 
 ### C3.8: Changes listed in page-grained exports
 
-- Owner: none
-- Status: open
+- Owner: Trevor
+- Status: in-review
 - PR: none
 - Parallel: yes
 - Depends on: C3.5, C2.3
@@ -345,3 +345,33 @@ move (#266), the C2 props stack and #290's graphics settings:
 - **3D window:** the preview rows stay in the Graphics section, headed
   "Preview only" by the first of them, until #290 moves the quality rows
   out.
+
+### 2026-10-25 · Trevor (3d/c3-export-changes) · C3.8
+
+- **Done:** coordinate sheets have a "List equipment, silk, uniform and prop
+  changes" option, off by default. With it on, each full sheet lists the
+  performer's changes in a row under the page that holds them, one line per
+  count: "from count 9: Red silk; holding Flag · F1". Counts are given as
+  Visuals mode gives them (`countWords`): "from the start" at home, and
+  "from count 3 after Page 12" past the last flag (listed under the last
+  page). The pure producers are in
+  `components/exporting/utils/exportChanges.ts`:
+  - `cueChanges` lists Carry ("carrying Rifle", "carrying nothing"), Silk
+    (the silk's name, "no silk") and Uniform ("wearing West Point") where a
+    cue gives something new. Defaults are never listed.
+  - `placementChanges` lists a performer's part in an item: "holding",
+    "puts down", "hands off", "takes … off field", "crew for". Items are
+    named with their drill number ("Flag · F1").
+  - Behavior cues are never read.
+- **Hooks:** `useShowCompiledCues` is split out of `useShowCueChecks`, so the
+  checks and the export compile the show the same way. `useShowNotes` exports
+  its placement and beat-order queries.
+- **Not done:**
+  - Quarter-page sheets: the option is off there ("Full-page layout only"),
+    since the rows are counted to fit 28 a quarter.
+  - Mobile export: its payload is checked against `@openmarch/schema`, which
+    drops unknown fields, so listing changes there needs a schema change and
+    the mobile app reading it.
+- **Checks:** unit tests for the producers, component tests for the sheet's
+  rows and the option, the desktop suite, type-check, lint, format and
+  spellcheck.

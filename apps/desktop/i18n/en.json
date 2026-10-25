@@ -430,6 +430,8 @@
             "9": "Marching toward perfection! 🎯"
         },
         "generatingPDF": " Generating PDF file for: {drillNumber}",
+        "includeChanges": "List equipment, silk, uniform and prop changes",
+        "includeChangesQuarterPages": "Full-page layout only",
         "includeMeasures": "Include measures",
         "includeNotesAppendix": "Include notes appendix pages",
         "includeNotesAppendixTooltip": "Add portrait appendix pages listing notes for each set.",

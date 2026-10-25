@@ -60,7 +60,7 @@ export const showNotesKeys = {
     beatOrder: () => ["beats", "notes_beat_order"] as const,
 };
 
-const placementsQueryOptions = () =>
+export const placementsQueryOptions = () =>
     queryOptions({
         queryKey: showNotesKeys.placements(),
         queryFn: () => getItemPlacements({ db }),
@@ -69,7 +69,7 @@ const placementsQueryOptions = () =>
 /** The beats in position order: a beat's ordinal is its index. A plain read, no transaction. */
 type BeatOrder = { beatIds: number[] };
 
-const beatOrderQueryOptions = () =>
+export const beatOrderQueryOptions = () =>
     queryOptions({
         queryKey: showNotesKeys.beatOrder(),
         queryFn: async (): Promise<BeatOrder> => ({

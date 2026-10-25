@@ -1,5 +1,5 @@
 import { fieldPropertiesQueryOptions } from "@/hooks/queries";
-import React, { useEffect, useState } from "react";
+import React, { Fragment, useEffect, useState } from "react";
 import Marcher from "@/global/classes/Marcher";
 import Page, { measureRangeString } from "@/global/classes/Page";
 import type { PagePosition } from "./utils/exportPagePositions";
@@ -215,6 +215,9 @@ interface StaticCoordinateSheetProps {
      * Whether to use X/Y as header rather than "Side to Side" and "Front to Back".
      */
     useXY?: boolean;
+
+    /** Lines listed under each page's row, by page id: its changes (C3.8, `exportChanges.ts`) */
+    changes?: ReadonlyMap<number, readonly string[]>;
 }
 
 // STYLES
@@ -252,6 +255,7 @@ export function StaticMarcherCoordinateSheet({
     roundingDenominator = 4,
     terse = false,
     useXY = false,
+    changes,
 }: StaticCoordinateSheetProps) {
     const [marcherState, setMarcherState] = useState<Marcher>(marcher);
     const [fieldPropertiesState, setFieldPropertiesState] =
@@ -485,61 +489,87 @@ export function StaticMarcherCoordinateSheet({
                                 });
 
                                 if (!page || !rCoords) return null;
+                                const lines = changes?.get(page.id) ?? [];
 
                                 return (
-                                    <tr key={marcherPage.page_id}>
-                                        <td
-                                            className="text-center"
-                                            aria-label="page name"
-                                            style={{
-                                                ...thTdStyle,
-                                            }}
-                                        >
-                                            {page.name}
-                                        </td>
-                                        <td
-                                            className="text-center"
-                                            aria-label="page counts"
-                                            style={{
-                                                ...thTdStyle,
-                                            }}
-                                        >
-                                            {page.counts}
-                                        </td>
-                                        {includeMeasuresState && (
+                                    <Fragment key={marcherPage.page_id}>
+                                        <tr>
                                             <td
                                                 className="text-center"
-                                                aria-label="page measures"
+                                                aria-label="page name"
                                                 style={{
                                                     ...thTdStyle,
                                                 }}
                                             >
-                                                {measureRangeString(page)}
+                                                {page.name}
                                             </td>
+                                            <td
+                                                className="text-center"
+                                                aria-label="page counts"
+                                                style={{
+                                                    ...thTdStyle,
+                                                }}
+                                            >
+                                                {page.counts}
+                                            </td>
+                                            {includeMeasuresState && (
+                                                <td
+                                                    className="text-center"
+                                                    aria-label="page measures"
+                                                    style={{
+                                                        ...thTdStyle,
+                                                    }}
+                                                >
+                                                    {measureRangeString(page)}
+                                                </td>
+                                            )}
+                                            <td
+                                                aria-label="x coordinate"
+                                                style={{
+                                                    ...thTdStyle,
+                                                    textAlign: "left",
+                                                }}
+                                            >
+                                                {terseState
+                                                    ? rCoords.toTerseStringX()
+                                                    : rCoords.toVerboseStringX()}
+                                            </td>
+                                            <td
+                                                aria-label="y coordinate"
+                                                style={{
+                                                    ...thTdStyle,
+                                                    textAlign: "left",
+                                                }}
+                                            >
+                                                {terseState
+                                                    ? rCoords.toTerseStringY()
+                                                    : rCoords.toVerboseStringY()}
+                                            </td>
+                                        </tr>
+                                        {lines.length > 0 && (
+                                            <tr aria-label="page changes">
+                                                <td
+                                                    colSpan={
+                                                        includeMeasuresState
+                                                            ? 5
+                                                            : 4
+                                                    }
+                                                    style={{
+                                                        ...thTdStyle,
+                                                        textAlign: "left",
+                                                        fontSize: "0.85em",
+                                                        fontStyle: "italic",
+                                                    }}
+                                                >
+                                                    {lines.map((line) => (
+                                                        <div key={line}>
+                                                            {line}
+                                                        </div>
+                                                    ))}
+                                                </td>
+                                            </tr>
                                         )}
-                                        <td
-                                            aria-label="x coordinate"
-                                            style={{
-                                                ...thTdStyle,
-                                                textAlign: "left",
-                                            }}
-                                        >
-                                            {terseState
-                                                ? rCoords.toTerseStringX()
-                                                : rCoords.toVerboseStringX()}
-                                        </td>
-                                        <td
-                                            aria-label="y coordinate"
-                                            style={{
-                                                ...thTdStyle,
-                                                textAlign: "left",
-                                            }}
-                                        >
-                                            {terseState
-                                                ? rCoords.toTerseStringY()
-                                                : rCoords.toVerboseStringY()}
-                                        </td>
-                                    </tr>
+                                    </Fragment>
                                 );
                             })}
                         </tbody>
