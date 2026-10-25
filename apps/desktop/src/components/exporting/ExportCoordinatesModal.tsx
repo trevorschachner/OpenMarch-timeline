@@ -9,7 +9,8 @@ import {
     tagAppearanceByPageIdMapQueryOptions,
 } from "@/hooks/queries";
 import { buildMarcherAppearancesByPageId } from "./utils/exportAppearances";
-import { useExportChanges } from "./useExportChanges";
+import { useExportChanges } from "@/hooks/useExportChanges";
+import { translatedChangeWords } from "./utils/exportChanges";
 import {
     buildCoordinateSheets,
     coordinateSheetMarchers,
@@ -135,7 +136,7 @@ function CoordinateSheetExport() {
     const [organizeBySection, setOrganizeBySection] = useState(false);
     const [quarterPages, setQuarterPages] = useState(false);
     const [includeChanges, setIncludeChanges] = useState(false);
-    const changes = useExportChanges();
+    const { build: buildChanges, hasError: changesError } = useExportChanges();
     const { data: marchers, isSuccess: marchersLoaded } = useQuery(
         allMarchersQueryOptions(),
     );
@@ -244,7 +245,10 @@ function CoordinateSheetExport() {
                     roundingDenominator,
                     includeChanges,
                 },
-                changes,
+                changes:
+                    includeChanges && buildChanges
+                        ? buildChanges(translatedChangeWords(t))
+                        : null,
                 t,
             });
 
@@ -370,7 +374,7 @@ function CoordinateSheetExport() {
         useXY,
         includeMeasures,
         includeChanges,
-        changes,
+        buildChanges,
     ]);
 
     return (
@@ -453,7 +457,7 @@ function CoordinateSheetExport() {
                     <Form.Control asChild>
                         <Checkbox
                             checked={includeChanges && !quarterPages}
-                            disabled={quarterPages || !changes}
+                            disabled={quarterPages || !buildChanges}
                             onCheckedChange={(checked: boolean) =>
                                 setIncludeChanges(checked)
                             }
@@ -462,10 +466,16 @@ function CoordinateSheetExport() {
                     <Form.Label className="text-body">
                         <T keyName="exportCoordinates.includeChanges" />
                     </Form.Label>
-                    {quarterPages && (
+                    {quarterPages ? (
                         <span className="text-sub text-text/60">
                             <T keyName="exportCoordinates.includeChangesQuarterPages" />
                         </span>
+                    ) : (
+                        changesError && (
+                            <span className="text-sub text-text/60">
+                                <T keyName="exportCoordinates.includeChangesError" />
+                            </span>
+                        )
                     )}
                 </Form.Field>
 

@@ -363,9 +363,14 @@ move (#266), the C2 props stack and #290's graphics settings:
     "puts down", "hands off", "takes … off field", "crew for". Items are
     named with their drill number ("Flag · F1").
   - Behavior cues are never read.
-- **Hooks:** `useShowCompiledCues` is split out of `useShowCueChecks`, so the
-  checks and the export compile the show the same way. `useShowNotes` exports
-  its placement and beat-order queries.
+  - Changes are listed as written. A hand conflict (an item held in hands a
+    Carry cue or a newer item takes) is the show notes list's to raise.
+  - The words are translated (`exportCoordinates.change…`, English only so
+    far).
+- **Hooks:** `useExportChanges` (`hooks/`, the multi-query pattern) builds the
+  lines only when an export asks. `useShowCompiledCues` is split out of
+  `useShowCueChecks`, so the checks and the export compile the show the same
+  way. `useShowNotes` exports its placement and beat-order queries.
 - **Not done:**
   - Quarter-page sheets: the option is off there ("Full-page layout only"),
     since the rows are counted to fit 28 a quarter.

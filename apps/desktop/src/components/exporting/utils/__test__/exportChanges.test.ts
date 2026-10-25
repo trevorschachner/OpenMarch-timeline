@@ -1,10 +1,15 @@
 import { describe, expect, it } from "vitest";
 import type { CueChannel, CueSegment, PlacementChange } from "@openmarch/core";
+import en from "../../../../../i18n/en.json";
 import {
     changesByPage,
     cueChanges,
+    englishChangeWords,
+    itemExportName,
     placementChanges,
+    translatedChangeWords,
     type ChangeAt,
+    type ChangeWords,
 } from "../exportChanges";
 
 const beats = (from: number, to: number) =>
@@ -74,6 +79,20 @@ describe("changesByPage", () => {
                 .get(1)
                 ?.get(11),
         ).toEqual(["from the start: x"]);
+    });
+
+    it("lists every change before the first count in one line", () => {
+        expect(
+            changesByPage(
+                [
+                    { marcherId: 1, beat: 0, text: "a" },
+                    { marcherId: 1, beat: -1, text: "b" },
+                ],
+                pages,
+            )
+                .get(1)
+                ?.get(11),
+        ).toEqual(["from the start: b; a"]);
     });
 
     it("puts changes past the last flag under the last page", () => {
@@ -235,5 +254,51 @@ describe("placementChanges", () => {
         expect(run([change(3, "held", [1]), change(3, "held", [2])])).toEqual([
             { marcherId: 2, beat: 3, text: "holding Flag · F1" },
         ]);
+    });
+});
+
+describe("translatedChangeWords", () => {
+    it("words changes as englishChangeWords does, from en.json", () => {
+        const strings = en.exportCoordinates as Record<string, string>;
+        const t = (key: string, params: Record<string, string | number>) =>
+            strings[key.replace("exportCoordinates.", "")]!.replace(
+                /\{(\w+)\}/g,
+                (_, name: string) => String(params[name]),
+            );
+        const words = translatedChangeWords(t);
+        const args: Record<keyof ChangeWords, (string | number)[]> = {
+            carrying: ["Rifle"],
+            carryingNothing: [],
+            silk: ["Red silk"],
+            noSilk: [],
+            wearing: ["West Point"],
+            noUniform: [],
+            holding: ["Flag · F1"],
+            crewFor: ["Cart · P2"],
+            putsDown: ["Flag · F1"],
+            handsOff: ["Flag · F1"],
+            takesOffField: ["Flag · F1"],
+            count: [9],
+            countAfter: [3, "12"],
+            theStart: [],
+            line: ["count 9", "Red silk"],
+        };
+        for (const [key, a] of Object.entries(args)) {
+            const word = key as keyof ChangeWords;
+            const call = (w: ChangeWords) =>
+                (w[word] as (...x: (string | number)[]) => string)(...a);
+            expect(call(words)).toBe(call(englishChangeWords));
+        }
+    });
+});
+
+describe("itemExportName", () => {
+    it("names an item with its drill number", () => {
+        expect(
+            itemExportName({ name: "Flag", drill_prefix: "F", drill_order: 1 }),
+        ).toBe("Flag · F1");
+        expect(
+            itemExportName({ name: "", drill_prefix: "P", drill_order: 2 }),
+        ).toBe("P2");
     });
 });
