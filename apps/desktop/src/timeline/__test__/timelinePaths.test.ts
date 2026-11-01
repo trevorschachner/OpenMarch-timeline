@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, expect, it } from "vitest";
 import { createResolver, type Resolver } from "@openmarch/core";
 import FieldPropertiesTemplates from "@/global/classes/FieldProperties.templates";
@@ -10,6 +11,7 @@ import {
     pathIntoPage,
     pathsIntoPage,
     sampleTimelinePath,
+    sampleTimelinePathStretches,
     timelineMinMaxStepSizes,
     timelineStepSize,
     type PathPage,
@@ -180,6 +182,43 @@ describe("sampleTimelinePath", () => {
         const resolver = resolverFor("G1");
         expect(sampleTimelinePath(resolver, 99, 0, 8)).toBeNull();
         expect(sampleTimelinePath(resolver, 1, 8, 8)).toBeNull();
+    });
+});
+
+describe("sampleTimelinePathStretches", () => {
+    it("cuts the path where spans start and end, each with its own stride", () => {
+        // G4: (0, 0) → (8, 0) over [0, 8], a hold over [8, 12], then (8, 0) → (8, 8) over [12, 20]
+        const resolver = resolverFor("G4");
+        const stretches = sampleTimelinePathStretches(resolver, 1, 4, 16);
+        expect(
+            stretches.map((s) => [s.fromBeat, s.toBeat, s.points, s.stride]),
+        ).toEqual([
+            [
+                4,
+                8,
+                [
+                    { x: 4, y: 0 },
+                    { x: 8, y: 0 },
+                ],
+                1,
+            ],
+            [8, 12, [{ x: 8, y: 0 }], 0],
+            [
+                12,
+                16,
+                [
+                    { x: 8, y: 0 },
+                    { x: 8, y: 4 },
+                ],
+                1,
+            ],
+        ]);
+    });
+
+    it("is empty for an unknown marcher or an empty range", () => {
+        const resolver = resolverFor("G4");
+        expect(sampleTimelinePathStretches(resolver, 99, 0, 8)).toEqual([]);
+        expect(sampleTimelinePathStretches(resolver, 1, 8, 8)).toEqual([]);
     });
 });
 

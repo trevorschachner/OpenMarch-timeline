@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, type ReactNode } from "react";
 import type { Translate } from "../labels";
+import type { ParamCommand } from "./commandBar";
 
 /** One row in the command palette. */
 export interface PaletteItem {
@@ -15,9 +16,19 @@ export interface PaletteItem {
     shortcut?: readonly string[];
     /** Shown greyed out and can't be run. */
     disabled?: boolean;
+    /** Why a disabled item can't run, shown in its row ("Edits the drill — switch to Editor"). */
+    disabledReason?: string;
     /** Curated position in "Suggested" before usage history exists (lower comes first). */
     suggestedRank?: number;
-    run: () => void;
+    /** A plain action: runs once the palette has closed */
+    run?: () => void;
+    /**
+     * A branch of the command tree (Shape › Box): choosing it lists these instead. Searching
+     * finds them from the top as "Shape › Box".
+     */
+    children?: () => readonly PaletteItem[];
+    /** A command that asks for parameters (`commandBar.ts`): choosing it docks the bar */
+    command?: ParamCommand;
 }
 
 export interface PaletteContext {

@@ -3,6 +3,7 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import type { Table } from "drizzle-orm";
+import { inject } from "vitest";
 import { schema, getOrm } from "@/../electron/database/db";
 import { DrizzleMigrationService } from "@/../electron/database/services/DrizzleMigrationService";
 import { PAGE_MODEL_USER_VERSION } from "@/../electron/database/fileVersion";
@@ -64,11 +65,13 @@ let pageEraBlank: string | undefined;
 
 /**
  * A blank page-era file (version 7, the migrations before the timeline-only ones, and the rows
- * a new file got), built once per process. Data fixtures copy it to load a page show.
+ * a new file got), built once per process. Data fixtures copy it to load a page show. It goes in
+ * the run's fixture cache folder (./globalSetup.ts), which is deleted afterwards.
  */
 export async function pageEraBlankPath(): Promise<string> {
     if (pageEraBlank && fs.existsSync(pageEraBlank)) return pageEraBlank;
-    const dir = path.join(os.tmpdir(), "openmarch-test");
+    const dir =
+        inject("fixtureCacheDir") ?? path.join(os.tmpdir(), "openmarch-test");
     fs.mkdirSync(dir, { recursive: true });
     const file = path.join(dir, `${process.pid}-page-era-blank.dots`);
     fs.rmSync(file, { force: true });
@@ -98,6 +101,28 @@ export async function pageEraBlankPath(): Promise<string> {
     }
     pageEraBlank = file;
     return file;
+}
+
+/**
+ * `marchers` columns the timeline-only migrations add (0024's `type`). App code reads every
+ * column of `marchers`, so a page-mode fixture, which tests write timeline rows into and call
+ * app functions on, gets them too; `finishTestConversion` then skips adding them again.
+ */
+export const LATER_MARCHER_COLUMNS = [
+    {
+        name: "type",
+        sql: `ALTER TABLE \`marchers\` ADD COLUMN \`type\` text DEFAULT 'marcher' NOT NULL CONSTRAINT "marchers_type_check" CHECK(type IN ('marcher', 'item'))`,
+    },
+] as const;
+
+/** Adds {@link LATER_MARCHER_COLUMNS} to the page-era file at `dbPath`. */
+export function addLaterMarcherColumns(dbPath: string): void {
+    const db = new DatabaseSync(dbPath);
+    try {
+        for (const column of LATER_MARCHER_COLUMNS) db.exec(column.sql);
+    } finally {
+        db.close();
+    }
 }
 
 /**

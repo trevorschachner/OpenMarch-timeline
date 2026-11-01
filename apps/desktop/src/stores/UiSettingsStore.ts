@@ -2,6 +2,12 @@ import { create } from "zustand";
 import { parseTimelineHeight } from "@/components/timeline/timelineSplit";
 import { syncFromStorage } from "@/stores/syncFromStorage";
 import {
+    clampStartFlagPositions,
+    DEFAULT_START_FLAG_POSITIONS,
+    parseStartFlagPositions,
+    type StartFlagPositionsSettings,
+} from "@/timeline/startFlagLevels";
+import {
     parseWaveformStyle,
     type WaveformStyle,
 } from "@/timeline/timelineWaveform";
@@ -10,13 +16,19 @@ export type FocusableComponents = "canvas" | "timeline";
 export interface UiSettings {
     lockX: boolean;
     lockY: boolean;
+    /**
+     * The Snap toggle (modifier roles, version A): off, shape and marcher drags on the field don't
+     * snap to half steps, the rounding grid or 15° turns, and nothing pulls them onto lines, guides
+     * or other marchers. Never saved: on at every launch and whenever a file opens.
+     */
+    snap: boolean;
     isPlaying: boolean;
     /** Whether to show the full database path in the title bar */
     showFullDatabasePath: boolean;
-    /** Boolean to view previous page's paths/dots */
-    previousPaths: boolean;
     /** Boolean to view next page's paths/dots */
     nextPaths: boolean;
+    /** Start flag positions (#331): what the field draws normally, and while N is held */
+    startFlagPositions: StartFlagPositionsSettings;
     /** Boolean to force-show over-threshold paths and apply step-size warning styling */
     stepSizeWarnings: boolean;
     /** Boolean to show collision markers on the canvas */
@@ -64,20 +76,63 @@ export interface UiSettings {
         /** In steps, the offset from the center-front point to round to on the Y-axis */
         referencePointY?: number;
     };
+    /**
+     * Marcher labels on the field: full drill numbers, numbers only, off, or `auto` (full drill
+     * numbers, shrunk as far as a smallest readable size where they would touch)
+     */
+    marcherLabels?: MarcherLabelForm;
+    /** Marcher labels' size on the field */
+    marcherLabelSize?: MarcherLabelSize;
+    /** Marcher labels above their dots, or beside them (to the right) */
+    marcherLabelPosition?: "above" | "beside";
+    /**
+     * When placed shapes (a box after Place) show their outline and label on the field: while
+     * any member is selected, always, or never
+     */
+    shapes?: ShapeOutlines;
+    /**
+     * While a shape is open, who isn't in it is faded (`rest`, the default) or only while the
+     * shape is being drawn (`drawing`) (docs/timeline/research/shapes/08-shape-system-ux.md)
+     */
+    shapeFocus?: ShapeFocus;
+    /**
+     * Whether an open shape shows its walks and start rings (#403): the floating editor's
+     * Pathways toggle. Off by default.
+     */
+    shapeWalks?: boolean;
+    /** Whether props show their names on the canvas, unless `propNameOverrides` says otherwise */
+    showPropNames: boolean;
+    /** Per prop: whether its name shows. Key is the item id. */
+    propNameOverrides: Record<string, boolean>;
+    /** Per prop: true hides it on the canvas wherever the timeline has it. Key is the item id. */
+    hiddenPropIds: Record<string, boolean>;
     /** Whether to enable Tolgee In-Context Translating */
     tolgeeDevTools?: boolean;
     /** Tolgee API Key for In-Context Translating */
     tolgeeApiKey?: string;
 }
 
+export type MarcherLabelForm = "auto" | "names" | "numbers" | "off";
+export type MarcherLabelSize = "small" | "normal" | "large";
+export type ShapeOutlines = "selected" | "always" | "off";
+export type ShapeFocus = "rest" | "drawing";
+
+/** How much each label size scales the labels' normal size */
+export const LABEL_SIZE_SCALE: Record<MarcherLabelSize, number> = {
+    small: 0.7,
+    normal: 1,
+    large: 1.4,
+};
+
 // Default settings that will be used if no localStorage data exists
 export const defaultSettings: UiSettings = {
     isPlaying: false,
     lockX: false,
     lockY: false,
+    snap: true,
     showFullDatabasePath: false,
-    previousPaths: false,
     nextPaths: false,
+    startFlagPositions: DEFAULT_START_FLAG_POSITIONS,
     stepSizeWarnings: false,
     showCollisions: false,
     gridLines: true,
@@ -103,6 +158,13 @@ export const defaultSettings: UiSettings = {
         nearestYSteps: 0,
         referencePointY: undefined,
     },
+    marcherLabels: "auto",
+    shapes: "selected",
+    shapeFocus: "rest",
+    shapeWalks: false,
+    showPropNames: false,
+    propNameOverrides: {},
+    hiddenPropIds: {},
     tolgeeDevTools: false,
 };
 
@@ -114,7 +176,10 @@ const clampZoomSensitivity = (value: number): number =>
 // Helper function to parse settings from a JSON string
 // Throws on bad JSON or invalid structure
 const parseSettings = (raw: string): UiSettings => {
-    const parsed = JSON.parse(raw) as UiSettings;
+    // `previousPaths` (Previous paths) gave way to start flag positions (#331): dropped
+    const { previousPaths: _previousPaths, ...parsed } = JSON.parse(
+        raw,
+    ) as UiSettings & { previousPaths?: unknown };
     const mergedMouseSettings = {
         ...defaultSettings.mouseSettings,
         ...parsed.mouseSettings,
@@ -129,8 +194,11 @@ const parseSettings = (raw: string): UiSettings => {
     return {
         ...defaultSettings,
         ...parsed,
+        // Never kept: a stored value (from before it was dropped on save) is ignored
+        snap: defaultSettings.snap,
         timelineHeight: parseTimelineHeight(parsed.timelineHeight),
         timelineWaveformStyle: parseWaveformStyle(parsed.timelineWaveformStyle),
+        startFlagPositions: parseStartFlagPositions(parsed.startFlagPositions),
         mouseSettings: mergedMouseSettings,
         coordinateRounding: parsed.coordinateRounding
             ? {
@@ -154,8 +222,10 @@ const loadSettings = (): UiSettings => {
 
 // Helper function to save settings to localStorage
 const saveSettings = (settings: UiSettings): void => {
+    // The Snap toggle is never kept
+    const { snap: _snap, ...kept } = settings;
     try {
-        localStorage.setItem(UI_SETTINGS_STORAGE_KEY, JSON.stringify(settings));
+        localStorage.setItem(UI_SETTINGS_STORAGE_KEY, JSON.stringify(kept));
     } catch (error) {
         console.error("Failed to save UI settings to localStorage:", error);
     }
@@ -173,8 +243,12 @@ interface UiSettingsStoreActions {
     /** Turns the compact timeline on or off (`!timelineCompact` without an argument) */
     setTimelineCompact: (compact?: boolean) => void;
     setTimelineHeight: (height: number | null) => void;
+    /** Saves both start flag positions states, narrowing paths to the dots level */
+    setStartFlagPositions: (settings: StartFlagPositionsSettings) => void;
     toggleAudioMute: () => void;
     setAudioVolume: (volume: number) => void;
+    /** Turns the Snap toggle on or off (`!snap` without an argument); never saved */
+    setSnap: (on?: boolean) => void;
 }
 interface UiSettingsStoreInterface
     extends UiSettingsStoreState, UiSettingsStoreActions {}
@@ -224,6 +298,8 @@ export const useUiSettingsStore = create<UiSettingsStoreInterface>(
             setSetting("timelineZoomFitted", fitted),
         setTimelineHeight: (height: number | null) =>
             setSetting("timelineHeight", parseTimelineHeight(height)),
+        setStartFlagPositions: (settings: StartFlagPositionsSettings) =>
+            setSetting("startFlagPositions", clampStartFlagPositions(settings)),
         setTimelineCompact: (compact?: boolean) =>
             setSetting(
                 "timelineCompact",
@@ -252,12 +328,25 @@ export const useUiSettingsStore = create<UiSettingsStoreInterface>(
             set({ uiSettings: newSettings });
             saveSettings(newSettings);
         },
+        setSnap: (on?: boolean) => {
+            const current = get().uiSettings;
+            const snap = on ?? !current.snap;
+            if (current.snap === snap) return;
+            set({ uiSettings: { ...current, snap } });
+        },
     }),
 );
 
+// Another window's save carries no Snap toggle: this window keeps its own
 syncFromStorage(UI_SETTINGS_STORAGE_KEY, parseSettings, (uiSettings) =>
-    useUiSettingsStore.setState({ uiSettings }),
+    useUiSettingsStore.setState((state) => ({
+        uiSettings: { ...uiSettings, snap: state.uiSettings.snap },
+    })),
 );
+
+/** The Snap toggle as it is now (`UiSettings.snap`), for code that reads it at event time */
+export const isSnapOn = (): boolean =>
+    useUiSettingsStore.getState().uiSettings.snap;
 /**
  * Sets one setting and saves it. An unchanged value keeps the settings object, so nothing
  * re-renders and nothing is written (the timeline saves its zoom and fit after every gesture).

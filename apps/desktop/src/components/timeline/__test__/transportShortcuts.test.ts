@@ -34,8 +34,10 @@ describe("transport shortcuts (UI-17)", () => {
             nextBeat: "Shift + E",
             play: "Space",
             playPage: "Shift + Space",
+            playOn: "Alt + Space",
             loop: "C",
         });
+        expect(TRANSPORT_SHORTCUTS.playOn).toBe(shown("playOn"));
         expect(TRANSPORT_SHORTCUTS.playPage).toBe(shown("playPage"));
         expect(TRANSPORT_SHORTCUTS.play).toBe(shown("playPause"));
         expect(TRANSPORT_SHORTCUTS.previousPage).toBe(shown("previousPage"));
@@ -58,6 +60,11 @@ describe("app menu actions (docs/adr/0003-menu-actions-ipc.md)", () => {
                 action: "playPage",
                 label: "Play from Playhead / Pause",
                 accelerator: "Shift+Space",
+            },
+            {
+                action: "playOn",
+                label: "Play On from Start Flag",
+                accelerator: "Alt+Space",
             },
             {
                 action: "toggleLoop",
@@ -95,6 +102,29 @@ describe("app menu actions (docs/adr/0003-menu-actions-ipc.md)", () => {
 });
 
 describe("the shortcuts list (UI-17 follow-up)", () => {
+    it("lists the drag keys for shapes and marchers: Shift (fine), Mod (constrain), Alt (from center) (#453)", () => {
+        const shapeKeys = (isMac: boolean) =>
+            shortcutGroups((key) => key, {}, isMac)
+                .find((g) => g.title === "Shapes")!
+                .rows.map((row) => row.keys);
+        expect(shapeKeys(false)).toEqual(
+            expect.arrayContaining([
+                "Shift + Drag",
+                "Ctrl + Drag",
+                "Alt + Drag",
+            ]),
+        );
+        expect(shapeKeys(true)).toEqual(
+            expect.arrayContaining(["Shift + Drag", "⌘ + Drag", "Alt + Drag"]),
+        );
+        const movement = shortcutGroups((key) => key, {}, false)
+            .find((g) => g.title === "Move marchers")!
+            .rows.map((row) => row.keys);
+        expect(movement).toEqual(
+            expect.arrayContaining(["Shift + Drag", "Ctrl + Drag"]),
+        );
+    });
+
     it("groups every shortcut, playback first, with the timeline's own keys", () => {
         const groups = shortcutGroups((key) => key, {}, false);
         expect(groups[0]?.title).toBe("Playback");
@@ -102,6 +132,7 @@ describe("the shortcuts list (UI-17 follow-up)", () => {
         expect(playback).toEqual([
             "Space",
             "Shift + Space",
+            "Alt + Space",
             "C",
             "]",
             "[",

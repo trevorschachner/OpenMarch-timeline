@@ -1,8 +1,11 @@
 import type { ComponentType } from "react";
 import {
+    CubeIcon,
     CursorClickIcon,
     DatabaseIcon,
     GearSixIcon,
+    GridFourIcon,
+    HandPointingIcon,
     KeyboardIcon,
     PaletteIcon,
     PuzzlePieceIcon,
@@ -16,7 +19,10 @@ import { getActionLabel, type Translate } from "@/shortcuts/labels";
 import GeneralSettings from "@/components/launchpage/settings/GeneralSettings";
 import AppearanceSettings from "@/components/launchpage/settings/AppearanceSettings";
 import MouseSettings from "@/components/launchpage/settings/MouseSettings";
+import FieldSettings from "@/components/launchpage/settings/FieldSettings";
 import TimelineSettings from "@/components/launchpage/settings/TimelineSettings";
+import View3dSettings from "@/components/launchpage/settings/View3dSettings";
+import InputSettings from "@/components/launchpage/settings/InputSettings";
 import ShortcutSettings from "@/components/launchpage/settings/ShortcutSettings";
 import PluginsContents from "@/components/launchpage/settings/plugins/Plugins";
 import PrivacySettings from "@/components/launchpage/settings/PrivacySettings";
@@ -27,8 +33,11 @@ import { isWebBuild } from "@/utilities/webBuild";
 export type SettingsSectionId =
     | "general"
     | "appearance"
+    | "input"
     | "mouse"
     | "timeline"
+    | "field"
+    | "view3d"
     | "shortcuts"
     | "plugins"
     | "privacy"
@@ -65,7 +74,8 @@ const ALL_SETTINGS_SECTIONS: readonly SettingsSection[] = [
         descriptionKey: "settings.general.description",
         searchKeys: [
             "settings.general.language",
-            "settings.general.automaticUpdates",
+            // Not in the web build, where there's nothing to update
+            ...(isWebBuild ? [] : ["settings.general.automaticUpdates"]),
         ],
     },
     {
@@ -79,6 +89,18 @@ const ALL_SETTINGS_SECTIONS: readonly SettingsSection[] = [
             "settings.general.appearance.light",
             "settings.general.appearance.dark",
             "settings.general.showFullDatabasePath",
+        ],
+    },
+    {
+        id: "input",
+        labelKey: "settings.input",
+        Icon: HandPointingIcon,
+        Component: InputSettings,
+        descriptionKey: "settings.input.description",
+        searchKeys: [
+            "settings.input.interface",
+            "settings.input.interface.touch",
+            "settings.input.interface.mouse",
         ],
     },
     {
@@ -108,6 +130,34 @@ const ALL_SETTINGS_SECTIONS: readonly SettingsSection[] = [
             "settings.timeline.waveformStyle.simplified",
             "settings.timeline.waveformStyle.precise",
             "settings.timeline.waveformStyle.hidden",
+        ],
+    },
+    {
+        id: "field",
+        labelKey: "settings.field",
+        Icon: GridFourIcon,
+        Component: FieldSettings,
+        descriptionKey: "settings.field.description",
+        searchKeys: [
+            "settings.field.gridLines",
+            "settings.field.halfLines",
+            "settings.field.labelSize",
+            "settings.field.labelPosition",
+            "settings.field.stepSizeWarnings",
+            "settings.field.shapeFocus",
+        ],
+    },
+    {
+        id: "view3d",
+        labelKey: "settings.view3d",
+        Icon: CubeIcon,
+        Component: View3dSettings,
+        descriptionKey: "settings.view3d.description",
+        searchKeys: [
+            "settings.view3d.quality",
+            "settings.view3d.resolution",
+            "settings.view3d.pauseWhenIdle",
+            "settings.view3d.saveOnBattery",
         ],
     },
     {

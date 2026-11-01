@@ -6,8 +6,9 @@ import { TooltipClassName } from "@openmarch/ui";
 /**
  * The transport's tooltips (UI-17): the control's name with its shortcut as muted keycaps, as
  * Figma and Linear show them. Shown after a short hover, and straight away on keyboard focus.
- * The page boxes' hold marks and keep chains and the inspector's hold line use them too (UI-18),
- * with `disableHoverableContent` so a tooltip above a page box never holds the pointer.
+ * The page boxes' keep chains, the keyframe diamonds (#303) and the inspector's hold line use
+ * them too (UI-18), with `disableHoverableContent` so a tooltip above a page box never holds the
+ * pointer.
  */
 export function TransportTooltipProvider({
     children,
@@ -28,20 +29,13 @@ export function TransportTooltipProvider({
     );
 }
 
-/** A keyboard shortcut ("Shift + Space", as `KeyboardShortcut.toString` writes it) as keycaps. */
-export function Keycaps({
-    shortcut,
-    plus = false,
-}: {
-    shortcut: string;
-    /** Writes a "+" between the keycaps */
-    plus?: boolean;
-}) {
+/** A keyboard shortcut ("Shift + Space", as `KeyboardShortcut.toString` writes it) as keycaps joined by "+". */
+export function Keycaps({ shortcut }: { shortcut: string }) {
     return (
         <span className="inline-flex items-center gap-2">
             {shortcut.split(/\s*\+\s*/).map((key, i) => (
                 <Fragment key={key}>
-                    {plus && i > 0 && (
+                    {i > 0 && (
                         <span aria-hidden="true" className="text-[11px]">
                             +
                         </span>

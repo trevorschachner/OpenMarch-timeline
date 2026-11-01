@@ -1,5 +1,6 @@
 import {
     FieldProperties,
+    stepMeters,
     type Checkpoint,
     type RgbaColor,
 } from "@openmarch/core";
@@ -80,7 +81,15 @@ export type FieldPlanOptions = {
      * The field image's natural size, when the show has one; 0 by 0 if it
      * didn't decode. Drawn only if the field properties show it.
      */
-    image?: { width: number; height: number } | null;
+    image?: {
+        width: number;
+        height: number;
+        /**
+         * The floor's physical size in meters (ADR 0002 D-23): drawn at that size, centered on
+         * the field. Without it, the image is placed by fill or fit.
+         */
+        size?: { widthM: number; heightM: number } | null;
+    } | null;
 };
 
 const GRID_STROKE = FieldProperties.GRID_STROKE_WIDTH;
@@ -147,6 +156,42 @@ const backFrom = (from: number, interval: number) => {
     return out;
 };
 
+/**
+ * The field's lines a shape's edge can be pulled onto (#425), in field units: x for lines side to
+ * side, y for front to back. The checkpoints used as references, visible or not (a front
+ * sideline is invisible but still a line), and the half lines where the field has them. Not the
+ * step grid.
+ */
+export function fieldReferenceLines(fp: FieldProperties): {
+    x: number[];
+    y: number[];
+} {
+    const x = fp.xCheckpoints
+        .filter((c) => c.useAsReference)
+        .map((c) => checkpointX(fp, c));
+    const y = fp.yCheckpoints
+        .filter((c) => c.useAsReference)
+        .map((c) => checkpointY(fp, c));
+    // The half lines where the 2D plan draws them
+    if (fp.halfLineXInterval)
+        x.push(
+            ...linesFrom(
+                fp.centerFrontPoint.xPixels,
+                fp.pixelsPerStep * fp.halfLineXInterval,
+                fp.width,
+            ),
+        );
+    if (fp.halfLineYInterval) {
+        const interval = fp.pixelsPerStep * fp.halfLineYInterval;
+        y.push(...backFrom(gridStartY(fp) - interval, interval));
+    }
+    const once = (values: number[]) =>
+        values
+            .sort((a, b) => a - b)
+            .filter((v, i, all) => i === 0 || v - all[i - 1]! > 1e-6);
+    return { x: once(x), y: once(y) };
+}
+
 /** Where a field image goes, fit or fill */
 export const fieldImagePlacement = (
     fieldProperties: Pick<
@@ -170,9 +215,30 @@ export const fieldImagePlacement = (
 };
 
 /**
+ * Where a floor of `size` meters goes: at that size, centered on the field (ADR 0002 D-23). A
+ * floor made from a legacy image was sized by its fill or fit placement, so it lands where the
+ * image did.
+ */
+export const floorPlacement = (
+    fieldProperties: Pick<
+        FieldProperties,
+        "width" | "height" | "pixelsPerStep" | "stepSizeInches"
+    >,
+    size: { widthM: number; heightM: number },
+) => {
+    const { width, height } = fieldProperties;
+    const pixelsPerMeter =
+        fieldProperties.pixelsPerStep /
+        stepMeters(fieldProperties as FieldProperties);
+    const w = size.widthM * pixelsPerMeter;
+    const h = size.heightM * pixelsPerMeter;
+    return { x: (width - w) / 2, y: (height - h) / 2, width: w, height: h };
+};
+
+/**
  * Where the field image is drawn and how opaque, or null when the field
- * properties hide it or there's no image. An image whose size is unknown (it
- * didn't decode) is stretched over the field.
+ * properties hide it or there's no image. A floor goes at its physical size; an image whose
+ * size is unknown (it didn't decode) is stretched over the field.
  */
 export function planFieldImage(
     fieldProperties: FieldProperties,
@@ -180,10 +246,11 @@ export function planFieldImage(
 ): FieldPlanImage | null {
     if (!fieldProperties.showFieldImage || !image) return null;
     const { width, height } = fieldProperties;
-    const at =
-        image.width > 0 && image.height > 0
-            ? fieldImagePlacement(fieldProperties, image)
-            : { x: 0, y: 0, width, height };
+    const at = image.size
+        ? floorPlacement(fieldProperties, image.size)
+        : image.width > 0 && image.height > 0
+          ? fieldImagePlacement(fieldProperties, image)
+          : { x: 0, y: 0, width, height };
     return { ...at, opacity: fieldProperties.backgroundImageOpacity };
 }
 

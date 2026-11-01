@@ -1,4 +1,5 @@
 import { useTolgee } from "@tolgee/react";
+import tolgee from "@/global/singletons/Tolgee";
 import { Dialog, DialogContent, DialogTitle } from "@openmarch/ui";
 import { Keycaps } from "@/components/timeline/ShortcutTooltip";
 import { useShortcutsDialogStore } from "@/stores/ShortcutsDialogStore";
@@ -34,6 +35,8 @@ const GROUPS: readonly (readonly [category: string, title: string])[] = [
 interface Row {
     readonly label: string;
     readonly keys: string;
+    /** i18n key for `label`, which is its English default */
+    readonly labelKey?: string;
 }
 
 /**
@@ -48,8 +51,43 @@ const EXTRA_ROWS: Readonly<Record<string, readonly Row[]>> = {
         { label: "Zoom the timeline", keys: "Ctrl + Scroll" },
         { label: "Drag without snapping", keys: "Alt + Drag" },
     ],
-    movement: [{ label: "Nudge the selected marchers", keys: "W A S D" }],
+    movement: [
+        { label: "Nudge the selected marchers", keys: "W A S D" },
+        {
+            label: "Fine control while dragging marchers",
+            labelKey: "shortcutsDialog.movement.fineControl",
+            keys: "Shift + Drag",
+        },
+        {
+            label: "Move on one axis while dragging",
+            labelKey: "shortcutsDialog.movement.constrain",
+            keys: "Mod + Drag",
+        },
+    ],
+    // While drawing, stretching, moving or dragging a spacing of a shape (modifier roles, version
+    // A); "Mod" is Cmd on a Mac, Ctrl elsewhere. Snapping off is the Snap toggle (Shift+M).
+    shape: [
+        {
+            label: "Fine control, still catching yard lines and hashes",
+            labelKey: "shortcutsDialog.shape.fineControl",
+            keys: "Shift + Drag",
+        },
+        {
+            label: "Constrain (equal spacings, one axis, flips proportional scaling)",
+            labelKey: "shortcutsDialog.shape.constrain",
+            keys: "Mod + Drag",
+        },
+        {
+            label: "Draw or resize a box from center",
+            labelKey: "shortcutsDialog.shape.fromCenter",
+            keys: "Alt + Drag",
+        },
+    ],
 };
+
+/** An extra row's keys for this platform: "Mod" is Cmd on a Mac, Ctrl elsewhere */
+const extraKeys = (keys: string, isMac: boolean) =>
+    keys.replace(/^Mod\b/, isMac ? "⌘" : "Ctrl");
 
 /** Shown elsewhere: the nudge (`EXTRA_ROWS`), the tap-beat digits and the beat editor's keys */
 const LISTED_ELSEWHERE: ReadonlySet<ActionId> = new Set([
@@ -89,7 +127,12 @@ export function shortcutGroups(
     for (const [category, title] of GROUPS) {
         const rows = [
             ...(byCategory.get(category) ?? []),
-            ...(EXTRA_ROWS[category] ?? []),
+            ...(EXTRA_ROWS[category] ?? []).map((row) => ({
+                label: row.labelKey
+                    ? tolgee.t(row.labelKey, row.label)
+                    : row.label,
+                keys: extraKeys(row.keys, isMac),
+            })),
         ];
         byCategory.delete(category);
         if (rows.length === 0) continue;

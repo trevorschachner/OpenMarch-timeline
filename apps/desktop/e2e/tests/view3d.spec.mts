@@ -11,7 +11,8 @@
  * instead of the scene, so the sync and venue checks read the overlay's DOM
  * (the readout and the settings panel's venue and lighting pickers), and the
  * scene wrapper's `data-kit` / `data-lighting` are checked only when WebGL is
- * available.
+ * available. WebGL drawn in software still draws the scene, at low quality,
+ * with a notice that says so.
  */
 import { test } from "../fixtures.mjs";
 import { expect, type Page } from "playwright/test";
@@ -228,15 +229,14 @@ async function view3dRequests(app: ElectronApplication): Promise<string[]> {
     });
 }
 
-/** Opens the 3D View from the View toolbar tab and returns its page. */
+/** Opens the 3D View from the button beside the workspace switch and returns its page. */
 async function openView3d(
     app: ElectronApplication,
     editor: Page,
     networkUrls: string[],
 ): Promise<Page> {
-    await editor.getByRole("tab", { name: "View" }).click();
     const opened = app.waitForEvent("window");
-    await editor.getByRole("button", { name: "Open 3D View" }).click();
+    await editor.getByTestId("open-view3d").click();
     const view3d = await opened;
     view3d.on("request", (request) => {
         if (!isLocalUrl(request.url())) networkUrls.push(request.url());
@@ -286,11 +286,28 @@ async function expectVenue(
     }
 }
 
-async function hasWebGl(view3d: Page): Promise<boolean> {
-    return view3d.evaluate(() => {
+/**
+ * What draws WebGL in the window: none (no scene), software (the scene at
+ * low quality) or hardware. Mirrors `classifyGlRenderer` in `src/field/fieldQuality.ts`; the spec can't
+ * import it, as Playwright loads app sources as CommonJS.
+ */
+type GlKind = "hardware" | "software" | "none";
+const SOFTWARE_RENDERERS = /swiftshader|llvmpipe|softpipe|basic render/i;
+async function glKind(view3d: Page): Promise<GlKind> {
+    const renderer = await view3d.evaluate(() => {
         const canvas = document.createElement("canvas");
-        return !!(canvas.getContext("webgl2") ?? canvas.getContext("webgl"));
+        const gl = (canvas.getContext("webgl2") ??
+            canvas.getContext("webgl")) as WebGLRenderingContext | null;
+        if (!gl) return null;
+        const debug = gl.getExtension("WEBGL_debug_renderer_info");
+        return String(
+            gl.getParameter(
+                debug ? debug.UNMASKED_RENDERER_WEBGL : gl.RENDERER,
+            ),
+        );
     });
+    if (renderer === null) return "none";
+    return SOFTWARE_RENDERERS.test(renderer) ? "software" : "hardware";
 }
 
 // eslint-disable-next-line max-lines-per-function
@@ -336,16 +353,27 @@ test("3D View follows the editor and saves the venue", async ({
 
     // Open the window from the editor.
     let view3d = await openView3d(app, editor, networkUrls);
-    const webgl = await hasWebGl(view3d);
-    console.log(`3D View WebGL: ${webgl ? "available" : "unavailable"}`);
+    const kind = await glKind(view3d);
+    const webgl = kind !== "none";
+    console.log(`3D View WebGL: ${kind}`);
     testInfo.annotations.push({
         type: "webgl",
-        description: webgl ? "available" : "unavailable (fallback shown)",
+        description: webgl ? kind : `${kind} (fallback shown)`,
     });
     if (!webgl) {
         await expect(
             view3d.getByText("3D View needs WebGL", { exact: false }),
         ).toBeVisible();
+    } else if (kind === "software") {
+        // Drawn on the CPU: low quality, and the window says so.
+        await expect(
+            view3d.getByTestId("view3d-quality-notice"),
+        ).toHaveAttribute("data-reason", "software");
+        await expect(view3d.getByTestId("view3d-scene")).toHaveAttribute(
+            "data-quality",
+            "low",
+            { timeout: 60_000 },
+        );
     }
 
     // Seek: selecting pages moves the window to that page's set, exactly.
@@ -463,8 +491,9 @@ test("3D View follows the editor and saves the venue", async ({
 
     // Undo in the editor reverts each change; redo puts it back.
     await editor.getByRole("tab", { name: "File" }).click();
-    const undo = editor.getByRole("button", { name: "Undo", exact: true });
-    const redo = editor.getByRole("button", { name: "Redo", exact: true });
+    // The File tab's buttons, which show their words (the title bar's are icons)
+    const undo = editor.getByRole("button").filter({ hasText: /^Undo$/ });
+    const redo = editor.getByRole("button").filter({ hasText: /^Redo$/ });
     await undo.click();
     await expectVenue(view3d, kit, kitLighting, webgl);
     await undo.click();
@@ -520,4 +549,47 @@ test("3D View follows the editor and saves the venue", async ({
     const mainNetwork = mainSeen.filter((url) => !isLocalUrl(url));
     expect(networkUrls, "window requests seen by Playwright").toEqual([]);
     expect(mainNetwork, "window requests seen by main").toEqual([]);
+});
+
+test("3D View keeps following an editor that reloads", async ({
+    electronApp,
+}) => {
+    test.setTimeout(180_000);
+    const { app, page: editor } = electronApp;
+    await app.evaluate(({ BrowserWindow }) => {
+        BrowserWindow.getAllWindows()[0]?.setBounds({
+            x: 0,
+            y: 0,
+            width: 1600,
+            height: 1000,
+        });
+    });
+    await expect(editor.getByTestId("timeline-page-ruler")).toBeVisible({
+        timeout: 20_000,
+    });
+    const view3d = await openView3d(app, editor, []);
+    await selectPage(editor, "2");
+    await expectWindowPage(view3d, "2");
+
+    // What the title bar's Reload button, the plugin reload and the error
+    // screen do: the editor reloads, and the window stays open.
+    await editor.reload();
+    await expect(editor.getByTestId("timeline-page-ruler")).toBeVisible({
+        timeout: 20_000,
+    });
+    expect(view3d.isClosed()).toBe(false);
+
+    // The reloaded editor still drives the window: seek, then play.
+    await selectPage(editor, "3");
+    await expectWindowPage(view3d, "3");
+    await expectPausedInSync(editor, view3d);
+    await editor.getByTestId("timeline-initial-page").click();
+    await expectWindowPage(view3d, "0");
+    await editor.getByTestId("timeline-play").click();
+    await expect(view3d.getByTestId("view3d-sync-readout")).toHaveAttribute(
+        "data-playing",
+        "true",
+    );
+    await editor.getByTestId("timeline-play").click();
+    await expectPausedInSync(editor, view3d);
 });

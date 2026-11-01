@@ -34,7 +34,7 @@ Paths below are under `apps/desktop/src/` unless they start with `docs/` or
 | `window.canvas` reads in tests                                                                                   | The field test API, `window.fieldTest` (`field/fieldTestApi.ts`), plus saved show data. Add an optional reading there (as `lineTool()` in #203) and implement it in `three/threeFieldTestApi.ts`.                                                                                                                                                                                                                                   |
 | `setActiveObject`, `getActiveObjects`, `selection:created`/`cleared`, `setSelectionLocked`                       | The one app selection, `SelectedMarchersContext`. The editor writes it through `FieldEditorPorts.selection` and the rules in `field/editor/selectionRules.ts` (`selectionAfterClick`) and `selectionArea.ts`. Locking the selection while a tool is open means the tool's mode takes every edit press, as the line tool does.                                                                                                       |
 | `object:moving` and `object:modified` writes                                                                     | `MoveGesture` (`field/editor/moveGesture.ts`) with live positions through `showPositions`; the drop through the `drop` port, `field/fieldDrop.ts` (`dropMarchersOnTimeline`), the drop-to-timeline planner unchanged. Pending, snap-back and one undo step come with it.                                                                                                                                                            |
-| `getRoundCoordinates2` on move, Alt and Shift checks, `lockMovementX/Y`                                          | `MoveTransform` (`ruledMove` in `field/editor/moveRules.ts`). Alt's quarter speed is `precisionDelta`, and re-anchoring when Alt goes down is `anchorAt`.                                                                                                                                                                                                                                                                           |
+| `getRoundCoordinates2` on move, fine (Shift) and constrain ($mod) checks, `lockMovementX/Y`                      | `MoveTransform` (`ruledMove` in `field/editor/moveRules.ts`). Fine's quarter speed is `precisionDelta`, and re-anchoring when fine turns on is `anchorAt`. The Snap toggle is `MoveRules.snap`.                                                                                                                                                                                                                                     |
 | Fabric controls (`hasControls`, corner controls, `setControlsVisibility`)                                        | `handlePoints`, `handleAt` and `handleCursor` (`field/editor/groupTransform.ts`), and the `HandleGesture` base with `ScaleGesture` and `RotateGesture` (`field/editor/transformGestures.ts`) from #198. The editor hit-tests handles itself; the overlay stays `pointer-events: none`.                                                                                                                                              |
 | Double click (`mouse:dblclick`)                                                                                  | The editor keeps the last click (`DOUBLE_CLICK_MS`, `DOUBLE_CLICK_SLOP`) and marks the next press `double` (#195). Extend that; don't add a DOM listener.                                                                                                                                                                                                                                                                           |
 | Click vs drag thresholds                                                                                         | `CLICK_SLOP` (4 screen px, no time limit) in `fieldEditor.ts`, for every press, handles included.                                                                                                                                                                                                                                                                                                                                   |
@@ -134,7 +134,7 @@ listed. #237 (#198) and #238 (#203) touch `MarcherRotationInput.tsx` and
 
 | Work                                                                                                                                            | Fabric seams                                                                                                            | Plan                                        |
 | ----------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- | ------------------------------------------- |
-| **#181** `shapes/box-v1`: box shape tool, with placed boxes (#187 `shapes/placed-boxes`) and box selection (#188 `shapes/box-select`) merged in | Many; see [below](#box-v1-181-with-187-and-188)                                                                         | Port on hold (#204); decisions first        |
+| **#181** `shapes/box-v1`: box shape tool, with placed boxes (#187 `shapes/placed-boxes`) and box selection (#188 `shapes/box-select`) merged in | Many; see [below](#box-v1-181-with-187-and-188)                                                                         | Ported on #181 itself (#204), 2026-10-15    |
 | **#182** `tempo/rebase-main`: tempo lab                                                                                                         | Mounts `<TapTheBeatPanel />` in Fabric's `Canvas.tsx`. Nothing else.                                                    | Mount it beside the field instead           |
 | **#114** `timeline/p8-12-replan` (docs only)                                                                                                    | None of its own; the P8.12 plan it records names `Canvas.tsx` and the canvas listeners as readers of `useSelectedPage`. | Update the plan's list                      |
 | P7.11 spec-shape handles (on `main` and `field-renderer`, not a PR)                                                                             | `useTimelineShapeCanvas.ts`, `TimelineShapeOverlay.ts`, `isTimelineShapeHandle` in `canvasListeners.selection.ts`       | Dropped; deleted in #209 (owner decision)   |
@@ -167,7 +167,8 @@ Dropped (owner decision on #209). The inspector's shape editor
 Fabric with handles to drag (`timeline/useTimelineShapeCanvas.ts`,
 `TimelineShapeOverlay.ts`; geometry and commits in
 `timeline/timelineShapeCanvas.ts`). #209 deleted all three, since nothing
-else used the geometry; the inspector still edits shapes through its inputs.
+else used the geometry. The inspector's shape editor itself was removed on
+2026-10-19 with the inspector's Timeline section.
 A later port can take `timelineShapeCanvas.ts` (`shapeOutline`,
 `shapeHandles`, `dragHandle`, the store's `commit`) back from
 `field-renderer-pre-209` and draw the handles as an SVG component in
@@ -177,7 +178,7 @@ A later port can take `timelineShapeCanvas.ts` (`shapeOutline`,
 
 **What it does.** The Shape tool's box (B, or the inspector's Box button):
 drag a footprint, marchers fill it on half steps, handles stretch the
-intervals, ± and `[` `]` change the file count, Enter places and Esc
+intervals, ± changes the file count, Enter places and Esc
 cancels. Placed boxes are saved as recipes, outlined on the field by the View
 tab's **Shapes** setting, and kept true to the field as members move. A click
 on a member selects the whole box (Figma-like), a double click selects that
@@ -211,7 +212,19 @@ components, `db-functions/shapeRecipes.ts`, and
 | `shortcuts/handlers/useCursorActionHandlers.ts`                                                                                                               | Fabric's select-all path also writes the app's selection; the line tool's actions are removed                                | Drop the select-all change: on the new field `selectAllMarchers` calls `activeFieldEditor()?.selectAll()`, which writes the app's selection. The removed `applyQuickShape` and `alignmentEventDefault` handlers go with the line tool decision below.                     |
 | `OpenMarchCanvas.refreshMarcherLabels`, `CanvasMarcher.labelBeside/labelNumbersOnly/labelFontSize/labelsOff`, `canvasObjects/labelForms.ts` (`crowdedLabels`) | Fabric text objects per marcher                                                                                              | `LabelsLayer` (one `TextBatch`): text, size, offset and visibility per label, recomputed in a store subscription when positions or settings change, not per frame. Settings through `useFieldDraw()` so exports can choose. Move `labelForms.ts` out of `canvasObjects/`. |
 
-**Decide before porting** (the guide doesn't decide these):
+**Ported (2026-10-15, rebased onto `main` 2026-10-16).** #181 was ported
+by this table (#204): `FieldMode` on `FieldEditor` (`setMode`, the shape tool
+and a selected placed box), `pressSelection` and `doubleClickMarcher` ports
+for the box click rules, an SVG `ModeDrawing` in `FieldOverlay`, placed boxes
+in `shapes/placed/PlacedBoxesOverlay.tsx`, label forms in `LabelsLayer`, and
+`shapes/field/shapeField.ts` in place of `window.canvas`. Scenarios:
+`e2e/browser/tests/box-tool.spec.mts`. The decisions below were taken as
+follows: the recipes migration is `0027_acoustic_stone_men` (renumbered from
+`0023` as `main` gained migrations; `0028_fast_polaris` adds `saved_shapes`), the recipe ADR is
+`0006-shape-recipes.md`, the line tool is removed (owner, 2026-10-15), and
+the rules table has rows for placed boxes and the box tool's Alt.
+
+**Decided when porting** (kept for the record):
 
 - **Migration number.** #181 adds `0021_mature_havok` (the recipe tables).
   Fork `main` already has `0021_blue_dust` from #148, and #147 queues
@@ -231,9 +244,7 @@ components, `db-functions/shapeRecipes.ts`, and
   `fieldLineTool.ts`, `LineToolPreview` and the test API's `lineTool()`.
 - **Rules table conflicts.** A click on a box member selects the whole box,
   where the Click row (story 23) says a click selects only that marcher. The
-  box tool's Alt means "don't snap" at full speed, where the Alt row says
-  quarter speed for move, scale and rotate. Lock X / Lock Y must not
-  constrain box handles (Lock row). Each needs a row edit or a box-specific
+  Lock X / Lock Y must not constrain box handles (Lock row). Each needs a row edit or a box-specific
   exception, decided by the owner.
 - **Box v1's own open questions** for the owner: the pressed back corner is
   empty when the short back rank is centered; later-page box copies go stale

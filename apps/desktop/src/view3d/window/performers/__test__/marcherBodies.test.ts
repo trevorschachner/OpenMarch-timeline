@@ -162,7 +162,7 @@ describe("horns as their own meshes", () => {
         return { bake, set: new MarcherBodies(bodies, bake, looks, quality) };
     }
 
-    it("draws a brass group as a body mesh plus a metallic horn mesh", async () => {
+    it("draws both in one body mesh (they differ only in the horn), plus a metallic horn mesh", async () => {
         const { set } = await trumpetAndDrumMajor("high");
         const bodiesMeshes = set.group.children.filter((o) =>
             o.name.startsWith("view3d-marchers-"),
@@ -170,10 +170,10 @@ describe("horns as their own meshes", () => {
         const horns = set.group.children.filter((o) =>
             o.name.startsWith("view3d-horn-"),
         ) as THREE.InstancedMesh[];
-        expect(bodiesMeshes.length).toBe(2);
+        expect(bodiesMeshes.length).toBe(1);
         // one instrument group for the trumpet look: full and low detail
         expect(horns.length).toBe(2);
-        expect(set.drawCalls).toBe(4);
+        expect(set.drawCalls).toBe(3);
         const horn = horns.find((h) => h.name.endsWith("-high"))!;
         expect(horn.geometry.getAttribute("color")).toBeDefined();
         expect(horn.geometry.index!.count / 3).toBeGreaterThan(8000);
@@ -181,6 +181,24 @@ describe("horns as their own meshes", () => {
         expect(m.metalness).toBeGreaterThan(0.9);
         expect(m.vertexColors).toBe(true);
         expect(m.flatShading).toBe(false);
+        set.dispose();
+    });
+
+    it("draws every marcher solid: the 3D View never draws Following marchers dashed", async () => {
+        // The editor's field draws a marcher with no coordinate of its own on
+        // the count dashed (#300); the 3D View shows the performance (#302)
+        const { set } = await trumpetAndDrumMajor("high");
+        const meshes = set.group.children.filter(
+            (o) =>
+                o.name.startsWith("view3d-marchers-") ||
+                o.name.startsWith("view3d-horn-"),
+        ) as THREE.InstancedMesh[];
+        expect(meshes.length).toBeGreaterThan(0);
+        for (const mesh of meshes) {
+            const material = mesh.material as THREE.Material;
+            expect(material.transparent).toBe(false);
+            expect(material.opacity).toBe(1);
+        }
         set.dispose();
     });
 
@@ -201,7 +219,7 @@ describe("horns as their own meshes", () => {
         ) as THREE.InstancedMesh[];
         expect(horns.length).toBe(1);
         expect(horns[0].geometry.index!.count / 3).toBeLessThan(3500);
-        expect(set.drawCalls).toBe(3); // two block meshes (the looks differ) plus the horn
+        expect(set.drawCalls).toBe(2); // one block mesh (the bodies match) plus the horn
         set.dispose();
     });
 
@@ -218,18 +236,18 @@ describe("horns as their own meshes", () => {
             0,
             [0, 2, 0],
         );
-        // one body mesh per look: the trumpet's and the drum major's
-        const bodyMeshes = set.group.children.filter(
+        // one body mesh for both: their uniforms draw alike on the body
+        const body = set.group.children.find(
             (o) => o.name === "view3d-marchers-neutral-average",
-        ) as THREE.InstancedMesh[];
+        ) as THREE.InstancedMesh;
         const horn = set.group.children.find((o) =>
             o.name.endsWith("-high"),
         ) as THREE.InstancedMesh;
         const slotOf = (m: THREE.InstancedMesh, i: number) =>
             (m.geometry.getAttribute("aSlot") as THREE.BufferAttribute).getX(i);
-        // the trumpet is slot 0 in its body and its horn; the drum major slot 1
+        // the trumpet is slot 0 in the body mesh and its horn; the drum major slot 1
         expect(slotOf(horn, 0)).toBe(0);
-        expect(bodyMeshes.map((m) => slotOf(m, 0))).toEqual([0, 1]);
+        expect([slotOf(body, 0), slotOf(body, 1)]).toEqual([0, 1]);
         // the clip went into slot 0's Feet state
         expect(Array.from(set.composer.state.subarray(0, 4))).toEqual([
             row.row,
@@ -283,6 +301,33 @@ describe("horns as their own meshes", () => {
         set.dispose();
         for (const d of geometryDisposes) expect(d).toHaveBeenCalledTimes(1);
         expect(materialDispose).toHaveBeenCalledTimes(1);
+    });
+
+    it("draws looks that differ only in what they carry in one body mesh", async () => {
+        const bodies = await loadedBodies();
+        const bake = bakeForBodies(bodies, { "8to5": await clip8to5() });
+        const slot = (id: number, section: string, hold: "up" | "carry") => ({
+            body: {
+                ...defaultPerformerBody(id),
+                bodyType: "neutral-average" as const,
+            },
+            uniform: sectionUniform(section, hold),
+        });
+        const set = new MarcherBodies(
+            bodies,
+            bake,
+            [
+                slot(1, "Trumpet", "up"),
+                slot(2, "Trumpet", "carry"),
+                slot(3, "Snare Drum", "up"),
+            ],
+            "high",
+        );
+        const bodyMeshes = set.group.children.filter((o) =>
+            o.name.startsWith("view3d-marchers-"),
+        );
+        expect(bodyMeshes.length).toBe(1);
+        set.dispose();
     });
 
     it("gives a drum-major-only set no horn and one draw call", async () => {

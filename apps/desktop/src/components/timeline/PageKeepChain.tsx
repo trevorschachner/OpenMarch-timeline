@@ -17,11 +17,8 @@ import {
     timelineRangeTargetProps,
     type TimelineKeepHereMenu,
 } from "./TimelineRangeMenu";
-import type {
-    TimelineBeatRange,
-    TimelinePageMarker,
-} from "./TimelineViewModel";
-import { beatToX, pageLabelFits, pageLabelRoom } from "./TimelineGeometry";
+import type { TimelineBeatRange } from "./TimelineViewModel";
+import { pageLabelRoom } from "./TimelineGeometry";
 
 /** A page box's chain (`pageChainWords`), with what a click does. */
 export interface PageKeepChain extends PageChainWords {
@@ -154,11 +151,7 @@ export function pageKeepChains(
  * full ruler height), the flag's grip (`TimelinePageFlagGrips`, at most 12px, centered on the
  * flag), and the start flag's pennant (a 14x14 handle from the flag rightward, the ruler's top 14px).
  * The box starts 1px past its flag (the ruler's border). On the selected page the start flag sits
- * on the box's left flag and the playhead on either flag, so both edges matter. The playhead's
- * add-page-flag **+** (16px, 8px right of the playhead, the ruler's top 6..22px) would cover the
- * chain of the box the playhead is in up to about 23px past its flag, and zoomed out the next
- * box's chain from a beat before its flag, so it moves past any chain it would cover
- * (`addPageFlagLeft`).
+ * on the box's left flag and the playhead on either flag, so both edges matter.
  */
 
 /**
@@ -196,9 +189,9 @@ export interface ChainFit {
 
 /**
  * Where a box's chain fits (owner, 2026-10-12: chains on narrow boxes covered the page numbers and
- * each other): at the bottom left, on the start of the hold bar, `CHAIN_INSET` in from the flag
- * before it, at the largest size that leaves the label and the box's right flag clear. Null where
- * neither size fits, however narrow the box: it shows a dot instead (`keepDotFit`).
+ * each other): at the bottom left, `CHAIN_INSET` in from the flag before it, at the largest size
+ * that leaves the label and the box's right flag clear. Null where neither size fits, however
+ * narrow the box: it shows a dot instead (`keepDotFit`).
  *
  * @param labelChars the box's label length, 0 when the box is too narrow to show it
  */
@@ -242,59 +235,6 @@ export function keepDotFit(boxWidth: number, labelChars: number): KeepDotFit {
 export const labelPaddingBeside = (offset: number, size: number) =>
     offset + size + LABEL_GAP;
 
-/** How far right of the playhead the add-page-flag **+** sits (`TimelineVariants`) */
-export const ADD_PAGE_FLAG_OFFSET = 8;
-/** The add-page-flag **+**'s width (`TimelineVariants`, `size-16`) */
-const ADD_PAGE_FLAG_SIZE = 16;
-
-/**
- * Where the add-page-flag **+** goes (px from beat 0): `ADD_PAGE_FLAG_OFFSET` right of the
- * playhead, or just past any chain that would land under it. The + is drawn above the chains and
- * would take their clicks, and on the selected page, where the playhead usually is, the linked
- * chain always shows (review, 2026-10-12). That is the chain of the box the playhead is in, but
- * zoomed out also the next box's: the playhead can sit a beat before its flag, a few px away
- * (review, 2026-10-12). A chain that shows only on hover counts too: hovering would put it under
- * the +. Past a chain in a box only just wide enough for it, the + can reach past that box's right
- * flag.
- */
-export function addPageFlagLeft({
-    pages,
-    beatCount,
-    positionBeat,
-    pixelsPerBeat,
-    keepChains,
-}: {
-    pages: readonly TimelinePageMarker[];
-    beatCount: number;
-    positionBeat: number;
-    pixelsPerBeat: number;
-    keepChains?: PageKeepChains;
-}): number {
-    let left = beatToX(positionBeat, pixelsPerBeat) + ADD_PAGE_FLAG_OFFSET;
-    if (!keepChains || keepChains.size === 0) return left;
-    // The boxes in order, as getPageRange works them out, sorted once per call
-    const ordered = pages
-        .filter((page) => !page.isInitial)
-        .sort((a, b) => a.atBeat - b.atBeat);
-    // Left to right, and the + only moves right, so one pass finds every chain it reaches
-    for (const [index, page] of ordered.entries()) {
-        if (!keepChains.has(page.id)) continue;
-        const endBeat = ordered[index + 1]?.atBeat ?? page.endBeat ?? beatCount;
-        const boxWidth = (endBeat - page.atBeat) * pixelsPerBeat;
-        const fit = chainFit(
-            boxWidth,
-            pageLabelFits(page.label, boxWidth) ? page.label.length : 0,
-        );
-        if (!fit) continue;
-        // The box starts 1px past its flag: the ruler's border
-        const chainStart = beatToX(page.atBeat, pixelsPerBeat) + 1 + fit.offset;
-        const chainEnd = chainStart + fit.size;
-        if (left < chainEnd && left + ADD_PAGE_FLAG_SIZE > chainStart)
-            left = chainEnd + LABEL_GAP;
-    }
-    return left;
-}
-
 const BASE =
     "focus-visible:ring-accent absolute z-30 flex items-center justify-center rounded-full outline-hidden focus-visible:ring-2";
 
@@ -313,7 +253,7 @@ const KIND_CLASS: Record<PageKeepChain["kind"], string> = {
 /**
  * A linked chain shows only on the selected page, the page **K** works on, and the box under the
  * pointer (its own box, drawn just before it); everywhere else the
- * hold bar says they hold, and the box's menu keeps them. Simulated users, 2026-10-12: a chain on
+ * inspector's hold line says they hold, and the box's menu keeps them. Simulated users, 2026-10-12: a chain on
  * every following page drowned out the kept ones; with none they couldn't find keep.
  *
  * Hidden, it takes no pointer (review, 2026-10-12): a press there goes to the box under it
@@ -335,7 +275,7 @@ const KIND_WEIGHT: Record<PageKeepChain["kind"], "regular" | "bold"> = {
 
 /**
  * A page box's chain (UI-18 keep later pages), a sibling drawn right after the box, at its bottom
- * left where the hold bar starts: an outlined link where the selected marchers follow into the
+ * left: an outlined link where the selected marchers follow into the
  * page, broken on a filled accent chip where they were kept, and broken in an accent outline
  * where some were. Its tooltip names whom a click changes, and (K) where **K** does the same.
  * The press never reaches the box, so it doesn't select, scrub or drag it; a right-click opens
@@ -434,7 +374,7 @@ export function PageKeepChainButton({
 }
 
 /**
- * A kept or mixed chain in a box too narrow for it (`chainFit`): a dot on the hold bar, filled
+ * A kept or mixed chain in a box too narrow for it (`chainFit`): a dot at the box's bottom, filled
  * where kept, a ring where some are, where `keepDotFit` puts it. The box's tooltip carries the
  * chain's words.
  */

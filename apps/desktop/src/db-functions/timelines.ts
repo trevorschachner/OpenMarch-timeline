@@ -157,13 +157,18 @@ export const updateTimelinesInTransaction = async ({
  * assignments and slot destinations, then its transitions, then the timeline. The foreign keys
  * are RESTRICT, and the history trigger logs rows in deletion order, so deleting a parent first
  * would break undo. Shapes are shared and are left alone. Missing ids are ignored.
+ *
+ * A timeline in `keep` loses everything under it but its row stays, empty (`oldestOnSharedRange`).
+ * It is still returned.
  */
 export const deleteTimelinesInTransaction = async ({
     timelineIds,
     tx,
+    keep = new Set(),
 }: {
     timelineIds: Set<number>;
     tx: DbTransaction;
+    keep?: ReadonlySet<number>;
 }): Promise<DatabaseTimeline[]> => {
     if (timelineIds.size === 0) return [];
     const ids = [...timelineIds];
@@ -176,12 +181,54 @@ export const deleteTimelinesInTransaction = async ({
         transitionIds: new Set(transitions.map((t) => t.id)),
         tx,
     });
-    return await mapDbErrors(() =>
-        tx
-            .delete(schema.timelines)
-            .where(inArray(schema.timelines.id, ids))
-            .returning(),
-    );
+    const kept = ids.filter((id) => keep.has(id));
+    const gone = ids.filter((id) => !keep.has(id));
+    const keptRows =
+        kept.length === 0
+            ? []
+            : await tx
+                  .select()
+                  .from(schema.timelines)
+                  .where(inArray(schema.timelines.id, kept))
+                  .all();
+    const deleted =
+        gone.length === 0
+            ? []
+            : await mapDbErrors(() =>
+                  tx
+                      .delete(schema.timelines)
+                      .where(inArray(schema.timelines.id, gone))
+                      .returning(),
+              );
+    return [...keptRows, ...deleted];
+};
+
+/**
+ * Of `timelineIds`, the ones that are the oldest over their range while a newer timeline outside
+ * `timelineIds` shares it. On a page's box that oldest is the page's own timeline (UI-25), so
+ * deleting it would make a move split off it the page's instead: callers empty it and keep it.
+ */
+export const oldestOnSharedRange = async (
+    tx: DbTransaction,
+    timelineIds: Iterable<number>,
+): Promise<Set<number>> => {
+    const ids = new Set(timelineIds);
+    const out = new Set<number>();
+    if (ids.size === 0) return out;
+    const rows = await tx
+        .select()
+        .from(schema.timelines)
+        .where(inArray(schema.timelines.id, [...ids]))
+        .all();
+    for (const row of rows) {
+        const [oldest, ...newer] = await timelinesWithRange(tx, {
+            start: row.start_beat,
+            end: row.end_beat,
+        });
+        if (oldest?.id === row.id && newer.some((t) => !ids.has(t.id)))
+            out.add(row.id);
+    }
+    return out;
 };
 
 /** Whether timeline `id` is stored (UI-14: a stale button or field may name one that's gone). */
@@ -194,3 +241,18 @@ export const timelineExists = async (
         .from(schema.timelines)
         .where(eq(schema.timelines.id, id))
         .get()) !== undefined;
+
+/** The end beats of the moves `ids`, by id; moves that are gone are left out */
+export const readTimelineEndBeats = async (
+    db: DbConnection | DbTransaction,
+    ids: readonly number[],
+): Promise<Map<number, number>> => {
+    const wanted = [...new Set(ids)];
+    if (wanted.length === 0) return new Map();
+    const rows = await db
+        .select({ id: schema.timelines.id, end: schema.timelines.end_beat })
+        .from(schema.timelines)
+        .where(inArray(schema.timelines.id, wanted))
+        .all();
+    return new Map(rows.map((r) => [r.id, r.end]));
+};

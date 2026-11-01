@@ -1,6 +1,9 @@
 import { threeZoomControls } from "@/field/three/fieldNavigation";
 import Toolbar from "@/components/toolbar/Toolbar";
 import Inspector from "@/components/inspector/Inspector";
+import VisualsInspector from "@/components/visuals/VisualsInspector";
+import { VisualsProvider } from "@/components/visuals/VisualsProvider";
+import { useIsVisualsView } from "@/stores/WorkspaceViewStore";
 import SidebarModal from "@/components/sidebar/SidebarModal";
 import { SelectedPageProvider } from "@/context/SelectedPageContext";
 import { SelectedMarchersProvider } from "@/context/SelectedMarchersContext";
@@ -10,8 +13,16 @@ import { View3dPublisher } from "@/view3d/sync/useView3dPublisher";
 import { AssetsHost } from "@/components/assets/AssetsModal";
 import TimelineResolverHost from "@/timeline/TimelineResolverHost";
 import LaunchPage from "@/components/launchpage/LaunchPage";
-import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import {
+    lazy,
+    Suspense,
+    useCallback,
+    useEffect,
+    useRef,
+    useState,
+} from "react";
 import CommandPalette from "@/shortcuts/palette/CommandPalette";
+import LongPressGuard from "@/components/ui/LongPressGuard";
 import ExportCoordinatesModal from "@/components/exporting/ExportCoordinatesModal";
 import ShortcutDispatcher from "@/shortcuts/ShortcutDispatcher";
 import {
@@ -24,13 +35,18 @@ import { SelectedAudioFileProvider } from "@/context/SelectedAudioFileContext";
 import { TooltipProvider } from "@radix-ui/react-tooltip";
 import TitleBar from "@/components/titlebar/TitleBar";
 import { useUiSettingsStore } from "./stores/UiSettingsStore";
+import { useSnapOnWhenFileOpens } from "./hooks/useSnapOnWhenFileOpens";
 import CanvasZoomControls from "@/components/canvas/CanvasZoomControls";
+import FieldDisplayBar from "@/components/canvas/display/FieldDisplayBar";
+import View3dButton from "@/components/visuals/View3dButton";
 import Plugin from "./global/classes/Plugin";
 import Sidebar from "@/components/sidebar/Sidebar";
 import Toaster from "./components/ui/Toaster";
 import FocusNotice from "./components/FocusNotice";
 import SvgPreviewHandler from "./utilities/SvgPreviewHandler";
-import { useFullscreenStore } from "./stores/FullscreenStore";
+import { useIsPreviewMode } from "./stores/PreviewModeStore";
+import { PreviewModeHost } from "./components/preview/PreviewMode";
+import WorkspaceViewSwitch from "./components/visuals/WorkspaceViewSwitch";
 import AnalyticsOptInModal from "./components/AnalyticsOptInModal";
 import { useEditorModeStore } from "./stores/EditorModeStore";
 import ErrorBoundary from "./ErrorBoundary";
@@ -42,7 +58,10 @@ import {
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { createAllUndoTriggers, resetTimelineChangeLog } from "./db-functions";
 import { db } from "./global/database/db";
-import { historyKeys } from "./hooks/queries/useHistory";
+import {
+    historyKeys,
+    refreshAfterStoredCounts,
+} from "./hooks/queries/useHistory";
 import tolgee from "./global/singletons/Tolgee";
 import { InContextTools } from "@tolgee/web/tools";
 import clsx from "clsx";
@@ -51,12 +70,26 @@ import ConvertShowDialog from "./components/ConvertShowDialog";
 import ShortcutsDialog from "./components/ShortcutsDialog";
 import MusicXmlChecksDialog from "./components/music/MusicXmlChecksDialog";
 import WebWelcomeModal from "./components/WebWelcomeModal";
+import WebSettingsSheet from "./components/WebSettingsSheet";
+import WebHomeScreenPrompt from "./components/web/WebHomeScreenPrompt";
+import WebVersionsDialog from "./components/web/WebVersionsDialog";
 import { isWebBuild } from "./utilities/webBuild";
 import { useLoadFileErrorHandler } from "./hooks/useLoadFileErrorHandler";
 import { toast } from "sonner";
 import { version as currentVersion } from "../package.json";
 import { shouldShowUpdateNotification } from "./utilities/updateNotification";
 import { isAnalyticsChoiceMade } from "./components/welcome/welcomeFlowSteps";
+import { useIsTouchMode } from "./stores/InputModeStore";
+import { useOnScreenKeyboard } from "./hooks/useOnScreenKeyboard";
+import { startAudioUnlock } from "./utilities/audioUnlock";
+import { audioContextRef } from "@/components/timeline/audio/AudioPlayer";
+import {
+    inspectorLayout,
+    type InspectorChoices,
+} from "./utilities/inspectorLayout";
+import InspectorDock from "@/components/layout/InspectorDock";
+import WindowTooSmallNotice from "@/components/layout/WindowTooSmallNotice";
+import { useWindowSize } from "./hooks/useWindowSize";
 
 // The field's own chunk, so the launch page doesn't load three.js
 const ThreeField = lazy(() => import("@/field/three/ThreeField"));
@@ -93,7 +126,36 @@ function App() {
         (s) => s.uiSettings.focussedComponent,
     );
     const pluginsLoadedRef = useRef(false);
-    const { isFullscreen } = useFullscreenStore();
+    // Preview watches the show: no toolbar, sidebar or inspector
+    const preview = useIsPreviewMode();
+    const visuals = useIsVisualsView();
+    const isTouchMode = useIsTouchMode();
+    const windowSize = useWindowSize();
+    const [inspectorChoices, setInspectorChoices] = useState<InspectorChoices>({
+        side: null,
+        drawer: false,
+    });
+    const inspector = inspectorLayout(
+        windowSize.width,
+        windowSize.height,
+        isTouchMode,
+        inspectorChoices,
+    );
+    const drawerShown = inspector.presentation === "drawer";
+    const setInspectorOpen = useCallback(
+        (open: boolean) =>
+            setInspectorChoices((choices) =>
+                drawerShown
+                    ? { ...choices, drawer: open }
+                    : { ...choices, side: open },
+            ),
+        [drawerShown],
+    );
+
+    useOnScreenKeyboard();
+
+    // iPads and phones: audio may only start during a press.
+    useEffect(() => startAudioUnlock(() => [audioContextRef]), []);
 
     // Check if running in codegen mode
     const isCodegen = window.electron.isCodegen;
@@ -180,6 +242,9 @@ function App() {
         fetchUiSettings();
     }, [fetchUiSettings]);
 
+    // A forgotten Snap toggle doesn't carry into the file just opened or made
+    useSnapOnWhenFileOpens(databaseIsReady);
+
     /**
      * Invalidate history queries when a mutation is added.
      * This is to keep the UI fresh for when an undo/redo is available.
@@ -196,6 +261,8 @@ function App() {
             });
         return () => unsubscribe();
     }, [databaseIsReady]);
+
+    useEffect(() => refreshAfterStoredCounts(queryClient), [databaseIsReady]);
 
     useEffect(() => {
         void window.electron
@@ -255,7 +322,15 @@ function App() {
                 {process.env.NODE_ENV !== "production" && (
                     <ReactQueryDevtools initialIsOpen={false} />
                 )}
-                <main className="bg-bg-1 text-text outline-accent flex h-screen min-h-0 w-screen min-w-0 flex-col overflow-hidden font-sans">
+                <main
+                    data-workspace={visuals ? "visuals" : "editor"}
+                    className={clsx(
+                        "app-frame bg-bg-1 text-text outline-accent fixed inset-0 flex min-h-0 min-w-0 flex-col overflow-hidden font-sans",
+                        // Visuals mode is its own workspace (performer-behavior.md 7.1): a tint says so
+                        visuals &&
+                            "before:to-accent/10 before:pointer-events-none before:absolute before:inset-0 before:z-0 before:bg-linear-to-b before:from-transparent",
+                    )}
+                >
                     {analyticsConsent === null &&
                         !isCodegen &&
                         !welcomeFlowAsksAnalytics && (
@@ -274,10 +349,15 @@ function App() {
                     <AlertModal />
                     {isWebBuild && <WebWelcomeModal />}
                     <ConvertShowDialog />
+                    {isWebBuild && <WebSettingsSheet />}
+                    {isWebBuild && <WebHomeScreenPrompt />}
+                    {isWebBuild && <WebVersionsDialog />}
                     <ShortcutDispatcher />
                     <CommandPalette />
                     <ShortcutsDialog />
                     <MusicXmlChecksDialog />
+                    <LongPressGuard />
+                    <WindowTooSmallNotice size={windowSize} />
                     {/* Always show LaunchPage when no file is selected, regardless of database state */}
                     {!databaseIsReady ? (
                         <SelectedAudioFileProvider>
@@ -303,63 +383,84 @@ function App() {
                                             <View3dPublisher />
                                             <AssetsHost />
                                             <SvgPreviewHandler />
+                                            <PreviewModeHost />
                                             <TitleBar showControls />
                                             <FocusNotice />
-                                            <div
-                                                id="app"
-                                                className="flex h-full min-h-0 w-full gap-8 px-8 pb-8"
-                                            >
+                                            <VisualsProvider>
                                                 <div
-                                                    id="workspace"
-                                                    className="relative flex h-full min-h-0 w-full min-w-0 flex-col gap-8"
+                                                    id="app"
+                                                    className="relative flex h-full min-h-0 w-full gap-8 px-8 pb-8"
                                                 >
                                                     <div
-                                                        className={
-                                                            timelineFocussedClass
-                                                        }
+                                                        id="workspace"
+                                                        className="relative flex h-full min-h-0 w-full min-w-0 flex-col gap-8"
                                                     >
-                                                        <Toolbar />
-                                                    </div>
-                                                    <div
-                                                        className={clsx(
-                                                            "relative flex h-full min-h-0 min-w-0 gap-8",
-                                                            timelineFocussedClass,
+                                                        {preview ? (
+                                                            // Only the workspace switch, to go back, and the 3D View
+                                                            <div className="flex items-center justify-end gap-8">
+                                                                <View3dButton />
+                                                                <WorkspaceViewSwitch />
+                                                            </div>
+                                                        ) : (
+                                                            <div
+                                                                className={
+                                                                    timelineFocussedClass
+                                                                }
+                                                            >
+                                                                <Toolbar />
+                                                            </div>
                                                         )}
-                                                    >
-                                                        {!isFullscreen && (
-                                                            <>
-                                                                <Sidebar />
-                                                                <SidebarModal />
-                                                            </>
-                                                        )}
-                                                        <Suspense>
-                                                            <ThreeField />
-                                                        </Suspense>
-                                                        <CanvasZoomControls
-                                                            canvas={
-                                                                threeZoomControls
-                                                            }
-                                                        />
-                                                    </div>
-                                                    {focussedComponent ===
-                                                    "timeline" ? (
-                                                        <TimelineContainer />
-                                                    ) : (
-                                                        <TimelineSplitter>
+                                                        <div
+                                                            className={clsx(
+                                                                "relative flex h-full min-h-0 min-w-0 gap-8",
+                                                                timelineFocussedClass,
+                                                            )}
+                                                        >
+                                                            {!preview &&
+                                                                !visuals && (
+                                                                    <>
+                                                                        <Sidebar />
+                                                                        <SidebarModal />
+                                                                    </>
+                                                                )}
+                                                            <Suspense>
+                                                                <ThreeField />
+                                                            </Suspense>
+                                                            <CanvasZoomControls
+                                                                canvas={
+                                                                    threeZoomControls
+                                                                }
+                                                            />
+                                                            <FieldDisplayBar />
+                                                        </div>
+                                                        {focussedComponent ===
+                                                        "timeline" ? (
                                                             <TimelineContainer />
-                                                        </TimelineSplitter>
+                                                        ) : (
+                                                            <TimelineSplitter>
+                                                                <TimelineContainer />
+                                                            </TimelineSplitter>
+                                                        )}
+                                                    </div>
+                                                    {!preview && (
+                                                        <InspectorDock
+                                                            layout={inspector}
+                                                            onOpenChange={
+                                                                setInspectorOpen
+                                                            }
+                                                            className={
+                                                                timelineFocussedClass
+                                                            }
+                                                        >
+                                                            {visuals ? (
+                                                                <VisualsInspector />
+                                                            ) : (
+                                                                <Inspector />
+                                                            )}
+                                                        </InspectorDock>
                                                     )}
                                                 </div>
-                                                {!isFullscreen && (
-                                                    <div
-                                                        className={
-                                                            timelineFocussedClass
-                                                        }
-                                                    >
-                                                        <Inspector />
-                                                    </div>
-                                                )}
-                                            </div>
+                                            </VisualsProvider>
                                             <Toaster />
                                         </SelectedAudioFileProvider>
                                     </SelectedMarchersProvider>

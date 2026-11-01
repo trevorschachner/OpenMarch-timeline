@@ -19,6 +19,8 @@ export type DrawnMarcher = {
     look: FieldTestLook;
     /** Drawn dimmed, outside the isolated move; it can't be selected. */
     dimmed: boolean;
+    /** Drawn as Following (a dashed edge): no coordinate of its own on the count shown (#300). */
+    following: boolean;
 };
 
 // Helpers read the field only through the field test API
@@ -104,7 +106,7 @@ export async function createMarchers(
     const before = (await drawnMarchers(page)).length;
 
     await page.locator("#sidebar-launcher-marchers").click();
-    await page.getByRole("button", { name: "Add" }).click();
+    await page.getByRole("button", { name: "Add", exact: true }).click();
     const form = page.locator("#marcherForm");
     await form.getByRole("combobox").click();
     await page.getByRole("option", { name: section, exact: true }).click();
@@ -258,12 +260,14 @@ export async function waitForIdle(page: Page, quietMs = 250) {
 
 /**
  * Adds a page flag at the start of a measure: moves the playhead there with
- * the timeline's Go to field, then presses the timeline's **+**. The new page
- * runs from that beat to the next flag (or the show's last page counts).
+ * the timeline's Go to field, then picks **Create page at playhead** from the playhead's
+ * right-click menu. The new page runs from that beat to the next flag (or the
+ * show's last page counts).
  */
 export async function addPageAt(page: Page, measure: number) {
     await goTo(page, `m${measure}`);
-    await page.getByTestId("timeline-add-page-flag").click();
+    await page.getByTestId("timeline-playhead").click({ button: "right" });
+    await page.getByTestId("timeline-add-page").click();
 }
 
 /** Moves the playhead with the timeline's Go to field ("m6" is measure 6). */
@@ -396,4 +400,28 @@ export async function setUiSettings(
             { intervals: [0], timeout: 30_000 },
         )
         .toBe(true);
+    // As after the fixture's own load: the field centers its view again once it has settled
+    await waitForSettledField(page);
+}
+
+/**
+ * Opens the Settings window from the File tab, as a user does, and shows
+ * `section`. In the browser target the window is a second page of the same
+ * context (`fixtures.mts`); in Electron it's the app's own window.
+ */
+export async function openSettings(page: Page, section: string) {
+    await page.getByRole("tab", { name: "File" }).click();
+    const [settings] = await Promise.all([
+        page.context().waitForEvent("page"),
+        page.getByRole("button", { name: "App Settings" }).click(),
+    ]);
+    await settings.waitForLoadState("domcontentloaded");
+    await settings
+        .getByRole("navigation")
+        .getByRole("button", { name: section, exact: true })
+        .click();
+    await expect(
+        settings.getByRole("heading", { name: section, level: 1 }),
+    ).toBeVisible();
+    return settings;
 }

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { useUiSettingsStore } from "@/stores/UiSettingsStore";
 import {
     clientXToNearestBeat,
     filterMarkersByMinimumSpacing,
@@ -213,7 +214,7 @@ describe("timeline geometry", () => {
                 page.id === "page-4" ? { ...page, endBeat: 28 } : page,
             ),
         };
-        expect(getPlayheadReadout(model, 30).page).toBe("After pg 4 · +2");
+        expect(getPlayheadReadout(model, 30).page).toBe("END +2");
     });
 
     it("accepts normalized activity partitions", () => {
@@ -342,6 +343,16 @@ describe("page snapping (UI-2)", () => {
         expect(isPageSnapDisabled({ altKey: true })).toBe(true);
         expect(isPageSnapDisabled({ altKey: false })).toBe(false);
     });
+
+    it("keeps its own held Alt and ignores the field's Snap toggle (modifier roles, version A)", () => {
+        useUiSettingsStore.getState().setSnap(false);
+        try {
+            expect(isPageSnapDisabled({ altKey: false })).toBe(false);
+            expect(isPageSnapDisabled({ altKey: true })).toBe(true);
+        } finally {
+            useUiSettingsStore.getState().setSnap(true);
+        }
+    });
 });
 
 describe("getPageCountAt (UI-12)", () => {
@@ -427,7 +438,7 @@ describe("counts past the last flag", () => {
         ],
     };
 
-    it("counts from the last flag to the window's end", () => {
+    it("counts the window, start flag to playhead, not from the last flag", () => {
         expect(
             getWindowCountLabel(model, {
                 startBeatIndex: lastFlag,
@@ -439,7 +450,13 @@ describe("counts past the last flag", () => {
                 startBeatIndex: lastFlag + 2,
                 endBeatIndex: lastFlag + 3,
             }),
-        ).toBe("3 counts");
+        ).toBe("1 count");
+        expect(
+            getWindowCountLabel(model, {
+                startBeatIndex: 6,
+                endBeatIndex: lastFlag + 5,
+            }),
+        ).toBe("11 counts");
     });
 
     it("shows the badge from a page line only past the last flag", () => {

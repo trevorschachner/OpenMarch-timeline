@@ -1,5 +1,12 @@
 import { TIMELINE_HEADROOM_HEIGHT } from "../TimelineGeometry";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+    act,
+    cleanup,
+    fireEvent,
+    render,
+    screen,
+    waitFor,
+} from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { keepOnPage } from "@/timeline/timelineKeepCommands";
 import {
@@ -13,7 +20,6 @@ import { Timeline } from "../Timeline";
 import { isTimelineOwnKey } from "../timelineHotkeys";
 import type { TimelineSelection } from "../TimelineViewModel";
 import type { TimelineKeepHereMenu } from "../TimelineRangeMenu";
-import type { LabeledHoldMarks } from "../PageHoldMark";
 import {
     CHAIN_INSET,
     chainFit,
@@ -116,15 +122,13 @@ const show = ({
     selection = null,
     onSelectionChange = vi.fn(),
     pixelsPerBeat = 16,
-    holdMarks,
     positionBeat,
-    onAddPageFlag,
+    onSeek,
 }: {
-    holdMarks?: LabeledHoldMarks;
     /** Where the playhead is, paused */
     positionBeat?: number;
-    /** Shows the add-page-flag **+** after the playhead */
-    onAddPageFlag?: () => void;
+    /** Seeks, with the playhead at beat 0 unless `positionBeat` says otherwise */
+    onSeek?: (beat: number, options?: unknown) => void;
     keepChains?: PageKeepChains;
     keepHere?: TimelineKeepHereMenu;
     selection?: TimelineSelection;
@@ -148,13 +152,15 @@ const show = ({
             keepChains={keepChains}
             keepHere={keepHere}
             pixelsPerBeat={pixelsPerBeat}
-            holdMarks={holdMarks}
             playback={
-                positionBeat === undefined
+                positionBeat === undefined && !onSeek
                     ? undefined
-                    : { positionBeat, isPlaying: false }
+                    : {
+                          positionBeat: positionBeat ?? 0,
+                          isPlaying: false,
+                          onSeek,
+                      }
             }
-            onAddPageFlag={onAddPageFlag}
         />,
     );
 
@@ -337,7 +343,7 @@ describe("the chains on the page boxes", () => {
         expect(
             parseFloat(button!.style.left) - parseFloat(box.style.left),
         ).toBe(CHAIN_INSET);
-        // On the hold bar: its bottom 2px above the box's, as the dot's
+        // Its bottom 2px above the box's, as the dot's
         expect(button!.style.bottom).toBe("2px");
         expect(button!.style.top).toBe("");
     });
@@ -376,74 +382,6 @@ describe("the chains on the page boxes", () => {
         // And clear of the playhead on the box's own flag, at its right
         expect(chainX + 16).toBeLessThan(
             flagX + parseFloat(box.style.width) - 6,
-        );
-    });
-
-    it("the add-page-flag + moves past the chain of the playhead's box rather than cover it", () => {
-        // Page 3's box from x 128; the playhead a beat in (x 144), so the + (8px after it, 16px
-        // wide, drawn above the chain) would land on the chain
-        show({
-            keepChains: new Map([[3, chain("follows")]]),
-            selection: {
-                kind: "range",
-                range: { startBeatIndex: 9, endBeatIndex: 17 },
-            },
-            positionBeat: 10,
-            onAddPageFlag: vi.fn(),
-        });
-        const [button] = chains();
-        const ruler = screen.getByTestId("timeline-page-ruler");
-        const plus = screen.getByTestId("timeline-add-page-flag");
-        // The chain's x in the layer the + is drawn in: inside the ruler's 1px border
-        const chainX =
-            parseFloat(ruler.style.left) + 1 + parseFloat(button!.style.left);
-        const chainEnd = chainX + parseFloat(button!.style.width);
-        expect(parseFloat(plus.style.left)).toBeGreaterThanOrEqual(chainEnd);
-    });
-
-    it("zoomed out, the + moves past the next box's chain from a beat before its flag", () => {
-        // At 6px a beat page 3's box is 48px, room for a 12px chain beside its number. The
-        // playhead on page 2's last beat sits 6px before page 3's flag, so the + (8px after it,
-        // 16px wide) would reach that chain; page 3 is selected, so the linked chain shows
-        show({
-            keepChains: new Map([[3, chain("follows")]]),
-            selection: {
-                kind: "range",
-                range: { startBeatIndex: 9, endBeatIndex: 17 },
-            },
-            pixelsPerBeat: 6,
-            positionBeat: 8,
-            onAddPageFlag: vi.fn(),
-        });
-        const [button] = chains();
-        expect(button!.style.width).toBe("12px");
-        const ruler = screen.getByTestId("timeline-page-ruler");
-        const plus = screen.getByTestId("timeline-add-page-flag");
-        const chainX =
-            parseFloat(ruler.style.left) + 1 + parseFloat(button!.style.left);
-        const chainEnd = chainX + parseFloat(button!.style.width);
-        expect(parseFloat(plus.style.left)).toBeGreaterThanOrEqual(chainEnd);
-    });
-
-    it("the + stays 8px after the playhead where it can't reach a chain", () => {
-        // Three beats into page 3 (x 176): already past its chain
-        show({
-            keepChains: new Map([[3, chain("kept")]]),
-            positionBeat: 12,
-            onAddPageFlag: vi.fn(),
-        });
-        expect(screen.getByTestId("timeline-add-page-flag").style.left).toBe(
-            "184px",
-        );
-        cleanup();
-        // A beat into page 3 (x 144) with no chain there (only page 4 has one)
-        show({
-            keepChains: new Map([[4, chain("kept")]]),
-            positionBeat: 10,
-            onAddPageFlag: vi.fn(),
-        });
-        expect(screen.getByTestId("timeline-add-page-flag").style.left).toBe(
-            "152px",
         );
     });
 
@@ -522,34 +460,6 @@ describe("the chains on the page boxes", () => {
     });
 
     it("a narrow box takes on its chain's words, with the menu doing what the chain's click would", () => {
-        const holds = {
-            mark: { kind: "holds", from: "2", kept: true },
-            label: "Selected marchers are kept here",
-            hint: "They stand where you kept them",
-        } as const;
-        show({
-            keepChains: new Map([[3, chain("kept")]]),
-            holdMarks: new Map([
-                [3, holds],
-                [4, holds],
-            ]) as LabeledHoldMarks,
-            pixelsPerBeat: 3,
-        });
-        expect(
-            screen.getByRole("button", { name: "Page 3" }),
-        ).toHaveAccessibleDescription(
-            "2 marchers kept on Page 3. Right-click the page to change this",
-        );
-        // A box without a chain keeps its hold mark's words
-        expect(
-            screen.getByRole("button", { name: "Page 4" }),
-        ).toHaveAccessibleDescription(
-            "Selected marchers are kept here. They stand where you kept them",
-        );
-    });
-
-    it("a narrow box takes on its chain's words without a hold mark too", () => {
-        // A chain whose page has no hold mark (none passed): before, it vanished with no words
         show({
             keepChains: new Map([
                 [3, chain("kept")],
@@ -569,8 +479,10 @@ describe("the chains on the page boxes", () => {
         ).toHaveAccessibleDescription(
             "Keep 2 marchers on Page 3. Right-click the page to change this",
         );
-        // No hold mark is drawn for words alone
-        expect(screen.queryAllByTestId("page-hold-mark")).toEqual([]);
+        // A box without a chain has no words
+        expect(
+            screen.getByRole("button", { name: "Page 2" }),
+        ).not.toHaveAttribute("aria-describedby");
     });
 
     it("a narrow box names whom the menu changes, and says (K) where K does the same", async () => {
@@ -811,5 +723,106 @@ describe("a narrow box's words and its menu change the same marchers", () => {
             withK: false,
             menuWithK: false,
         });
+    });
+});
+
+const tooltip = () => screen.queryByRole("tooltip");
+/** Longer than the tooltip's 500ms hover delay */
+const pastTheDelay = () =>
+    act(() => new Promise((resolve) => setTimeout(resolve, 700)));
+const press = (target: Element, type: string, clientX: number, button = 0) =>
+    fireEvent(target, new MouseEvent(type, { bubbles: true, button, clientX }));
+
+/** Page 3 too narrow for its chain (24px boxes), so the box carries the chain's words */
+const NARROW = {
+    keepChains: new Map([[3, chain("kept")]]),
+    pixelsPerBeat: 3,
+};
+
+describe("a narrow box's tooltip, with its chain's words", () => {
+    it("shows the words and their hint above the box after a hover", async () => {
+        show(NARROW);
+        const box = screen.getByRole("button", { name: "Page 3" });
+        fireEvent.pointerMove(box);
+        // Not straight away: a pass over the ruler doesn't flash one
+        expect(tooltip()).not.toBeInTheDocument();
+        const shown = await screen.findByRole("tooltip", {}, { timeout: 2000 });
+        expect(shown).toHaveTextContent(
+            "2 marchers kept on Page 3Right-click the page to change this",
+        );
+        expect(
+            document.querySelector('[data-side="top"]'),
+            "above the box",
+        ).not.toBeNull();
+        // A real tooltip, not the native one
+        expect(box).not.toHaveAttribute("title");
+        fireEvent.pointerLeave(box);
+        await waitFor(() => expect(tooltip()).not.toBeInTheDocument());
+    });
+
+    it("shows on keyboard focus", async () => {
+        show(NARROW);
+        const box = screen.getByRole("button", { name: "Page 3" });
+        act(() => box.focus());
+        expect(await screen.findByRole("tooltip")).toHaveTextContent(
+            "2 marchers kept on Page 3",
+        );
+        act(() => box.blur());
+        await waitFor(() => expect(tooltip()).not.toBeInTheDocument());
+    });
+
+    it("has none on a box without a chain", async () => {
+        show(NARROW);
+        const box = screen.getByRole("button", { name: "Page 4" });
+        fireEvent.pointerMove(box);
+        act(() => box.focus());
+        await pastTheDelay();
+        expect(tooltip()).not.toBeInTheDocument();
+    });
+
+    it("closes on a press, and the press still selects the box", async () => {
+        const onSelectionChange = vi.fn();
+        show({ ...NARROW, onSelectionChange });
+        const box = screen.getByRole("button", { name: "Page 3" });
+        fireEvent.pointerMove(box);
+        await screen.findByRole("tooltip", {}, { timeout: 2000 });
+        press(box, "pointerdown", 60);
+        await waitFor(() => expect(tooltip()).not.toBeInTheDocument());
+        press(box, "pointerup", 60);
+        fireEvent.click(box, { detail: 1 });
+        expect(onSelectionChange).toHaveBeenCalledWith(
+            expect.objectContaining({ kind: "range" }),
+        );
+        // Still over the box after the click: it stays closed until the pointer leaves
+        fireEvent.pointerMove(box);
+        await pastTheDelay();
+        expect(tooltip()).not.toBeInTheDocument();
+    });
+
+    it("never opens partway through a scrub that starts before the hover's delay", async () => {
+        const onSeek = vi.fn();
+        show({ ...NARROW, onSeek });
+        const box = screen.getByRole("button", { name: "Page 3" });
+        fireEvent.pointerMove(box);
+        press(box, "pointerdown", 60);
+        press(box, "pointermove", 120);
+        await pastTheDelay();
+        expect(tooltip()).not.toBeInTheDocument();
+        expect(onSeek).toHaveBeenCalledWith(
+            expect.any(Number),
+            expect.objectContaining({ gesture: "drag" }),
+        );
+        press(box, "pointerup", 120);
+        expect(tooltip()).not.toBeInTheDocument();
+    });
+
+    it("never opens on a right-click (the box's menu)", async () => {
+        show(NARROW);
+        const box = screen.getByRole("button", { name: "Page 3" });
+        fireEvent.pointerMove(box);
+        press(box, "pointerdown", 60, 2);
+        fireEvent.contextMenu(box);
+        await pastTheDelay();
+        expect(tooltip()).not.toBeInTheDocument();
     });
 });
