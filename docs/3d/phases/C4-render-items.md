@@ -158,9 +158,9 @@ Each field is on its own line so that concurrent claims merge cleanly. Edit only
 
 ### C4.9: Test Garment for the GPU run
 
-- Owner: Trevor (3d/c4-test-garment)
-- Status: in-progress
-- PR: none (`3d/c4-test-garment` is not pushed yet)
+- Owner: Trevor (3d/c4-bench-main)
+- Status: done 2026-11-01 (harness and test Garment on `main`; numbers in [../gpu-benchmark.md](../gpu-benchmark.md))
+- PR: `3d/c4-bench-main`
 - Parallel: yes
 - Depends on: C4.2
 
