@@ -151,6 +151,36 @@ backward march, and so on).
   (flip the feet). Outside the 25 yard lines this matters most.
 - The upper body always faces the audience; only the legs turn.
 
+## Percussion crab step
+
+Rules from the owner (2026-11-09). Not built yet: today battery players
+slide like the winds, with forward legs turned 90 degrees (`step-blend.js`).
+
+- **Who crabs:** snares, tenors (with their FLUBs) and bass drums. Cymbals
+  and the front ensemble don't.
+- **When:** any lateral or angled travel, judged against the upper body's
+  facing. Straight forward is a roll step; straight backward is the normal
+  backward march on the platform. Anything more than about 10 degrees off
+  straight forward or backward crabs (the slide band's width; an
+  engineering reading the owner accepted).
+- **The body:** both hips stay parallel to the front sideline (square to
+  the upper body's facing); the legs don't turn toward the travel.
+- **The feet:** on the toes throughout, as in a backward march, heels never
+  touching until the halt. The feet act as shock absorbers. The toes of the
+  foot in motion cross under the heel of the foot in place.
+- **Which foot crosses in front.** Moving left to right (the performer's
+  own left and right), the left foot crosses in front and the right foot
+  stays on the path, stepping directly sideways. The front foot carries
+  over from the move before: if the next move is the exact reverse, the
+  left foot stays in front and the right stays back, so going right to
+  left the left foot leads on the path and the right crosses behind. The
+  choice resets at a halt or after a forward or backward march, to left in
+  front (engineering reading the owner accepted).
+- **Bass drums' frame:** their upper body faces an end zone, drum heads to
+  the sidelines. So travel toward the audience or the backfield is a crab
+  for them, and travel toward or away from the end zone they face is a
+  normal march with a low heel. Which end zone they face is still open.
+
 ## Brass holds
 
 - **Horns up means the bell faces front** (2026-10-09). Shows always play horns
