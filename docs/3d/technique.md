@@ -168,6 +168,10 @@ slide like the winds, with forward legs turned 90 degrees (`step-blend.js`).
 - **The feet:** on the toes throughout, as in a backward march, heels never
   touching until the halt. The feet act as shock absorbers. The toes of the
   foot in motion cross under the heel of the foot in place.
+- **Depth** (owner's reference, 2026-11-09): "left heel = right platform": the front foot's
+  heel lines up with the back foot's ball, so the feet sit about a heel-to-ball length
+  (15 cm) apart front to back and the back foot's toes pass under the front foot's raised
+  heel.
 - **Which foot crosses in front.** Moving left to right (the performer's
   own left and right), the left foot crosses in front and the right foot
   stays on the path, stepping directly sideways. The front foot carries
