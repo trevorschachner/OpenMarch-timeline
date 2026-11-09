@@ -112,6 +112,13 @@ describe("marching on the platform of the foot", () => {
         expect(platformWeight("attention")).toBeNull();
     });
 
+    it("leaves the crab alone: its clips key the heels up themselves", () => {
+        expect(platformWeight("crabR8to5")).toBeNull();
+        expect(platformWeight("halt_crabL8to5-h105")).toBeNull();
+        expect(platformWeight("halt2_crabR8to5~mirror")).toBeNull();
+        expect(platformWeight(prepName("crabL8to5", 1))).toBeNull();
+    });
+
     it("lifts the heel of the planted foot about an inch in a backward march, ball still on the ground", async () => {
         const { clips, skeleton } = await load();
         const src = clips.find((c) => c.name === "back8to5")!;

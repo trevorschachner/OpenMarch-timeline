@@ -50,12 +50,16 @@ export function mirrorClip(
     return new THREE.AnimationClip(name, clip.duration, tracks);
 }
 
-/** The clip whose mirror plays as `name`: slides and built turns swap sides. */
+/**
+ * The clip whose mirror plays as `name`: slides, crabs and built turns swap
+ * sides. A mirrored `crabR` (right foot in front, traveling right) comes
+ * from `crabL`, whose left foot leads to the left.
+ */
 export function mirrorName(name: string): string {
     return name
         .replace(
-            /slide([LR])/g,
-            (_, s: string) => `slide${s === "L" ? "R" : "L"}`,
+            /(slide|crab)([LR])/g,
+            (_, m: string, s: string) => `${m}${s === "L" ? "R" : "L"}`,
         )
         .replace(/_([LR])45/g, (_, s: string) => `_${s === "L" ? "R" : "L"}45`);
 }

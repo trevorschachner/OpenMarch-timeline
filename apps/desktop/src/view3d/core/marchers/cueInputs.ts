@@ -67,6 +67,18 @@ export interface MarcherCueInputs {
 }
 
 export interface CueInputOptions {
+    /**
+     * The marcher's usual moving technique, which a Feet setting of "usual"
+     * (and the default) plays: crab for the drums that crab
+     * (`usualMovingFor`). Defaults to straight leg.
+     */
+    usualMoving?: MovingTechnique;
+    /**
+     * Where the marcher faces where no Facing cue says (radians, as the
+     * headings here): side 1 for bass drums (`usualHeadingFor`). Defaults
+     * to the front.
+     */
+    usualHeading?: number;
     /** A Facing point's settings to world x, z. Defaults to meters, y toward the audience. */
     pointToWorld?: (x: number, y: number) => [x: number, z: number];
     /** Seconds per show count k (the tempo). Defaults to 120 bpm. */
@@ -78,6 +90,7 @@ const MOVING: readonly MovingTechnique[] = [
     "straightLeg",
     "bentLeg",
     "highStep",
+    "crab",
 ];
 const HOLDS: readonly HoldTechnique[] = ["stand", "markTime", "highMarkTime"];
 const FEET: readonly Foot[] = ["left", "right"];
@@ -88,12 +101,15 @@ const pick = <T extends string>(
     fallback: T,
 ): T => (options.includes(value as T) ? (value as T) : fallback);
 
-/** Feet settings from a segment's settings, each falling back to the default. */
-function feetOf(segment: CueSegment): FeetSettings {
+/**
+ * Feet settings from a segment's settings, each falling back to the default.
+ * A moving technique of "usual" (or none) is the marcher's own, `usual`.
+ */
+function feetOf(segment: CueSegment, usual: MovingTechnique): FeetSettings {
     const s = segment.settings;
     return {
         pace: pick(PACES, s.pace, DEFAULT_FEET.pace),
-        moving: pick(MOVING, s.moving, DEFAULT_FEET.moving),
+        moving: pick(MOVING, s.moving, usual),
         onHolds: pick(HOLDS, s.onHolds, DEFAULT_FEET.onHolds),
         stepOffFoot: pick(FEET, s.stepOffFoot, DEFAULT_FEET.stepOffFoot),
     };
@@ -119,10 +135,11 @@ function segmentAt(
 function feetPerCount(
     segments: readonly CueSegment[],
     K: number,
+    usual: MovingTechnique,
 ): FeetSettings[] {
     const out: FeetSettings[] = [];
     // a Feet transition keeps the settings before it: the state lands on its click
-    let settled: FeetSettings = { ...DEFAULT_FEET };
+    let settled: FeetSettings = { ...DEFAULT_FEET, moving: usual };
     for (let k = 0; k < K; k++) {
         const seg = segmentAt(segments, k);
         if (!seg) {
@@ -134,7 +151,7 @@ function feetPerCount(
             out.push({ ...settled, onHolds: "stand" });
             continue;
         }
-        if (seg.kind !== "transition") settled = feetOf(seg);
+        if (seg.kind !== "transition") settled = feetOf(seg, usual);
         out.push(settled);
     }
     return out;
@@ -173,7 +190,12 @@ export function marcherCueInputs(
     options: CueInputOptions = {},
 ): MarcherCueInputs {
     const K = positions.length / 2 - 1;
-    const feet = feetPerCount(compiled.segments(marcherId, "feet"), K);
+    const feet = feetPerCount(
+        compiled.segments(marcherId, "feet"),
+        K,
+        options.usualMoving ?? DEFAULT_FEET.moving,
+    );
+    const usualHeading = options.usualHeading ?? FRONT_HEADING;
     const facing = compiled.segments(marcherId, "facing");
     const pointToWorld =
         options.pointToWorld ??
@@ -195,7 +217,9 @@ export function marcherCueInputs(
 
     /** A Facing value's heading at boundary b. */
     const valueHeading = (seg: CueSegment | undefined, b: number): number => {
-        const s = seg?.settings ?? {};
+        // the default (no Facing cue here) is the marcher's usual facing
+        if (!seg || seg.cueId === null) return usualHeading;
+        const s = seg.settings;
         switch (seg?.value) {
             case "builtin:facing.back":
                 return Math.PI;
@@ -249,7 +273,7 @@ export function marcherCueInputs(
             Math.max(Math.round(seg.from) + CUE_LEAD, 0),
             K,
         );
-        const h0 = before ? valueHeading(before, startB) : FRONT_HEADING;
+        const h0 = valueHeading(before, startB);
         const h1 = valueHeading(seg, b);
         const u = smooth((c - seg.from) / (seg.to - seg.from));
         heading[b] = h0 + angleDelta(h0, h1) * u;

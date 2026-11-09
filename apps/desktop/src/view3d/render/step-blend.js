@@ -47,7 +47,13 @@ export function familySizes(manifest, family, { height = 1, bpm = 120 } = {}) {
     if (byKey.has(key)) return byKey.get(key);
     const bySize = new Map();
     for (const c of clipsOf(manifest)) {
-        if (c.loop === false || !(c.step_m > 0) || !sameHeight(c, height))
+        // the crab travels like the slides at their sizes, but isn't one of them (app change)
+        if (
+            c.loop === false ||
+            !(c.step_m > 0) ||
+            /^crab/.test(c.base) ||
+            !sameHeight(c, height)
+        )
             continue;
         const [dx, dz] = c.dir ?? [0, 1];
         if (Math.abs(dx - dir[0]) > 1e-3 || Math.abs(dz - dir[1]) > 1e-3)

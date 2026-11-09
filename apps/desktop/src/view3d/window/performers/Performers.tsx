@@ -273,6 +273,9 @@ export default function Performers({ fieldProperties }: PerformersProps) {
             cues,
             previousPlans.current,
             null,
+            // what each marcher carries decides their usual technique and
+            // facing: the drums crab, bass drums face side 1
+            marcherLooks.map((l) => l.uniform.options.carry?.family ?? null),
         );
         previousPlans.current = planned;
         // eslint-disable-next-line no-console -- planning time is a cost to watch at 2,000 marchers

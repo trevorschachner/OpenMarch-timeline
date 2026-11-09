@@ -21,6 +21,9 @@ The `.d.ts` files are hand-written for the `.js` files; keep them in step.
 - Moved from `src/view3d/vendor/om-pose/` (2026-10-11), with header comments
   and spelling ignores only. No behavior change.
 - `legTurnSetup` and `cloneRig` are exported for the per-channel bake.
+- `step-blend.js` `familySizes` skips the crab loops (`crabL8to5`,
+  `crabR8to5`, 2026-11-09): they travel like the 8-to-5 slides at the same
+  size, so a slide could otherwise play a crab. The planner picks crabs itself.
 - `uniform-shader.js` has a seventh style, `cadet` (2026-10-16, for the West
   Point preset): academy full dress, with chest braid in trim, a cross belt in
   the accent color with a plate, and a pleated cummerbund in the secondary

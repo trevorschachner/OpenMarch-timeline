@@ -59,6 +59,8 @@ function prepPeak(landing: number): (u: number) => number {
 
 /** How much of the platform a clip uses at fraction `u` of its length, or null for none. */
 export function platformWeight(name: string): ((u: number) => number) | null {
+    // the crab's clips key the heels up themselves (om-pose), halts included
+    if (/crab/.test(name)) return null;
     const prep = PREP.exec(name);
     if (prep) {
         const base = platformWeight(prepBase(name));

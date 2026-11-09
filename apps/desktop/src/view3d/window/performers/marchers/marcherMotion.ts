@@ -32,6 +32,7 @@ import type { MarcherPlan } from "@/view3d/core/marchers/planner";
 import { bodyAt, eventIndexAt } from "@/view3d/core/marchers/planner";
 import type { HeightClass } from "@/view3d/core/marchers/looks";
 import { marcherCueInputs } from "@/view3d/core/marchers/cueInputs";
+import { usualHeadingFor, usualMovingFor } from "@/view3d/core/marchers/usual";
 import type { DotMode, Foot } from "@/view3d/core/marchers/planner";
 import type { MarcherBodies } from "./marcherBodies";
 import type { HoldFamily } from "@/view3d/core/instruments/holds";
@@ -62,6 +63,7 @@ export interface ShowPlans {
         ids: readonly number[];
         cues: CompiledCues | null;
         dotModes: readonly DotMode[] | null;
+        families: readonly (HoldFamily | null)[] | null;
     };
 }
 
@@ -203,6 +205,12 @@ export function planShow(
     previous: ShowPlans | null = null,
     /** What each count's dot marks (`dotModesPerCount`); null is foot on the dot. */
     dotModes: readonly DotMode[] | null = null,
+    /**
+     * What each marcher (by slot) carries, for their usual technique and
+     * facing (`usual.ts`): drums crab, bass drums face side 1. Null carries
+     * nothing that changes them.
+     */
+    families: readonly (HoldFamily | null)[] | null = null,
 ): ShowPlans {
     const t0 = performance.now();
     const sampled = sampleDrill(ids, positions, clock, fieldProperties);
@@ -222,10 +230,12 @@ export function planShow(
         if (!positions) return null;
         const h = heightClasses[i] ?? 1;
         const j = prevIndex.get(ids[i]);
+        const family = families?.[i] ?? null;
         if (
             reuseAll &&
             j !== undefined &&
             prev!.heightClasses[j] === h &&
+            (prev!.families?.[j] ?? null) === family &&
             sameArray(prev!.positions[j], positions) &&
             previous!.plans[j]
         )
@@ -239,12 +249,14 @@ export function planShow(
                       return [w.x, w.z];
                   },
                   secondsPerCount,
+                  usualMoving: usualMovingFor(family),
+                  usualHeading: usualHeadingFor(family),
               })
             : null;
         return planMarcher({
             manifest,
             heightClass: h,
-            heading: fromCues?.heading ?? 0,
+            heading: fromCues?.heading ?? usualHeadingFor(family),
             turnSpan: fromCues?.turnSpan,
             feet: fromCues?.feet,
             dotMode: dotModes ?? undefined,
@@ -263,6 +275,7 @@ export function planShow(
             ids,
             cues,
             dotModes,
+            families,
         },
     };
 }

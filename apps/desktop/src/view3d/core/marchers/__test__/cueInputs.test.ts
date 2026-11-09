@@ -1,7 +1,8 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
 import { compileCues, type CueInput } from "@openmarch/core";
-import { marcherCueInputs } from "../cueInputs";
+import { marcherCueInputs, type CueInputOptions } from "../cueInputs";
+import { SIDE_1_HEADING, usualHeadingFor, usualMovingFor } from "../usual";
 import { headingAt, type MarcherPlan } from "../planner";
 
 const DEG = Math.PI / 180;
@@ -35,6 +36,7 @@ function inputs(
     positions: Float64Array,
     cues: Omit<CueInput, "target" | "kind">[] = [],
     stepOffFoot?: "left" | "right",
+    options: CueInputOptions = {},
 ) {
     const K = positions.length / 2 - 1;
     const compiled = compileCues({
@@ -58,7 +60,7 @@ function inputs(
         })),
         showDefaults: stepOffFoot ? { stepOffFoot } : undefined,
     });
-    return marcherCueInputs(compiled, 1, positions);
+    return marcherCueInputs(compiled, 1, positions, options);
 }
 
 /** A cue on show count `count`. */
@@ -232,5 +234,85 @@ describe("Facing cues", () => {
         );
         for (let b = 1; b <= 8; b++)
             expect(Math.abs(out.heading[b])).toBeCloseTo(Math.PI, 9);
+    });
+});
+
+describe("a marcher's usual technique and facing (drums)", () => {
+    const snare = { usualMoving: usualMovingFor("snare") };
+    const bass = {
+        usualMoving: usualMovingFor("bass"),
+        usualHeading: usualHeadingFor("bass"),
+    };
+
+    it("crabs snares, tenors and bass drums, but not cymbals or winds", () => {
+        expect(usualMovingFor("snare")).toBe("crab");
+        expect(usualMovingFor("tenors")).toBe("crab");
+        expect(usualMovingFor("bass")).toBe("crab");
+        expect(usualMovingFor("cymbals")).toBe("straightLeg");
+        expect(usualMovingFor("brass")).toBe("straightLeg");
+        expect(usualMovingFor(null)).toBe("straightLeg");
+    });
+
+    it("plays the usual technique with no Feet cue", () => {
+        const out = inputs(drill(holds(4)), [], undefined, snare);
+        expect(out.feet.every((f) => f.moving === "crab")).toBe(true);
+    });
+
+    it("keeps the usual technique through a Feet cue that doesn't change it", () => {
+        // a pace cue's moving setting is "usual" by default
+        const out = inputs(
+            drill(holds(4)),
+            [on(1, 2, "builtin:feet.step", { settings: { pace: "half" } })],
+            undefined,
+            snare,
+        );
+        expect(out.feet.map((f) => f.moving)).toEqual(Array(4).fill("crab"));
+        expect(out.feet[3].pace).toBe("half");
+    });
+
+    it("switches crab off and back on at any count", () => {
+        const out = inputs(
+            drill(holds(8)),
+            [
+                on(1, 2, "builtin:feet.step", {
+                    settings: { moving: "straightLeg" },
+                }),
+                on(2, 5, "builtin:feet.step", { settings: { moving: "crab" } }),
+            ],
+            undefined,
+            snare,
+        );
+        expect(out.feet.map((f) => f.moving)).toEqual([
+            "crab",
+            "crab",
+            "straightLeg",
+            "straightLeg",
+            "straightLeg",
+            "crab",
+            "crab",
+            "crab",
+        ]);
+    });
+
+    it("lets anyone crab from a cue", () => {
+        const out = inputs(drill(holds(2)), [
+            on(1, 0, "builtin:feet.step", { settings: { moving: "crab" } }),
+        ]);
+        expect(out.feet.map((f) => f.moving)).toEqual(["crab", "crab"]);
+    });
+
+    it("faces bass drums to side 1 until a Facing cue says otherwise", () => {
+        expect(usualHeadingFor("bass")).toBe(SIDE_1_HEADING);
+        expect(usualHeadingFor("snare")).toBe(0);
+        const out = inputs(
+            drill(holds(8)),
+            [on(1, 4, "builtin:facing.front", { kind: "state" })],
+            undefined,
+            bass,
+        );
+        // the window runs a count ahead: boundary b shows count b - 1
+        expect(out.heading[0]).toBeCloseTo(SIDE_1_HEADING, 9);
+        expect(out.heading[4]).toBeCloseTo(SIDE_1_HEADING, 9);
+        expect(out.heading[8]).toBeCloseTo(0, 9);
     });
 });

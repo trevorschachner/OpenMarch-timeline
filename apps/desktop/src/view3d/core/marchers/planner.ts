@@ -59,6 +59,7 @@
  */
 
 import {
+    blendClips,
     pickBlend,
     turnedClips,
     turnEase,
@@ -88,6 +89,14 @@ export const TURN_EPS = (1 * Math.PI) / 180;
  * just ease to the new direction (radians).
  */
 export const SHARP_TURN = (10 * Math.PI) / 180;
+/**
+ * Crabbing drums march straight forward or backward within this much of the
+ * line their upper body faces; past it they crab (docs/3d/technique.md,
+ * "Percussion crab step"), the slide band's width (radians).
+ */
+export const CRAB_BAND = (10 * Math.PI) / 180;
+/** The crab clips' size: 8-to-5 is the only one built. */
+const CRAB_SIZE = "8to5";
 /** A halt's residual leg turn starts this far into its count: after the foot has closed. */
 export const HALT_TURN_START = 0.8;
 /** Between rests, a landing correction anchor at least this often (counts). */
@@ -97,8 +106,12 @@ export const TARGET_EPS = 0.01;
 
 /** How often the feet step: once a count, every two counts, twice a count. */
 export type Pace = "single" | "half" | "double";
-/** How the feet step while moving. Bent leg and high step play straight leg for now. */
-export type MovingTechnique = "straightLeg" | "bentLeg" | "highStep";
+/**
+ * How the feet step while moving. Bent leg and high step play straight leg
+ * for now. Crab is the drums' lateral step: hips square to the facing, the
+ * feet crossing (docs/3d/technique.md, "Percussion crab step").
+ */
+export type MovingTechnique = "straightLeg" | "bentLeg" | "highStep" | "crab";
 /** What the feet do on a hold. High mark time plays mark time for now. */
 export type HoldTechnique = "stand" | "markTime" | "highMarkTime";
 /** The performer's own foot. */
@@ -225,6 +238,8 @@ type State =
     | {
           type: "move";
           family: Family;
+          /** A crab step: its pick is a crab loop, or one blended with forward or backward. */
+          crab: boolean;
           dir: Direction;
           pick: Pick;
           d: number;
@@ -455,6 +470,80 @@ function slideSenses(steps: Steps): SlideSense[] {
     return out;
 }
 
+/**
+ * A crab step's pick and direction, or null when the step isn't one (within
+ * `CRAB_BAND` of straight forward or backward, or a manifest without crab
+ * clips). Sideways relative to the heading it plays `crabL`/`crabR`; on a
+ * diagonal that loop blended with the forward or backward march by the
+ * angle, the legs never turned (docs/3d/technique.md). `crabR` travels to
+ * the performer's right with the left foot crossing in front; `crabL` to the
+ * left with the left foot leading.
+ */
+function crabStep(
+    input: PlanInput,
+    dir: Direction,
+    d: number,
+    bpm: number,
+): { pick: Pick; dir: Direction } | null {
+    const { manifest, heightClass: h } = input;
+    const a = Math.abs(dir.phi);
+    if (dir.family === "none" || a <= CRAB_BAND || a >= Math.PI - CRAB_BAND)
+        return null;
+    const side = dir.phi > 0 ? "L" : "R";
+    const crab = `crab${side}${CRAB_SIZE}`;
+    const sfx = classSuffix(h);
+    if (!clipNames(manifest).has(crab + sfx)) return null;
+    const crabStep = clipByName(manifest, crab + sfx).step_m ?? d;
+    const back = a > Math.PI / 2;
+    const off = back ? Math.PI - a : a;
+    const w = Math.min(
+        Math.max((off - CRAB_BAND) / (Math.PI / 2 - CRAB_BAND), 0),
+        1,
+    );
+    const crabDir: Direction = {
+        family: side === "L" ? "slideL" : "slideR",
+        legYaw: 0,
+        phi: dir.phi,
+    };
+    if (w >= 1 - WEIGHT_SNAP)
+        return {
+            dir: crabDir,
+            pick: {
+                a: crab + sfx,
+                b: crab + sfx,
+                weight: 0,
+                baseA: crab,
+                baseB: crab,
+                stepA: crabStep,
+                stepB: crabStep,
+                d,
+                height: h,
+                clamped: Math.abs(d - crabStep) > 1e-9,
+            },
+        };
+    // the straight march at its nearest exact size, blended toward the crab
+    const straight = pickBlend(manifest, back ? "backward" : "forward", d, {
+        height: h,
+        bpm,
+    });
+    const near = straight.weight < 0.5;
+    return {
+        dir: crabDir,
+        pick: {
+            a: near ? straight.a : straight.b,
+            b: crab + sfx,
+            weight: w,
+            baseA: near ? straight.baseA : straight.baseB,
+            baseB: crab,
+            stepA: near ? straight.stepA : straight.stepB,
+            stepB: crabStep,
+            d,
+            height: h,
+            clamped: false,
+        },
+    };
+}
+
 /** The states of every step from the drill and the Feet settings. */
 function stepStates(input: PlanInput, steps: Steps): State[] {
     const { manifest, heightClass } = input;
@@ -472,6 +561,28 @@ function stepStates(input: PlanInput, steps: Steps): State[] {
             });
             continue;
         }
+        if (feet[k].moving === "crab") {
+            // hips square to the heading: no slide toward the 50
+            const crab = crabStep(
+                input,
+                travelDirection(dx, dz, heading[k]),
+                d,
+                bpm[k],
+            );
+            if (crab) {
+                const family = crab.dir.family as Family;
+                out.push({
+                    type: "move",
+                    family,
+                    crab: true,
+                    d,
+                    dx,
+                    dz,
+                    ...crab,
+                });
+                continue;
+            }
+        }
         // bent leg and high step play straight leg for now
         const dir = travelDirection(dx, dz, heading[k], senses[k]);
         const family = dir.family as Family;
@@ -481,7 +592,7 @@ function stepStates(input: PlanInput, steps: Steps): State[] {
                 bpm: bpm[k],
             }),
         );
-        out.push({ type: "move", family, dir, pick, d, dx, dz });
+        out.push({ type: "move", family, crab: false, dir, pick, d, dx, dz });
     }
     return out;
 }
@@ -688,7 +799,9 @@ export function planMarcher(input: PlanInput): MarcherPlan {
         if (s.type === "move") {
             if (prev.type === "attention") {
                 draft = transition(
-                    turnedClips(manifest, s.pick, s.dir, "stepoff"),
+                    s.crab
+                        ? blendClips(manifest, s.pick, "stepoff")
+                        : turnedClips(manifest, s.pick, s.dir, "stepoff"),
                 );
                 parity = 0; // stepoff covers this step; the loop starts at time 0 next step
                 prevYaw = s.dir.legYaw;
@@ -696,6 +809,7 @@ export function planMarcher(input: PlanInput): MarcherPlan {
                 const sameMove =
                     prev.type === "move" &&
                     prev.family === s.family &&
+                    prev.crab === s.crab &&
                     Math.abs(prev.d - s.d) <= SIZE_JUMP &&
                     prevRate === rate;
                 const yaw = s.dir.legYaw;
@@ -719,13 +833,11 @@ export function planMarcher(input: PlanInput): MarcherPlan {
             }
         } else if (prev.type === "move") {
             if (s.type === "attention") {
+                const kind = parity === 0 ? "halt" : "halt2";
                 draft = transition(
-                    turnedClips(
-                        manifest,
-                        prev.pick,
-                        prev.dir,
-                        parity === 0 ? "halt" : "halt2",
-                    ),
+                    prev.crab
+                        ? blendClips(manifest, prev.pick, kind)
+                        : turnedClips(manifest, prev.pick, prev.dir, kind),
                 );
             } else {
                 draft =

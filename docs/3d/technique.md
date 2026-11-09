@@ -153,8 +153,9 @@ backward march, and so on).
 
 ## Percussion crab step
 
-Rules from the owner (2026-11-09). Not built yet: today battery players
-slide like the winds, with forward legs turned 90 degrees (`step-blend.js`).
+Rules from the owner (2026-11-09). Code: `crabStep` and `CRAB_BAND` in
+`core/marchers/planner.ts`, the drums' defaults in `core/marchers/usual.ts`,
+and the clips (`crabL8to5`, `crabR8to5` and their transitions) from om-pose.
 
 - **Who crabs:** snares, tenors (with their FLUBs) and bass drums. Cymbals
   and the front ensemble don't.
@@ -187,11 +188,17 @@ slide like the winds, with forward legs turned 90 degrees (`step-blend.js`).
   whole line the same way; a Facing cue overrides it from its count.
 - **Switching** (2026-11-09). Crab is a Feet technique. Snare, tenor and
   bass drum sections start on it, and the show can switch it on or off at
-  any count, as often as it needs.
+  any count, as often as it needs. In code the Feet `moving` setting is
+  `usual` by default, which is crab for those drums and straight leg for
+  everyone else; a Feet cue sets `crab` or `straightLeg` to switch.
+- **Crabs ignore the 50.** Slides face the 50; a crab keeps the hips square
+  to the facing whichever side of the 50 it is on.
 - **Diagonals** blend the crab with the forward (roll step) or backward
   march by the angle; the legs never turn.
 - **Later:** a distinct roll step (smooth, no upper-body bounce) for
   straight forward; for now battery uses the band's forward march.
+- **Only 8-to-5 is built.** Other sizes play the 8-to-5 crab while the
+  body follows the dots, so the feet slide a little at other sizes.
 - **Clips** come from om-pose, extracted from crab footage: two 8-to-5
   loops (moving right with the left foot crossing in front; moving left
   with the left foot leading and the right crossing behind), mirrored for

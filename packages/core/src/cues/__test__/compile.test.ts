@@ -722,7 +722,7 @@ describe("compileCues", () => {
         ).toEqual([{ angle: "box" }, { angle: "box" }, { angle: "plus10" }]);
         expect(out.segments(1, "feet")[0].settings).toEqual({
             pace: "single",
-            moving: "straightLeg",
+            moving: "usual",
             onHolds: "stand",
             stepOffFoot: "right",
         });

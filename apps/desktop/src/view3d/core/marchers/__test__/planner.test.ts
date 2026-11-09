@@ -1143,3 +1143,144 @@ describe("facing", () => {
         expect(clipPerCount(plan)[1]).toBe("back8to5");
     });
 });
+
+describe("percussion crab step (docs/3d/technique.md)", () => {
+    const crab = { moving: "crab" as const };
+
+    it("crabs sideways with the hips square: no slide, no leg turn", () => {
+        // toward side 2 is the performer's left when facing the front
+        const plan = planMarcher(
+            input([...repeat<Count>(4, [STEP, 0]), "hold"], { feet: crab }),
+        );
+        expect(clipPerCount(plan)).toEqual([
+            "stepoff_crabL8to5",
+            "crabL8to5",
+            "crabL8to5",
+            "crabL8to5",
+            "halt2_crabL8to5",
+        ]);
+        for (const e of plan.events) expect(e.legYaw).toBe(0);
+        expect(
+            clipPerCount(
+                planMarcher(
+                    input([...repeat<Count>(2, [-STEP, 0]), "hold"], {
+                        feet: crab,
+                    }),
+                ),
+            ),
+        ).toEqual(["stepoff_crabR8to5", "crabR8to5", "halt2_crabR8to5"]);
+    });
+
+    it("crabs the same way on either side of the 50 (slides face it, crabs don't)", () => {
+        for (const x0 of [-10, 10])
+            expect(
+                clipPerCount(
+                    planMarcher(
+                        input([...repeat<Count>(2, [STEP, 0]), "hold"], {
+                            x0,
+                            feet: crab,
+                        }),
+                    ),
+                )[1],
+            ).toBe("crabL8to5");
+    });
+
+    it("marches straight forward and backward normally", () => {
+        expect(
+            clipPerCount(
+                planMarcher(
+                    input([...repeat<Count>(2, [0, STEP]), "hold"], {
+                        feet: crab,
+                    }),
+                ),
+            ),
+        ).toEqual(["stepoff_8to5", "8to5", "halt2_8to5"]);
+        expect(
+            clipPerCount(
+                planMarcher(
+                    input([...repeat<Count>(2, [0, -STEP]), "hold"], {
+                        feet: crab,
+                    }),
+                ),
+            )[1],
+        ).toBe("back8to5");
+    });
+
+    it("blends the crab with the forward or backward march on a diagonal, legs unturned", () => {
+        const s = STEP / Math.SQRT2;
+        const fwd = planMarcher(
+            input([...repeat<Count>(4, [s, s]), "hold"], { feet: crab }),
+        );
+        const loop = fwd.events.find((e) => e.kind === "loop")!;
+        expect(loop.clip).toBe("8to5");
+        expect(loop.clip2).toBe("crabL8to5");
+        expect(loop.legYaw).toBe(0);
+        // 45 degrees is (45 - 10) / (90 - 10) of the way from straight to crab
+        expect(loop.weight).toBeCloseTo(35 / 80, 6);
+        expect(clipPerCount(fwd)[0]).toBe("stepoff_8to5");
+        const back = planMarcher(
+            input([...repeat<Count>(4, [-s, -s]), "hold"], { feet: crab }),
+        );
+        const backLoop = back.events.find((e) => e.kind === "loop")!;
+        expect([backLoop.clip, backLoop.clip2]).toEqual([
+            "back8to5",
+            "crabR8to5",
+        ]);
+    });
+
+    it("switches between crab and the slide at any count", () => {
+        const plan = planMarcher(
+            input([...repeat<Count>(8, [STEP, 0]), "hold"], {
+                x0: -10,
+                feet: (k) => (k < 4 ? crab : {}),
+            }),
+        );
+        const clips = clipPerCount(plan);
+        expect(clips.slice(1, 3)).toEqual(["crabL8to5", "crabL8to5"]);
+        expect(clips[6]).toBe("slideL8to5");
+    });
+
+    it("crabs toward the audience when facing side 1, as bass drums do", () => {
+        const plan = planMarcher(
+            input([...repeat<Count>(2, [0, STEP]), "hold"], {
+                feet: crab,
+                heading: -Math.PI / 2,
+            }),
+        );
+        expect(clipPerCount(plan)[1]).toMatch(/^crab[LR]8to5$/);
+        // toward side 1 is straight ahead for them: a normal march
+        expect(
+            clipPerCount(
+                planMarcher(
+                    input([...repeat<Count>(2, [-STEP, 0]), "hold"], {
+                        feet: crab,
+                        heading: -Math.PI / 2,
+                    }),
+                ),
+            )[1],
+        ).toBe("8to5");
+    });
+
+    it("plays mirrored rows off the right foot", () => {
+        const plan = planMarcher(
+            input([...repeat<Count>(2, [STEP, 0]), "hold"], {
+                feet: { ...crab, stepOffFoot: "right" },
+            }),
+        );
+        expect([...plannedClips([plan])]).toContain("crabL8to5~mirror");
+    });
+
+    it("lands on the dot after a crab move", () => {
+        const counts: Count[] = [
+            ...repeat<Count>(8, [STEP, 0]),
+            "hold",
+            "hold",
+        ];
+        const inp = input(counts, { feet: crab });
+        const plan = planMarcher(inp);
+        const end = body(plan, inp, counts.length);
+        expect(Math.hypot(end.x - end.drillX, end.z - end.drillZ)).toBeLessThan(
+            0.01,
+        );
+    });
+});

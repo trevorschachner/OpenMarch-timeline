@@ -61,7 +61,9 @@ const number = (key: string, fallback = 0): CueSettingField => ({
 
 const FEET_SETTINGS: readonly CueSettingField[] = [
     choice("pace", ["single", "half", "double"]),
-    choice("moving", ["straightLeg", "bentLeg", "highStep"]),
+    // "usual" is the performer's own technique: crab for snares, tenors and
+    // bass drums (docs/3d/technique.md), straight leg for everyone else
+    choice("moving", ["usual", "straightLeg", "bentLeg", "highStep", "crab"]),
     choice("onHolds", ["stand", "markTime", "highMarkTime"]),
     choice("stepOffFoot", ["left", "right"]),
 ];

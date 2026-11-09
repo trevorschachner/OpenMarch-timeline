@@ -97,6 +97,11 @@ describe("mirrorName", () => {
         expect(mirrorName("change2_slideR8to5__slideL8to5")).toBe(
             "change2_slideL8to5__slideR8to5",
         );
+        expect(mirrorName("crabR8to5-h095")).toBe("crabL8to5-h095");
+        expect(mirrorName("halt2_crabL8to5")).toBe("halt2_crabR8to5");
+        expect(mirrorName("change_crabR8to5__marktime")).toBe(
+            "change_crabL8to5__marktime",
+        );
         expect(mirrorName("8to5-h105")).toBe("8to5-h105");
         expect(mirrorName("marktime")).toBe("marktime");
     });
