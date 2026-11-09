@@ -179,7 +179,19 @@ slide like the winds, with forward legs turned 90 degrees (`step-blend.js`).
 - **Bass drums' frame:** their upper body faces an end zone, drum heads to
   the sidelines. So travel toward the audience or the backfield is a crab
   for them, and travel toward or away from the end zone they face is a
-  normal march with a low heel. Which end zone they face is still open.
+  normal march with a low heel. Bass sections face side 1 by default, the
+  whole line the same way; a Facing cue overrides it from its count.
+- **Switching** (2026-11-09). Crab is a Feet technique. Snare, tenor and
+  bass drum sections start on it, and the show can switch it on or off at
+  any count, as often as it needs.
+- **Diagonals** blend the crab with the forward (roll step) or backward
+  march by the angle; the legs never turn.
+- **Later:** a distinct roll step (smooth, no upper-body bounce) for
+  straight forward; for now battery uses the band's forward march.
+- **Clips** come from om-pose, extracted from crab footage: two 8-to-5
+  loops (moving right with the left foot crossing in front; moving left
+  with the left foot leading and the right crossing behind), mirrored for
+  the right foot in front, plus change and halt clips.
 
 ## Brass holds
 
