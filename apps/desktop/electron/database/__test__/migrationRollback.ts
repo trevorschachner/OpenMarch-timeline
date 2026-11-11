@@ -145,6 +145,12 @@ const ROLLBACKS: Record<number, (db: DatabaseSync) => void> = {
             if (object.type === "index" && PAGE_ERA_TABLES.includes(object.tbl))
                 db.exec(object.sql);
     },
+    // The show's Library and a prop's model. The item id goes first: its CHECK names the hash.
+    19: (db) => {
+        dropTables(db, ["library_blobs", "library_items"]);
+        db.exec("ALTER TABLE items DROP COLUMN library_item_id");
+        db.exec("ALTER TABLE items DROP COLUMN library_version_hash");
+    },
 };
 
 /**

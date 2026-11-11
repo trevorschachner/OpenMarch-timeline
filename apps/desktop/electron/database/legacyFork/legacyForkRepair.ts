@@ -93,7 +93,8 @@ export const FORK_MIGRATION_DATES: ReadonlyMap<number, string> = new Map([
 /**
  * Tables of features parked before the merge with upstream, dropped by the repair with their rows:
  * the Asset Library (old 0021), performer cues (0022), Item Placement (0025), Artwork slots (0026)
- * and saved shapes (0028). Kept spots (0018) went in 0029.
+ * and saved shapes (0028). Kept spots (0018) went in 0029. The Library's two show tables come back
+ * empty in `0019_show_library`, which runs after the repair.
  */
 export const PARKED_TABLES = [
     "library_blobs",

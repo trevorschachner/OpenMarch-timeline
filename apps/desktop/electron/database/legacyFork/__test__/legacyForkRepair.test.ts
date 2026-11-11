@@ -173,11 +173,12 @@ describe("the frozen fork migrations", () => {
         }
     });
 
-    it("leave upstream's migrations 0000-0016 alone: the folder keeps them and adds 0017 and 0018", () => {
+    it("leave upstream's migrations 0000-0016 alone: the folder keeps them and adds 0017 on", () => {
         expect(folderMigrations.map((m) => m.tag)).toEqual([
             ...folderMigrations.slice(0, 17).map((m) => m.tag),
             "0017_timeline_model",
             "0018_drop_page_era",
+            "0019_show_library",
         ]);
         expect(folderMigrations[16]!.folderMillis).toBe(
             UPSTREAM_LAST_MIGRATION_MS,
@@ -222,14 +223,15 @@ describe.each([20, 24, 28, 32])(
             expect(after.rows.timeline_assignments).toHaveLength(2);
         });
 
-        it("keeps every item without its Library columns", async () => {
+        it("keeps every item, with no Library model from the parked Library", async () => {
             await openFile(file);
             const after = snapshot(file);
             if (level >= 24) {
                 expectRowsKept(after.rows.items, before.rows.items, "items");
-                expect(after.rows.items![0]).not.toHaveProperty(
-                    "library_item_id",
-                );
+                // The repair drops the parked Library, so a link into it can't survive:
+                // 0019_show_library adds the columns back empty.
+                expect(after.rows.items![0]!.library_item_id).toBeNull();
+                expect(after.rows.items![0]!.library_version_hash).toBeNull();
                 expect(after.rows.items![0]!.color).toBe(
                     level >= 31 ? "rgba(200, 10, 10, 1)" : null,
                 );
@@ -244,8 +246,12 @@ describe.each([20, 24, 28, 32])(
         it("drops the parked tables and empties the undo history", async () => {
             await openFile(file);
             withDb(file, (db) => {
-                for (const table of PARKED_TABLES)
-                    expect(rowsOf(db, table), table).toBeNull();
+                for (const table of PARKED_TABLES) {
+                    // The show's Library came back (0019_show_library), empty
+                    const back =
+                        table === "library_blobs" || table === "library_items";
+                    expect(rowsOf(db, table), table).toEqual(back ? [] : null);
+                }
                 expect(rowsOf(db, "history_undo")).toEqual([]);
                 expect(rowsOf(db, "history_redo")).toEqual([]);
                 expect(

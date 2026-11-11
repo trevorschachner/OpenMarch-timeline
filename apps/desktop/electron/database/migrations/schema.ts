@@ -9,6 +9,7 @@ import {
     unique,
     customType,
     sqliteView,
+    primaryKey,
 } from "drizzle-orm/sqlite-core";
 import { sql } from "drizzle-orm";
 
@@ -653,6 +654,65 @@ export const timeline_change_log = sqliteTable("timeline_change_log", {
     after: text(),
 });
 
+/* ======================= SHOW LIBRARY ======================== */
+/*
+ * The show's copies of the Library items it uses (ADR 0010 D-12, props-spec.md section 2). Restored
+ * from the parked Asset Library with the same tables, so the full Library can return on them.
+ * Following `audio_files` and `field_properties.image`, the bytes live in the show file, so a show
+ * renders on any machine. Neither table has history triggers: embedding a model is not an
+ * undoable edit; pointing a prop at it is (`items.library_item_id`).
+ */
+
+/** Content-addressed bytes, deduped across every embedded Version. */
+export const library_blobs = sqliteTable(
+    "library_blobs",
+    {
+        /** sha256 of `data`, lowercase hex */
+        hash: text().primaryKey(),
+        data: browserSafeBinaryBlob().notNull(),
+    },
+    (_table) => [
+        check("library_blobs_hash_check", sql`length(hash) = 64`),
+        check("library_blobs_data_type_check", sql`typeof(data) = 'blob'`),
+    ],
+);
+
+/** One embedded Version of a Library item. A show may keep several Versions of one item. */
+export const library_items = sqliteTable(
+    "library_items",
+    {
+        item_id: text().notNull(),
+        version_hash: text().notNull(),
+        kind: text().notNull(),
+        name: text().notNull(),
+        /** Built-ins are embedded too, so app updates never change old shows */
+        built_in: integer().notNull().default(0),
+        /** JSON object, part role to `library_blobs.hash` */
+        parts: text().notNull(),
+        /** JSON array of `{ itemId, versionHash }` this Version pins, such as a Uniform's Garments */
+        pins: text().notNull().default("[]"),
+        /** JSON snapshot of the item's metadata (tags, license, dates) when it was embedded */
+        metadata: text().notNull(),
+        /** A model's sidecar JSON, so the show reads it at open without a blob read */
+        sidecar: text(),
+        embedded_at: text()
+            .notNull()
+            .default(sql`(CURRENT_TIMESTAMP)`),
+    },
+    (table) => [
+        primaryKey({ columns: [table.item_id, table.version_hash] }),
+        check(
+            "library_items_kind_check",
+            sql`kind IN ('model', 'artwork', 'uniform')`,
+        ),
+        check("library_items_built_in_check", sql`built_in IN (0, 1)`),
+        check(
+            "library_items_version_hash_check",
+            sql`length(version_hash) = 64`,
+        ),
+    ],
+);
+
 /* =========================== ITEMS =========================== */
 
 export const ITEM_KINDS = ["prop", "equipment"] as const;
@@ -692,10 +752,21 @@ export const items = sqliteTable(
          * it in the field theme's line color (2D) and neutral grey (3D).
          */
         color: text(),
+        /**
+         * The Library model the prop draws in the 3D View and the Version it pins, or both null for
+         * a plain block. No foreign key: the show's Library is pruned separately and keeps what
+         * this names (ADR 0010 D-12).
+         */
+        library_item_id: text(),
+        library_version_hash: text(),
         ...timestamps,
     },
     (_table) => [
         check("items_kind_check", sql.raw(`kind IN (${sqlList(ITEM_KINDS)})`)),
+        check(
+            "items_library_check",
+            sql`(library_item_id IS NULL AND library_version_hash IS NULL) OR (library_item_id IS NOT NULL AND library_version_hash IS NOT NULL AND length(library_item_id) = 36 AND length(library_version_hash) = 64)`,
+        ),
         check(
             "items_surface_type_check",
             sql.raw(
