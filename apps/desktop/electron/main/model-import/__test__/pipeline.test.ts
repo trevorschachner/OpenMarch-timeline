@@ -997,3 +997,176 @@ describe("stages", () => {
         }
     });
 });
+
+describe("Merging parts", () => {
+    /** One unit cube per part, as a modeling tool exports separate objects. */
+    async function partsGlb(
+        parts: {
+            name: string;
+            material: string;
+            at: [number, number, number];
+            meshSlot?: string;
+        }[],
+        materialSlot?: { material: string; id: string },
+    ): Promise<Uint8Array> {
+        const doc = new Document();
+        const buffer = doc.createBuffer();
+        const scene = doc.createScene("Scene");
+        doc.getRoot().setDefaultScene(scene);
+        const materials = new Map<
+            string,
+            ReturnType<Document["createMaterial"]>
+        >();
+        const materialOf = (name: string) => {
+            let m = materials.get(name);
+            if (!m) {
+                m = doc.createMaterial(name);
+                materials.set(name, m);
+            }
+            return m;
+        };
+        const s = 0.25;
+        // Eight corners of a cube and its twelve triangles.
+        const positions = new Float32Array(
+            [0, 1, 2, 3, 4, 5, 6, 7].flatMap((i) => [
+                i & 1 ? s : -s,
+                i & 2 ? 2 * s : 0,
+                i & 4 ? s : -s,
+            ]),
+        );
+        const uvs = new Float32Array(
+            [0, 1, 2, 3, 4, 5, 6, 7].flatMap((i) => [i & 1, (i >> 1) & 1]),
+        );
+        const indices = new Uint16Array([
+            0, 2, 1, 1, 2, 3, 4, 5, 6, 5, 7, 6, 0, 1, 4, 1, 5, 4, 2, 6, 3, 3, 6,
+            7, 0, 4, 2, 2, 4, 6, 1, 3, 5, 3, 7, 5,
+        ]);
+        for (const part of parts) {
+            const prim = doc
+                .createPrimitive()
+                .setAttribute(
+                    "POSITION",
+                    doc
+                        .createAccessor()
+                        .setType("VEC3")
+                        .setArray(positions.slice())
+                        .setBuffer(buffer),
+                )
+                .setAttribute(
+                    "TEXCOORD_0",
+                    doc
+                        .createAccessor()
+                        .setType("VEC2")
+                        .setArray(uvs.slice())
+                        .setBuffer(buffer),
+                )
+                .setIndices(
+                    doc
+                        .createAccessor()
+                        .setType("SCALAR")
+                        .setArray(indices.slice())
+                        .setBuffer(buffer),
+                )
+                .setMaterial(materialOf(part.material));
+            const mesh = doc.createMesh(part.name).addPrimitive(prim);
+            if (part.meshSlot) {
+                mesh.setExtras({
+                    openmarch: {
+                        artworkSlot: {
+                            id: part.meshSlot,
+                            widthM: 0.5,
+                            heightM: 0.5,
+                        },
+                    },
+                });
+            }
+            scene.addChild(
+                doc.createNode(part.name).setMesh(mesh).setTranslation(part.at),
+            );
+        }
+        if (materialSlot) {
+            materialOf(materialSlot.material).setExtras({
+                openmarch: {
+                    artworkSlot: {
+                        id: materialSlot.id,
+                        widthM: 2,
+                        heightM: 0.5,
+                    },
+                },
+            });
+        }
+        scene.setExtras({ openmarch: { kind: "prop" } });
+        return new NodeIO().writeBinary(doc);
+    }
+
+    const riserParts = [
+        { name: "Deck", material: "Deck", at: [0, 0.5, 0] },
+        { name: "Leg_1", material: "Metal", at: [-1, 0, -0.5] },
+        { name: "Leg_2", material: "Metal", at: [1, 0, -0.5] },
+        { name: "Leg_3", material: "Metal", at: [-1, 0, 0.5] },
+        { name: "Leg_4", material: "Metal", at: [1, 0, 0.5] },
+        { name: "Skirt", material: "Skirt", at: [0, 0, 0.6] },
+    ] satisfies Parameters<typeof partsGlb>[0];
+
+    it("draws once per material, not once per object", async () => {
+        const r = await importModel({
+            filename: "riser.glb",
+            bytes: await partsGlb(riserParts, {
+                material: "Skirt",
+                id: "front",
+            }),
+        });
+        expect(r.report.status).toBe("ready");
+        expect(r.report.source!.drawCalls).toBe(6);
+        expect(fix(r, "partsMerged")).toEqual({
+            code: "partsMerged",
+            drawCallsBefore: 6,
+            drawCallsAfter: 3,
+        });
+        expect(r.report.output!.drawCalls).toBe(3);
+        // Merging moves no geometry: the bounds are the same.
+        expect(r.report.output!.bounds).toEqual(r.report.source!.bounds);
+        expect(r.report.output!.triangles).toBe(r.report.source!.triangles);
+        // A slot on a material survives the merge.
+        expect(r.output!.sidecar.artworkSlots.map((s) => s.id)).toEqual([
+            "front",
+        ]);
+        await expectLoadsBare(r);
+    });
+
+    it("keeps a mesh an Artwork slot names as its own mesh", async () => {
+        const r = await importModel({
+            filename: "riser.glb",
+            bytes: await partsGlb([
+                ...riserParts,
+                {
+                    name: "Plaque",
+                    material: "Metal",
+                    at: [0, 1, 0.6],
+                    meshSlot: "plaque",
+                },
+            ]),
+        });
+        expect(fix(r, "partsMerged")).toEqual({
+            code: "partsMerged",
+            drawCallsBefore: 7,
+            drawCallsAfter: 4,
+        });
+        const plaque = r.output!.sidecar.artworkSlots.find(
+            (s) => s.id === "plaque",
+        );
+        expect(plaque?.target).toHaveProperty("mesh");
+        expect(note(r, "slotDropped")).toBeUndefined();
+        await expectLoadsBare(r);
+    });
+
+    it("reports nothing when there is nothing to merge", async () => {
+        const r = await importModel({
+            filename: "block.glb",
+            bytes: await partsGlb([
+                { name: "Block", material: "Paint", at: [0, 0, 0] },
+            ]),
+        });
+        expect(fix(r, "partsMerged")).toBeUndefined();
+    });
+});

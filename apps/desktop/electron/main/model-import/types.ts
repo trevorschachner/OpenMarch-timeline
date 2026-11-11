@@ -217,6 +217,11 @@ export type FixRow =
     | { code: "instancesExpanded" }
     | { code: "extensionsStripped"; extensions: string[] }
     | { code: "extrasStripped" }
+    /**
+     * Parts that share a material were merged, so each material draws once
+     * per copy of the model instead of once per part.
+     */
+    | { code: "partsMerged"; drawCallsBefore: number; drawCallsAfter: number }
     | {
           code: "contentStripped";
           animations: number;

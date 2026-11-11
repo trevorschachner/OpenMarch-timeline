@@ -29,6 +29,8 @@ import {
 import { ALL_EXTENSIONS } from "@gltf-transform/extensions";
 import {
     dedup,
+    flatten,
+    join,
     prune,
     simplifyPrimitive,
     uninstance,
@@ -588,6 +590,7 @@ async function clean(
     if (meta.hasForeignExtras)
         report.fixedForYou.push({ code: "extrasStripped" });
     await downsizeTextures(doc, TEXTURE_CAPS[kind], report, resizeImage);
+    if (kind !== "garment") await mergeParts(ctx);
     // Materials and meshes stay apart: two slots may look alike, and a slot
     // may sit on one of two identical meshes (their accessors are still
     // shared). UVs and `_PART` stay even with no texture: slots and paint
@@ -922,6 +925,53 @@ function stripExtras(doc: Document): void {
     }
     for (const mesh of root.listMeshes()) {
         mesh.listPrimitives().forEach((p) => p.setExtras({}));
+    }
+}
+
+/**
+ * Merges parts that share a material, so draw calls follow materials, not
+ * objects: a Blender export makes one mesh per object, and a prop built
+ * from 40 primitives would otherwise draw 40 times per copy. Flattening
+ * first keeps each part where it was (world transforms are baked in).
+ * Garments are left alone (their fits are per node and `join` skips skinned
+ * meshes anyway), and so is a mesh an Artwork slot names, which must stay
+ * its own mesh. Grips and attach points were read before this (`describe`).
+ */
+async function mergeParts({ doc, meta, raw, report }: Context): Promise<void> {
+    const slotMeshes = new Set<Mesh>();
+    for (const slot of meta.slots) {
+        if ("mesh" in slot.target) {
+            const mesh = raw.meshes[slot.target.mesh];
+            if (mesh) slotMeshes.add(mesh);
+        }
+    }
+    const drawCalls = () =>
+        doc
+            .getRoot()
+            .listNodes()
+            .reduce(
+                (n, node) => n + (node.getMesh()?.listPrimitives().length ?? 0),
+                0,
+            );
+    const before = drawCalls();
+    await doc.transform(
+        flatten({ cleanup: false }),
+        join({
+            keepNamed: false,
+            cleanup: false,
+            filter: (node) => {
+                const mesh = node.getMesh();
+                return !mesh || !slotMeshes.has(mesh);
+            },
+        }),
+    );
+    const after = drawCalls();
+    if (after < before) {
+        report.fixedForYou.push({
+            code: "partsMerged",
+            drawCallsBefore: before,
+            drawCallsAfter: after,
+        });
     }
 }
 
