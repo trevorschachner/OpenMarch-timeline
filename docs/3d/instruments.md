@@ -513,8 +513,10 @@ center.
   at the outer edges. The audience-side row has the marimbas in the center
   with vibes on each side.
 - The field-side row starts 3 ft in front of the front sideline, with 3 ft
-  between rows. The podium sits on the 50 in a gap in the field-side row;
-  the speakers stand on the outer row's line at their yard lines.
+  between rows. The speakers stand on the outer row's line at their yard
+  lines.
+- The podium sits on the 50, 3 ft past the audience-side row: the drum
+  major is always the closest performer to the audience, facing the field.
 - Presets ignore the venue; in a tight venue such as the gym, fix it by
   hand.
 - "Also add performers" is checked by default: one performer per instrument
