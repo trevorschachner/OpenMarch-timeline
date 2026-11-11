@@ -173,9 +173,9 @@ describe("the frozen fork migrations", () => {
         }
     });
 
-    it("leave upstream's migrations 0000-0016 alone: the folder keeps them and adds 0017 and 0018", () => {
-        expect(folderMigrations.map((m) => m.tag)).toEqual([
-            ...folderMigrations.slice(0, 17).map((m) => m.tag),
+    it("leave upstream's migrations 0000-0016 alone: the folder keeps them and adds 0017 and 0018 next", () => {
+        // Later migrations follow them, like on any other file
+        expect(folderMigrations.slice(17, 19).map((m) => m.tag)).toEqual([
             "0017_timeline_model",
             "0018_drop_page_era",
         ]);

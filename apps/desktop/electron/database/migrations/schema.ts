@@ -692,6 +692,17 @@ export const items = sqliteTable(
          * it in the field theme's line color (2D) and neutral grey (3D).
          */
         color: text(),
+        /**
+         * A built-in 3D model the item is drawn as, such as `pit/marimba-5.0`: its path under
+         * `apps/desktop/src/view3d/assets/pit/` without `.glb`. Null draws the item as a block.
+         * Separate from a future Asset Library reference (a library item and version hash).
+         */
+        model: text(),
+        /**
+         * One position for the whole show: the item has no moves, so dragging it on any page moves
+         * it on every page, and lasso and select-all skip it. Equipment is created locked.
+         */
+        locked: integer({ mode: "boolean" }).notNull().default(false),
         ...timestamps,
     },
     (_table) => [
