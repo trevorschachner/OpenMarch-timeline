@@ -29,7 +29,7 @@ The approvals and outside gates the whole customization effort waits on, then th
 
 ```text
 C1.1 approval ─┬─ P8 Library and import (no timeline needed)
-C1.2 legal ────┼──────────────────── removed 2026-11-11, gates nothing
+C1.2 legal ────┼──────────────────── om-pose clips in a release only (2026-11-11)
 C1.3 timeline ─┴─ C1.11 show tables
 ADR 0004 step 2 (C3.1) ─── C2.1 PR 1013 rebuilt ── P9 items on the timeline
 ADR 0004 steps 3, 8 (C3.2-3) ─── P10 Carry, Silk, Uniform cues; Items tab
@@ -78,13 +78,14 @@ Each field is on its own line so that concurrent claims merge cleanly. Edit only
 
 ### C1.2: Legal gate for built-ins and the Starter kit
 
-> Removed by the owner 2026-11-11: nothing waits for counsel. Built-ins, the
-> Starter kit and the om-pose assets ship without this gate; the lawyer
-> questions below are taken up later (props-spec.md section 10). The rest of
-> this package is kept as the record.
+> Removed by the owner 2026-11-11 for built-ins and the Starter kit, which
+> ship without this gate. The om-pose clips keep their hold: no release that
+> ships them goes out before counsel answers Q3. The other lawyer questions
+> are taken up later (props-spec.md section 10). The rest of this package is
+> kept as the record.
 
 - Owner: human
-- Status: done
+- Status: open for the om-pose clips (Q3) only
 - PR: none
 - Parallel: yes
 - Depends on: —
@@ -305,7 +306,7 @@ Each field is on its own line so that concurrent claims merge cleanly. Edit only
 
 ## Exit gate
 
-- [ ] C1.1 and C1.3 done (C1.2 removed 2026-11-11).
+- [ ] C1.1 and C1.3 done (C1.2 now holds only the om-pose clips, 2026-11-11).
 - [ ] Import fixtures pass for models and Artwork; packaged `sharp` runs on macOS, Windows and Linux.
 - [ ] A show with embedded items opens with an empty local Library.
 - [ ] Type-check, lint, format and spellcheck pass on `main`.

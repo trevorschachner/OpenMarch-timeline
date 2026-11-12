@@ -762,7 +762,9 @@ Research basis [14]; policy [16]. Not legal advice.
   Starter kit, om-pose assets) and the per-item `license` field. `SOURCE.json`
   and the om-pose vendor README stop saying "the app's license".
 - **om-pose assets** (correction to ADR 0010 D-7) [16, 26.6]: they don't ship
-  under the app's license. The reference bodies and v4 skeleton become CC0
+  under the app's license. The om-pose clips, derived from 2019 Cadets
+  footage, stay in the counsel gate: no release that ships them goes out
+  before counsel answers Q3. The reference bodies and v4 skeleton become CC0
   once om-pose adopts a license upstream (meshes only).
 - **Third-party built-ins:** CC0, or CC-BY 4.0 with a complete attribution
   record. Not BY-SA, NC, ND or store licenses. Each has a manifest entry (SPDX
@@ -791,9 +793,10 @@ Research basis [14]; policy [16]. Not legal advice.
     never "infringing".
   - "Add to my Library" from another show shows a read-only license line with
     the source link.
-- **No legal gate** (owner, 2026-11-11): built-ins, the Starter kit and the
-  om-pose assets ship without waiting for counsel. The lawyer questions
-  (Q1, Q3, Q4, Q5 in [16]) are taken up later. The `LICENSE` mismatch and a
+- **No legal gate for built-ins** (owner, 2026-11-11): built-ins and the
+  Starter kit ship without waiting for counsel. Only the om-pose clips keep
+  their hold (Q3, above). The other lawyer questions (Q1, Q4, Q5 in [16])
+  are taken up later. The `LICENSE` mismatch and a
   Terms §9.1 carve-out ship as their own small change, outside this effort.
 
 ## 11. Notes
