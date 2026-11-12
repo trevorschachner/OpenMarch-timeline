@@ -15,7 +15,16 @@ import type { FieldPoint, FieldPointer } from "./fieldEditor";
  * Points snap as a marcher's coordinates do, except freehand's. A drawing
  * too small to be meant is dropped and the tool stays on; a finished one goes
  * to the app, which makes the prop and turns the tool off.
+ *
+ * With a stamp it places a fixed footprint instead (front ensemble equipment, whose size is its
+ * model's): the footprint follows the pointer, centered and snapped, and a click places it.
  */
+
+/** A fixed footprint to place with a click, in field units. */
+export type PropToolStamp = {
+    readonly widthPixels: number;
+    readonly depthPixels: number;
+};
 
 /** What the overlay draws for the prop tool, and what the field test API reads. */
 export type PropToolShape = {
@@ -47,12 +56,17 @@ export class PropTool {
     constructor(
         readonly outlineType: OutlineType,
         private readonly ports: PropToolPorts,
+        private readonly stamp: PropToolStamp | null = null,
     ) {
         this.handler = ITEM_OUTLINES[outlineType];
         this.snapshot = { outlineType, preview: null };
     }
 
     press(pointer: FieldPointer) {
+        if (this.stamp) {
+            this.place(this.stamp, this.ports.snap(pointer.field));
+            return;
+        }
         const { interaction } = this.handler;
         if (interaction === "click") {
             this.click(pointer);
@@ -70,6 +84,18 @@ export class PropTool {
     }
 
     move(pointer: FieldPointer) {
+        if (this.stamp) {
+            const center = this.ports.snap(pointer.field);
+            this.snapshot = {
+                outlineType: this.outlineType,
+                preview: {
+                    points: stampCorners(this.stamp, center),
+                    closed: true,
+                },
+            };
+            this.ports.changed();
+            return;
+        }
         const { interaction } = this.handler;
         if (interaction === "freehand") {
             if (!this.dragging) return;
@@ -117,6 +143,18 @@ export class PropTool {
         else this.update();
     }
 
+    private place(stamp: PropToolStamp, center: FieldPoint) {
+        this.snapshot = { outlineType: this.outlineType, preview: null };
+        this.ports.changed();
+        this.ports.finished({
+            outlineType: this.outlineType,
+            centerX: center.x,
+            centerY: center.y,
+            widthPixels: stamp.widthPixels,
+            depthPixels: stamp.depthPixels,
+        });
+    }
+
     private finish(endPoint?: FieldPoint) {
         const outline = this.handler.finalize({
             startPoint: this.start,
@@ -141,4 +179,16 @@ export class PropTool {
         this.snapshot = { outlineType: this.outlineType, preview };
         this.ports.changed();
     }
+}
+
+/** A stamp's corners around its center, clockwise from the top left. */
+function stampCorners(stamp: PropToolStamp, center: FieldPoint): FieldPoint[] {
+    const halfWidth = stamp.widthPixels / 2;
+    const halfDepth = stamp.depthPixels / 2;
+    return [
+        { x: center.x - halfWidth, y: center.y - halfDepth },
+        { x: center.x + halfWidth, y: center.y - halfDepth },
+        { x: center.x + halfWidth, y: center.y + halfDepth },
+        { x: center.x - halfWidth, y: center.y + halfDepth },
+    ];
 }

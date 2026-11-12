@@ -33,7 +33,7 @@ import {
     type ItemFrame,
     type ItemSize,
 } from "./itemTransform";
-import { PropTool, type PropToolShape } from "./propTool";
+import { PropTool, type PropToolShape, type PropToolStamp } from "./propTool";
 import type { OutlineType } from "@/db-functions/items";
 import type { DrawnOutline } from "@/items/itemOutlines";
 import {
@@ -867,10 +867,14 @@ export class FieldEditor {
 
     /**
      * Turns the prop tool on to draw an Outline of `outlineType` (the Props
-     * panel's Draw), or off with null. Turning it on ends any press or
-     * gesture; turning it on again starts the drawing over.
+     * panel's Draw), or to place a fixed `stamp` with a click (its Front
+     * ensemble), or off with null. Turning it on ends any press or gesture;
+     * turning it on again starts the drawing over.
      */
-    setPropTool(outlineType: OutlineType | null): void {
+    setPropTool(
+        outlineType: OutlineType | null,
+        stamp: PropToolStamp | null = null,
+    ): void {
         if (outlineType === null) {
             if (!this.propTool) return;
             this.propTool = null;
@@ -881,22 +885,26 @@ export class FieldEditor {
         this.press = null;
         this.lastClick = null;
         this.lastToolPress = null;
-        this.propTool = new PropTool(outlineType, {
-            snap: (point) => this.ports.snap?.(point) ?? point,
-            finished: (outline) => this.ports.propDrawn?.(outline),
-            changed: () => this.emit(),
-            isDoubleClick: (pointer) => {
-                const last = this.lastToolPress;
-                return (
-                    last !== null &&
-                    this.now() - last.time <= DOUBLE_CLICK_MS &&
-                    Math.hypot(
-                        pointer.screen.x - last.screen.x,
-                        pointer.screen.y - last.screen.y,
-                    ) <= DOUBLE_CLICK_SLOP
-                );
+        this.propTool = new PropTool(
+            outlineType,
+            {
+                snap: (point) => this.ports.snap?.(point) ?? point,
+                finished: (outline) => this.ports.propDrawn?.(outline),
+                changed: () => this.emit(),
+                isDoubleClick: (pointer) => {
+                    const last = this.lastToolPress;
+                    return (
+                        last !== null &&
+                        this.now() - last.time <= DOUBLE_CLICK_MS &&
+                        Math.hypot(
+                            pointer.screen.x - last.screen.x,
+                            pointer.screen.y - last.screen.y,
+                        ) <= DOUBLE_CLICK_SLOP
+                    );
+                },
             },
-        });
+            stamp,
+        );
         this.emit();
     }
 

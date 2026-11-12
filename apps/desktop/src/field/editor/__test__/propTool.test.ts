@@ -9,6 +9,7 @@ import {
     type FieldPoint,
     type FieldPointer,
 } from "../fieldEditor";
+import type { PropToolStamp } from "../propTool";
 
 const ZOOM = 2;
 
@@ -18,7 +19,7 @@ const snap = (p: FieldPoint) => ({
     y: Math.round(p.y / 10) * 10,
 });
 
-function setup(outlineType: OutlineType) {
+function setup(outlineType: OutlineType, stamp?: PropToolStamp) {
     const clock = { now: 1000 };
     const state = {
         selected: [] as readonly number[],
@@ -43,7 +44,7 @@ function setup(outlineType: OutlineType) {
         propDrawn: (outline) => state.drawn.push(outline),
     };
     const editor = new FieldEditor(ports, { now: () => clock.now });
-    editor.setPropTool(outlineType);
+    editor.setPropTool(outlineType, stamp);
     return { editor, state, clock };
 }
 
@@ -163,5 +164,47 @@ describe("the prop tool", () => {
         editor.setPropTool("polygon");
         editor.pointerMove(at(10, 10));
         expect(editor.propToolShape()?.preview).toBeNull();
+    });
+
+    describe("placing a footprint (front ensemble equipment)", () => {
+        const stamp = { widthPixels: 40, depthPixels: 20 };
+
+        it("shows the footprint centered on the pointer before any press", () => {
+            const { editor } = setup("rectangle", stamp);
+            expect(editor.propToolShape()?.preview).toBeNull();
+            editor.pointerMove(at(101, 99));
+            expect(editor.propToolShape()?.preview).toEqual({
+                points: [
+                    { x: 80, y: 90 },
+                    { x: 120, y: 90 },
+                    { x: 120, y: 110 },
+                    { x: 80, y: 110 },
+                ],
+                closed: true,
+            });
+        });
+
+        it("places it with one click, centered on the snapped point", () => {
+            const { editor, state } = setup("rectangle", stamp);
+            click(editor, 158, 141);
+            expect(state.drawn).toEqual([
+                {
+                    outlineType: "rectangle",
+                    centerX: 160,
+                    centerY: 140,
+                    widthPixels: 40,
+                    depthPixels: 20,
+                },
+            ]);
+        });
+
+        it("places it where the press was, even if the pointer moves before release", () => {
+            const { editor, state } = setup("rectangle", stamp);
+            editor.pointerDown(at(50, 50));
+            editor.pointerMove(at(90, 90));
+            editor.pointerUp(at(90, 90));
+            expect(state.drawn).toHaveLength(1);
+            expect(state.drawn[0]).toMatchObject({ centerX: 50, centerY: 50 });
+        });
     });
 });
