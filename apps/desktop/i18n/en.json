@@ -1384,6 +1384,9 @@
             "remove": "Remove",
             "viewIn3d": "View in 3D",
             "importNew": "Import a 3D model…",
+            "inShow": "Models in this show",
+            "fromFile": "From a file…",
+            "removeHint": "Show the plain block again, the same size as the model",
             "hint": "Import a .glb or .gltf file to show this prop as that model in the 3D View. The prop takes the model's size.",
             "errors": {
                 "import": "Couldn't import the 3D model",

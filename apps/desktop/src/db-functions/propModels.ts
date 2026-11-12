@@ -145,9 +145,42 @@ export async function embedModelInTransaction({
 }
 
 /**
- * Points a prop at a model (embedding it) and sizes every Outline change of the prop to the
- * model's footprint and height, or with `model` null goes back to the plain block, keeping its
- * Outline.
+ * A model for a prop: a file just imported, one already in the show by its Version hash, or
+ * null for the plain block.
+ */
+export type PropModelChoice = ImportedModel | { versionHash: string } | null;
+
+/** A model already in the show, by its Version hash. Throws when the show doesn't have it. */
+async function embeddedModelInTransaction({
+    tx,
+    versionHash,
+}: {
+    tx: DbTransaction;
+    versionHash: string;
+}): Promise<ModelRef & { sidecar: ModelSidecar }> {
+    const row = await tx
+        .select({
+            item_id: schema.library_items.item_id,
+            sidecar: schema.library_items.sidecar,
+        })
+        .from(schema.library_items)
+        .where(
+            and(
+                eq(schema.library_items.version_hash, versionHash),
+                eq(schema.library_items.kind, "model"),
+            ),
+        )
+        .get();
+    if (!row) throw new Error(`The show has no model ${versionHash}`);
+    const sidecar = ModelSidecarSchema.parse(JSON.parse(row.sidecar ?? "null"));
+    return { itemId: row.item_id, versionHash, sidecar };
+}
+
+/**
+ * Points a prop at a model (embedding a new one) and sizes every Outline change of the prop to
+ * the model's footprint and height. With `model` null it goes back to the plain block and keeps
+ * its Outline, the model's size: the block stands where the model stood (owner decision,
+ * 2026-11-12). Undo puts back the Outline from before.
  */
 export async function setPropModelInTransaction({
     tx,
@@ -156,7 +189,7 @@ export async function setPropModelInTransaction({
 }: {
     tx: DbTransaction;
     itemId: number;
-    model: ImportedModel | null;
+    model: PropModelChoice;
 }): Promise<ModelRef | null> {
     const item = await tx
         .select({ kind: schema.items.kind })
@@ -175,7 +208,13 @@ export async function setPropModelInTransaction({
         return null;
     }
 
-    const ref = await embedModelInTransaction({ tx, model });
+    const ref =
+        "versionHash" in model
+            ? await embeddedModelInTransaction({
+                  tx,
+                  versionHash: model.versionHash,
+              })
+            : await embedModelInTransaction({ tx, model });
     await tx
         .update(schema.items)
         .set({
@@ -208,7 +247,7 @@ export async function setPropModel({
 }: {
     db: DbConnection;
     itemId: number;
-    model: ImportedModel | null;
+    model: PropModelChoice;
 }): Promise<ModelRef | null> {
     return transactionWithHistory(db, "setPropModel", (tx) =>
         setPropModelInTransaction({ tx, itemId, model }),
@@ -216,8 +255,9 @@ export async function setPropModel({
 }
 
 /**
- * A new prop drawn as `model`, as one undo step: named after the model, home at `home`, on field
- * from `beatId`, its Outline the model's size. Returns the new prop's item id.
+ * A new prop drawn as `model` (a file just imported, or one already in the show), as one undo
+ * step: named after the model, home at `home`, on field from `beatId`, its Outline the model's
+ * size. Returns the new prop's item id.
  */
 export async function createPropWithModel({
     db,
@@ -228,15 +268,30 @@ export async function createPropWithModel({
     db: DbConnection;
     home: [number, number];
     beatId: number;
-    model: ImportedModel;
+    model: NonNullable<PropModelChoice>;
 }): Promise<number> {
     return transactionWithHistory(db, "createPropWithModel", async (tx) => {
+        const name =
+            "versionHash" in model
+                ? ((
+                      await tx
+                          .select({ name: schema.library_items.name })
+                          .from(schema.library_items)
+                          .where(
+                              eq(
+                                  schema.library_items.version_hash,
+                                  model.versionHash,
+                              ),
+                          )
+                          .get()
+                  )?.name ?? null)
+                : nameFromFilename(model.filename);
         const [item] = await createItemsInTransaction({
             tx,
             newItems: [
                 {
                     kind: "prop",
-                    name: nameFromFilename(model.filename),
+                    name,
                     home,
                     beatId,
                     // Sized to the model next
@@ -256,6 +311,25 @@ export interface PropModel extends ModelRef {
     bounds: ModelSidecar["bounds"];
     /** The `library_blobs` hash of its GLB */
     glbHash: string;
+}
+
+type LibraryItemRow = typeof schema.library_items.$inferSelect;
+
+/** A `library_items` model row as a `PropModel`, or null when its sidecar or GLB is missing. */
+function propModelOf(row: LibraryItemRow): PropModel | null {
+    const parts = JSON.parse(row.parts) as Record<string, string>;
+    const sidecar = ModelSidecarSchema.safeParse(
+        JSON.parse(row.sidecar ?? "null"),
+    );
+    const glbHash = parts[MODEL_PART_GLB];
+    if (!sidecar.success || !glbHash) return null;
+    return {
+        itemId: row.item_id,
+        versionHash: row.version_hash,
+        name: row.name,
+        bounds: sidecar.data.bounds,
+        glbHash,
+    };
 }
 
 /** Every model Version a prop in the show points at. */
@@ -283,24 +357,30 @@ export async function getPropModels({
             ),
         )
         .all();
-    const models: PropModel[] = [];
-    for (const row of rows) {
-        if (!refs.some((r) => r.itemId === row.item_id)) continue;
-        const parts = JSON.parse(row.parts) as Record<string, string>;
-        const sidecar = ModelSidecarSchema.safeParse(
-            JSON.parse(row.sidecar ?? "null"),
-        );
-        const glbHash = parts[MODEL_PART_GLB];
-        if (!sidecar.success || !glbHash) continue;
-        models.push({
-            itemId: row.item_id,
-            versionHash: row.version_hash,
-            name: row.name,
-            bounds: sidecar.data.bounds,
-            glbHash,
-        });
-    }
-    return models;
+    return rows
+        .filter((row) => refs.some((r) => r.itemId === row.item_id))
+        .map(propModelOf)
+        .filter((m): m is PropModel => m !== null);
+}
+
+/**
+ * Every model the show has, used by a prop or not (one taken off a prop stays until a prune), by
+ * name: what a prop can be drawn as without picking a file again.
+ */
+export async function getShowModels({
+    db,
+}: {
+    db: DbConnection | DbTransaction;
+}): Promise<PropModel[]> {
+    const rows = await db
+        .select()
+        .from(schema.library_items)
+        .where(eq(schema.library_items.kind, "model"))
+        .all();
+    return rows
+        .map(propModelOf)
+        .filter((m): m is PropModel => m !== null)
+        .sort((a, b) => a.name.localeCompare(b.name));
 }
 
 /** The bytes of one `library_blobs` row, or null when the show doesn't have it. */

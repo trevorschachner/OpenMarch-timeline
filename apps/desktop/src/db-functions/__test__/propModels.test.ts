@@ -11,6 +11,7 @@ import {
     createPropWithModel,
     getLibraryBlob,
     getPropModels,
+    getShowModels,
     setPropModel,
     versionHashOf,
     type ImportedModel,
@@ -208,6 +209,83 @@ describeDbTests("propModels", (it) => {
                 .join("");
             expect(await versionHashOf({ glb: "a" })).toBe(hex);
             expect(hex).toHaveLength(64);
+        });
+    });
+
+    describe("a model already in the show", () => {
+        testWithHistory(
+            "draws another prop as it without the file, sized to it",
+            async ({ db }) => {
+                const a = await makeRiser(db);
+                const b = await makeRiser(db);
+                const ref = await setPropModel({
+                    db,
+                    itemId: a.id,
+                    model: model([2.44, 0.41, 1.22]),
+                });
+                await setPropModel({
+                    db,
+                    itemId: b.id,
+                    model: { versionHash: ref!.versionHash },
+                });
+                const items = await getItems({ db });
+                expect(items.map((i) => i.library_version_hash)).toEqual([
+                    ref!.versionHash,
+                    ref!.versionHash,
+                ]);
+                const geometry = await getItemGeometry({ db });
+                expect(geometry.find((g) => g.item_id === b.id)).toMatchObject({
+                    width: 2.44,
+                    depth: 1.22,
+                    height: 0.41,
+                });
+                expect(await rows(db, schema.library_items)).toBe(1);
+            },
+        );
+
+        it("refuses a hash the show doesn't have", async ({ db }) => {
+            const item = await makeRiser(db);
+            await expect(
+                setPropModel({
+                    db,
+                    itemId: item.id,
+                    model: { versionHash: "nope" },
+                }),
+            ).rejects.toThrow();
+        });
+
+        it("is listed even when no prop uses it any more", async ({ db }) => {
+            const item = await makeRiser(db);
+            await setPropModel({
+                db,
+                itemId: item.id,
+                model: model([2, 1, 1]),
+            });
+            await setPropModel({ db, itemId: item.id, model: null });
+            expect(await getPropModels({ db })).toEqual([]);
+            expect(await getShowModels({ db })).toMatchObject([
+                { name: "riser", bounds: { size: [2, 1, 1] } },
+            ]);
+        });
+
+        it("names a new prop after it", async ({ db }) => {
+            const item = await makeRiser(db);
+            const ref = await setPropModel({
+                db,
+                itemId: item.id,
+                model: model([2, 1, 1]),
+            });
+            const newId = await createPropWithModel({
+                db,
+                home: [10, 10],
+                beatId: await firstBeatId(db),
+                model: { versionHash: ref!.versionHash },
+            });
+            const created = (await getItems({ db })).find(
+                (i) => i.id === newId,
+            );
+            expect(created?.marcher.name).toBe("riser");
+            expect(created?.library_version_hash).toBe(ref!.versionHash);
         });
     });
 

@@ -23,7 +23,12 @@ and its review) and [ADR 0010](../adr/0010-3d-view.md) D-12 to D-19.
    camera to the prop.
 5. Resize the prop as usual: the model scales evenly to fit the new Outline,
    never stretched. **Replace…** swaps the model; **Remove** goes back to the
-   block.
+   plain block, keeping the model's size so the block stands where the model
+   stood.
+
+Once the show has a model, **Import a 3D model…** and **Replace…** list the
+show's models first, so a second riser needs no file. **From a file…** opens
+the picker. The props list shows which model each prop uses.
 
 An existing prop takes a model too: in its editor, under **3D model**, choose
 **Import…**. Its Outline becomes a rectangle the model's size; undo puts the

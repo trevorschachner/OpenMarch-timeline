@@ -11,6 +11,7 @@ import {
     getItemGeometry,
     getItems,
     getPropModels,
+    getShowModels,
     setItemGeometry,
     updateItems,
     type ItemGeometryArgs,
@@ -30,6 +31,8 @@ export const itemKeys = {
     all: () => [ITEMS_KEY] as const,
     /** Under `items`, so whatever refreshes the items (undo, redo) refreshes the models too */
     models: () => [ITEMS_KEY, "models"] as const,
+    /** Under `items` too */
+    showModels: () => [ITEMS_KEY, "showModels"] as const,
 };
 
 export const itemGeometryKeys = {
@@ -49,6 +52,14 @@ export const allItemsQueryOptions = () =>
     queryOptions({
         queryKey: itemKeys.all(),
         queryFn: () => getItems({ db }),
+        staleTime: DEFAULT_STALE_TIME,
+    });
+
+/** Every model the show has, used by a prop or not: what a prop can be drawn as without a file */
+export const showModelsQueryOptions = () =>
+    queryOptions({
+        queryKey: itemKeys.showModels(),
+        queryFn: () => getShowModels({ db }),
         staleTime: DEFAULT_STALE_TIME,
     });
 

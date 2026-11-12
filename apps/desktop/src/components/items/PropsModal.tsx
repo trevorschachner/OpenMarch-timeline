@@ -44,8 +44,10 @@ import {
     deleteItemsMutationOptions,
     itemGeometryQueryOptions,
     setItemGeometryMutationOptions,
+    showModelsQueryOptions,
     updateItemsMutationOptions,
 } from "@/hooks/queries/useItems";
+import type { PropModelChoice } from "@/db-functions";
 import type {
     getItems,
     LeadingEdge,
@@ -63,6 +65,7 @@ import { fieldPropertiesQueryOptions } from "@/hooks/queries/useFieldProperties"
 import { isWebBuild } from "@/utilities/webBuild";
 import { parsePropColor, propColorToString } from "@/items/propColor";
 import PropModelControl, {
+    ModelSourceButton,
     PropModelRefusal,
     usePickPropModel,
 } from "./PropModelControl";
@@ -175,10 +178,9 @@ function PropModelImporter() {
     const create = useMutation(createPropWithModelMutationOptions(queryClient));
     if (isWebBuild) return null;
 
-    const importModel = async () => {
-        const model = await pick();
+    const addProp = async (model: NonNullable<PropModelChoice>) => {
         const beat = outlineWriteBeatNow(beats);
-        if (!model || !beat || !field) return;
+        if (!beat || !field) return;
         const itemId = await create
             .mutateAsync({
                 home: [field.centerFrontPoint.xPixels, field.height / 2],
@@ -188,20 +190,26 @@ function PropModelImporter() {
             .catch(() => null);
         if (itemId !== null) openPropEditor(itemId);
     };
+    const importModel = async () => {
+        const model = await pick();
+        if (model) await addProp(model);
+    };
 
     return (
         <div className="flex flex-col gap-8">
-            <Button
-                size="compact"
-                variant="secondary"
+            <ModelSourceButton
+                label={
+                    <>
+                        <CubeIcon size={16} />
+                        {t("props.model.importNew")}
+                    </>
+                }
                 className="w-full"
                 disabled={busy || create.isPending}
-                onClick={() => void importModel()}
-                data-testid="prop-import-model"
-            >
-                <CubeIcon size={16} />
-                {t("props.model.importNew")}
-            </Button>
+                testId="prop-import-model"
+                onExisting={(versionHash) => void addProp({ versionHash })}
+                onFile={() => void importModel()}
+            />
             {refusal && <PropModelRefusal refusal={refusal} />}
         </div>
     );
@@ -243,6 +251,11 @@ function PropList({ onEdit }: { onEdit: (item: ItemWithMarcher) => void }) {
     const { t } = useTranslate();
     const queryClient = useQueryClient();
     const { data: items } = useQuery(allItemsQueryOptions());
+    const { data: models } = useQuery(showModelsQueryOptions());
+    const modelNames = useMemo(
+        () => new Map((models ?? []).map((m) => [m.versionHash, m.name])),
+        [models],
+    );
     const deleteItems = useMutation(deleteItemsMutationOptions(queryClient));
     const { selectedMarchers, setSelectedMarchers } = useSelectedMarchers()!;
     const { uiSettings, setUiSettings } = useUiSettingsStore();
@@ -333,9 +346,29 @@ function PropList({ onEdit }: { onEdit: (item: ItemWithMarcher) => void }) {
                                 <span className="font-medium">
                                     {itemLabel(item)}
                                 </span>
-                                <span className="text-text/50 text-sm">
+                                <span className="text-text/50 flex items-center gap-4 text-sm">
                                     {item.surface_type &&
                                         t(`props.surface.${item.surface_type}`)}
+                                    {item.library_version_hash && (
+                                        <span
+                                            className="flex min-w-0 items-center gap-4"
+                                            data-testid="prop-row-model"
+                                        >
+                                            <span aria-hidden>·</span>
+                                            <CubeIcon
+                                                size={12}
+                                                className="shrink-0"
+                                                aria-label={t(
+                                                    "props.model.label",
+                                                )}
+                                            />
+                                            <span className="truncate">
+                                                {modelNames.get(
+                                                    item.library_version_hash,
+                                                ) ?? t("props.model.missing")}
+                                            </span>
+                                        </span>
+                                    )}
                                 </span>
                             </div>
                         </div>
