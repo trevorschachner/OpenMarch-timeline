@@ -288,9 +288,17 @@ export interface ModifiedItemArgs {
     model?: string | null;
     /** Locks the item to one position for the whole show, or unlocks it */
     locked?: boolean;
+    /**
+     * Sizes every Outline change of the item to this, in meters, keeping their turns: a new
+     * model's footprint, set with `model`
+     */
+    footprint?: { width: number; depth: number; height: number };
 }
 
-/** Renames items, changes props' surface types and colors, and sets items' models and locks. */
+/**
+ * Renames items, changes props' surface types and colors, sets items' models and locks, and
+ * resizes them to a model's footprint.
+ */
 export async function updateItemsInTransaction({
     tx,
     modifiedItems,
@@ -305,6 +313,7 @@ export async function updateItemsInTransaction({
         color,
         model,
         locked,
+        footprint,
     } of modifiedItems) {
         const item = await tx
             .select()
@@ -323,6 +332,16 @@ export async function updateItemsInTransaction({
                 .update(schema.items)
                 .set({ color, model, locked })
                 .where(eq(schema.items.id, itemId))
+                .run();
+        if (footprint !== undefined)
+            await tx
+                .update(schema.item_geometry)
+                .set({
+                    width: footprint.width,
+                    depth: footprint.depth,
+                    height: footprint.height,
+                })
+                .where(eq(schema.item_geometry.item_id, itemId))
                 .run();
         if (surfaceType !== undefined) {
             if (item.kind !== "prop")
