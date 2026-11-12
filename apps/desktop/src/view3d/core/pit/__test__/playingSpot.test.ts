@@ -76,6 +76,34 @@ describe("playingSpotOf", () => {
         expect(half.y).toBeCloseTo(20 + 0.5 + FOOT);
     });
 
+    it("puts the spot on the field side of an item turned to face the field from behind it", () => {
+        // A long instrument behind the back sideline, turned 180: the field is +y from it
+        const turned = playingSpotOf("pit/marimba-5.0", {
+            center: { x: 10, y: -20 },
+            depth: 1.2,
+            rotation: 180,
+        })!;
+        expect(turned.x).toBeCloseTo(10);
+        expect(turned.y).toBeCloseTo(-20 + 0.6 + FOOT);
+        expect(turned.facing).toBe(180);
+        // A three-quarter turn: the field side is -x
+        const threeQuarter = playingSpotOf("pit/marimba-5.0", {
+            center: { x: 10, y: 20 },
+            depth: 1,
+            rotation: 270,
+        })!;
+        expect(threeQuarter.x).toBeCloseTo(10 - 0.5 - FOOT);
+        expect(threeQuarter.y).toBeCloseTo(20);
+        // -180 is the same turn as 180
+        const negative = playingSpotOf("pit/marimba-5.0", {
+            center: { x: 10, y: -20 },
+            depth: 1.2,
+            rotation: -180,
+        })!;
+        expect(negative.x).toBeCloseTo(turned.x);
+        expect(negative.y).toBeCloseTo(turned.y);
+    });
+
     it("works in any unit, given its units per meter", () => {
         const spot = playingSpotOf(
             "pit/marimba-5.0",
