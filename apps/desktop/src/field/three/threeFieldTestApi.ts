@@ -275,7 +275,7 @@ function itemsOnScreen(field: ThreeFieldState): FieldTestItem[] {
     const view = field.view();
     return field.items
         .outlines()
-        .map(({ id, center, geometry }): FieldTestItem => {
+        .map(({ id, center, geometry, locked, playingSpot }): FieldTestItem => {
             const at = fieldToElement(view, center.x, center.y);
             return {
                 id,
@@ -286,6 +286,11 @@ function itemsOnScreen(field: ThreeFieldState): FieldTestItem[] {
                 x: center.x,
                 y: center.y,
                 screen: { x: rect.x + at.x, y: rect.y + at.y },
+                locked,
+                playingSpot: playingSpot && {
+                    x: playingSpot.x,
+                    y: playingSpot.y,
+                },
             };
         })
         .sort((a, b) => a.id - b.id);
