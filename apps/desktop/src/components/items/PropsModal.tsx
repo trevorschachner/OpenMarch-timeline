@@ -40,6 +40,7 @@ import { dbMarcherToMarcher } from "@/global/classes/Marcher";
 import { useTimingObjects } from "@/hooks";
 import {
     allItemsQueryOptions,
+    createPropWithModelMutationOptions,
     deleteItemsMutationOptions,
     itemGeometryQueryOptions,
     setItemGeometryMutationOptions,
@@ -56,9 +57,15 @@ import {
     beatIndexesById,
     itemOutlineChanges,
     outlineWriteBeat,
+    outlineWriteBeatNow,
 } from "@/items/itemOutlineTimeline";
+import { fieldPropertiesQueryOptions } from "@/hooks/queries/useFieldProperties";
+import { isWebBuild } from "@/utilities/webBuild";
 import { parsePropColor, propColorToString } from "@/items/propColor";
-import PropModelControl from "./PropModelControl";
+import PropModelControl, {
+    PropModelRefusal,
+    usePickPropModel,
+} from "./PropModelControl";
 
 type ItemWithMarcher = Awaited<ReturnType<typeof getItems>>[number];
 
@@ -132,6 +139,7 @@ export function PropListContents() {
             <ModalHeader title={<T keyName="props.title" />} />
             <div className="flex w-[28rem] grow flex-col gap-16 overflow-y-auto">
                 <PropToolSelector />
+                <PropModelImporter />
                 <div className="border-stroke border-t pt-12">
                     <PropList
                         onEdit={(item) =>
@@ -143,6 +151,58 @@ export function PropListContents() {
                     />
                 </div>
             </div>
+        </div>
+    );
+}
+
+/** Opens the Props panel on one prop's editor, as its Edit button does. */
+export function openPropEditor(itemId: number) {
+    const store = useSidebarModalStore.getState();
+    store.setContent(<PropEditContents itemId={itemId} />, "props");
+    store.setOpen(true);
+}
+
+/**
+ * A new prop from a model file, without drawing its Outline first: it stands at the field's
+ * center from the playhead's count, sized to the model, and its editor opens. Desktop only.
+ */
+function PropModelImporter() {
+    const { t } = useTranslate();
+    const queryClient = useQueryClient();
+    const { beats } = useTimingObjects()!;
+    const { data: field } = useQuery(fieldPropertiesQueryOptions());
+    const { pick, refusal, busy } = usePickPropModel();
+    const create = useMutation(createPropWithModelMutationOptions(queryClient));
+    if (isWebBuild) return null;
+
+    const importModel = async () => {
+        const model = await pick();
+        const beat = outlineWriteBeatNow(beats);
+        if (!model || !beat || !field) return;
+        const itemId = await create
+            .mutateAsync({
+                home: [field.centerFrontPoint.xPixels, field.height / 2],
+                beatId: beat.id,
+                model,
+            })
+            .catch(() => null);
+        if (itemId !== null) openPropEditor(itemId);
+    };
+
+    return (
+        <div className="flex flex-col gap-8">
+            <Button
+                size="compact"
+                variant="secondary"
+                className="w-full"
+                disabled={busy || create.isPending}
+                onClick={() => void importModel()}
+                data-testid="prop-import-model"
+            >
+                <CubeIcon size={16} />
+                {t("props.model.importNew")}
+            </Button>
+            {refusal && <PropModelRefusal refusal={refusal} />}
         </div>
     );
 }

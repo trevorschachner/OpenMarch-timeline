@@ -13,15 +13,21 @@ and its review) and [ADR 0010](../adr/0010-3d-view.md) D-12 to D-19.
 
 1. Make the model in any tool that exports glTF 2.0 (`.glb`, or `.gltf` with
    its files beside it). Blender is free and the reference here.
-2. In OpenMarch, open **Props**, pick the prop, and under **3D model** choose
-   **Import…**.
+2. In OpenMarch, open **Props** and choose **Import a 3D model…**. The new
+   prop stands at the middle of the field from the playhead's count, named
+   after the file and sized to the model, and its editor opens. Move it like
+   any prop.
 3. The importer checks and cleans the file (below). If it can't take the
    file, the reason shows right there.
-4. The prop's Outline becomes a rectangle the model's size, and the 3D View
-   draws the model in place of the block. Undo puts the old Outline back.
+4. **View in 3D** opens the 3D View (or brings it forward) and flies the
+   camera to the prop.
 5. Resize the prop as usual: the model scales evenly to fit the new Outline,
    never stretched. **Replace…** swaps the model; **Remove** goes back to the
    block.
+
+An existing prop takes a model too: in its editor, under **3D model**, choose
+**Import…**. Its Outline becomes a rectangle the model's size; undo puts the
+old Outline back.
 
 The model is embedded in the show file, so the show opens anywhere with it.
 Importing the same file twice stores it once.

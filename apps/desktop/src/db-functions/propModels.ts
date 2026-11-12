@@ -17,6 +17,7 @@ import {
 import { schema } from "@/global/database/db";
 import type { DbConnection, DbTransaction } from "./types";
 import { transactionWithHistory } from "./history";
+import { createItemsInTransaction } from "./items";
 
 /** The part roles of a model Version, as the parked Library named them. */
 export const MODEL_PART_GLB = "glb";
@@ -144,10 +145,62 @@ export async function embedModelInTransaction({
 }
 
 /**
- * Shows a prop as an imported model, or as its plain block again (`model` null), as one undo
- * step. With a model, every Outline change of the prop becomes a rectangle the size of the model:
- * its footprint across and front to back, and its height.
+ * Points a prop at a model (embedding it) and sizes every Outline change of the prop to the
+ * model's footprint and height, or with `model` null goes back to the plain block, keeping its
+ * Outline.
  */
+export async function setPropModelInTransaction({
+    tx,
+    itemId,
+    model,
+}: {
+    tx: DbTransaction;
+    itemId: number;
+    model: ImportedModel | null;
+}): Promise<ModelRef | null> {
+    const item = await tx
+        .select({ kind: schema.items.kind })
+        .from(schema.items)
+        .where(eq(schema.items.id, itemId))
+        .get();
+    if (!item) throw new Error(`No item with id ${itemId}`);
+    if (item.kind !== "prop") throw new Error("Only props have a model");
+
+    if (!model) {
+        await tx
+            .update(schema.items)
+            .set({ library_item_id: null, library_version_hash: null })
+            .where(eq(schema.items.id, itemId))
+            .run();
+        return null;
+    }
+
+    const ref = await embedModelInTransaction({ tx, model });
+    await tx
+        .update(schema.items)
+        .set({
+            library_item_id: ref.itemId,
+            library_version_hash: ref.versionHash,
+        })
+        .where(eq(schema.items.id, itemId))
+        .run();
+    const [width, height, depth] = ref.sidecar.bounds.size;
+    await tx
+        .update(schema.item_geometry)
+        .set({
+            outline_type: "rectangle",
+            custom_outline: null,
+            // An Outline can't be 0 across; a flat model still has a footprint
+            width: Math.max(width, 0.01),
+            depth: Math.max(depth, 0.01),
+            height: Math.max(height, 0),
+        })
+        .where(eq(schema.item_geometry.item_id, itemId))
+        .run();
+    return { itemId: ref.itemId, versionHash: ref.versionHash };
+}
+
+/** `setPropModelInTransaction` as one undo step. */
 export async function setPropModel({
     db,
     itemId,
@@ -157,47 +210,42 @@ export async function setPropModel({
     itemId: number;
     model: ImportedModel | null;
 }): Promise<ModelRef | null> {
-    return transactionWithHistory(db, "setPropModel", async (tx) => {
-        const item = await tx
-            .select({ kind: schema.items.kind })
-            .from(schema.items)
-            .where(eq(schema.items.id, itemId))
-            .get();
-        if (!item) throw new Error(`No item with id ${itemId}`);
-        if (item.kind !== "prop") throw new Error("Only props have a model");
+    return transactionWithHistory(db, "setPropModel", (tx) =>
+        setPropModelInTransaction({ tx, itemId, model }),
+    );
+}
 
-        if (!model) {
-            await tx
-                .update(schema.items)
-                .set({ library_item_id: null, library_version_hash: null })
-                .where(eq(schema.items.id, itemId))
-                .run();
-            return null;
-        }
-
-        const ref = await embedModelInTransaction({ tx, model });
-        await tx
-            .update(schema.items)
-            .set({
-                library_item_id: ref.itemId,
-                library_version_hash: ref.versionHash,
-            })
-            .where(eq(schema.items.id, itemId))
-            .run();
-        const [width, height, depth] = ref.sidecar.bounds.size;
-        await tx
-            .update(schema.item_geometry)
-            .set({
-                outline_type: "rectangle",
-                custom_outline: null,
-                // An Outline can't be 0 across; a flat model still has a footprint
-                width: Math.max(width, 0.01),
-                depth: Math.max(depth, 0.01),
-                height: Math.max(height, 0),
-            })
-            .where(eq(schema.item_geometry.item_id, itemId))
-            .run();
-        return { itemId: ref.itemId, versionHash: ref.versionHash };
+/**
+ * A new prop drawn as `model`, as one undo step: named after the model, home at `home`, on field
+ * from `beatId`, its Outline the model's size. Returns the new prop's item id.
+ */
+export async function createPropWithModel({
+    db,
+    home,
+    beatId,
+    model,
+}: {
+    db: DbConnection;
+    home: [number, number];
+    beatId: number;
+    model: ImportedModel;
+}): Promise<number> {
+    return transactionWithHistory(db, "createPropWithModel", async (tx) => {
+        const [item] = await createItemsInTransaction({
+            tx,
+            newItems: [
+                {
+                    kind: "prop",
+                    name: nameFromFilename(model.filename),
+                    home,
+                    beatId,
+                    // Sized to the model next
+                    geometry: { outlineType: "rectangle", width: 1, depth: 1 },
+                },
+            ],
+        });
+        await setPropModelInTransaction({ tx, itemId: item.id, model });
+        return item.id;
     });
 }
 

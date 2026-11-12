@@ -10,6 +10,7 @@ import { outlineWriteBeatNow } from "@/items/itemOutlineTimeline";
 import { newPropFromDrawing } from "@/items/newPropFromDrawing";
 import type { DrawnOutline } from "@/items/itemOutlines";
 import type { FieldEditor, FieldPoint } from "@/field/editor/fieldEditor";
+import { openPropEditor } from "@/components/items/PropsModal";
 
 /**
  * Turns the field's prop tool on and off with the Props panel's Draw
@@ -52,8 +53,9 @@ export function snapToRounding(
 
 /**
  * Makes the prop the prop tool drew: home at its Outline's center, on field
- * from the beat at or before the playhead, then turns the tool off. Returns
- * the editor's `propDrawn` port.
+ * from the beat at or before the playhead, then turns the tool off and opens
+ * the new prop's editor in the Props panel. Returns the editor's `propDrawn`
+ * port.
  */
 export function usePropDrawn(): (outline: DrawnOutline) => void {
     const queryClient = useQueryClient();
@@ -67,6 +69,11 @@ export function usePropDrawn(): (outline: DrawnOutline) => void {
         const { beats, mutate } = latest.current;
         useItemDrawingStore.getState().resetDrawingState();
         const beat = outlineWriteBeatNow(beats);
-        if (beat) mutate([newPropFromDrawing(outline, beat.id)]);
+        if (beat)
+            mutate([newPropFromDrawing(outline, beat.id)], {
+                onSuccess: ([item]) => {
+                    if (item) openPropEditor(item.id);
+                },
+            });
     }, []);
 }

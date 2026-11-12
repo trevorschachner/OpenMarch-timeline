@@ -8,6 +8,7 @@ import { getTestWithHistory } from "@/test/history";
 import { performUndo } from "../history";
 import { createItems, getItemGeometry, getItems } from "../items";
 import {
+    createPropWithModel,
     getLibraryBlob,
     getPropModels,
     setPropModel,
@@ -208,6 +209,36 @@ describeDbTests("propModels", (it) => {
             expect(await versionHashOf({ glb: "a" })).toBe(hex);
             expect(hex).toHaveLength(64);
         });
+    });
+
+    describe("createPropWithModel", () => {
+        testWithHistory(
+            "makes a prop named after the model, sized to it, as one undo step",
+            async ({ db }) => {
+                const itemId = await createPropWithModel({
+                    db,
+                    home: [300, 200],
+                    beatId: await firstBeatId(db),
+                    model: model([2.44, 0.41, 1.22]),
+                });
+                const [item] = await getItems({ db });
+                expect(item.id).toBe(itemId);
+                expect(item.kind).toBe("prop");
+                expect(item.marcher.name).toBe("riser");
+                expect(item.library_version_hash).not.toBeNull();
+                expect(await getItemGeometry({ db })).toMatchObject([
+                    {
+                        outline_type: "rectangle",
+                        width: 2.44,
+                        depth: 1.22,
+                        height: 0.41,
+                    },
+                ]);
+
+                await performUndo(db);
+                expect(await getItems({ db })).toEqual([]);
+            },
+        );
     });
 
     it("leaves other items alone", async ({ db }) => {

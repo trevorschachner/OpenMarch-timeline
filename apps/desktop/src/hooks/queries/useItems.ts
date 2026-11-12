@@ -6,6 +6,7 @@ import {
 import { db } from "@/global/database/db";
 import {
     createItems,
+    createPropWithModel,
     deleteMarchers,
     getItemGeometry,
     getItems,
@@ -73,6 +74,18 @@ export const createItemsMutationOptions = (qc: QueryClient) =>
         onSuccess: () => invalidateItemsAndMarchers(qc),
         onError: (e, variables) => {
             conToastError(tolgee.t("props.errors.create"), e, variables);
+        },
+    });
+
+/** A new prop drawn as an imported model (the Props panel's "Import a 3D model"). Resolves to its item id. */
+export const createPropWithModelMutationOptions = (qc: QueryClient) =>
+    mutationOptions({
+        mutationFn: (
+            args: Omit<Parameters<typeof createPropWithModel>[0], "db">,
+        ) => createPropWithModel({ db, ...args }),
+        onSuccess: () => invalidateItemsAndMarchers(qc),
+        onError: (e) => {
+            conToastError(tolgee.t("props.errors.create"), e);
         },
     });
 

@@ -1382,6 +1382,8 @@
             "import": "Import…",
             "replace": "Replace…",
             "remove": "Remove",
+            "viewIn3d": "View in 3D",
+            "importNew": "Import a 3D model…",
             "hint": "Import a .glb or .gltf file to show this prop as that model in the 3D View. The prop takes the model's size.",
             "errors": {
                 "import": "Couldn't import the 3D model",
@@ -1413,7 +1415,7 @@
         },
         "edit": "Edit prop",
         "editTitle": "Edit Prop",
-        "empty": "No props yet. Pick an outline above and draw one on the field.",
+        "empty": "No props yet. Pick an outline above and draw one on the field, or import a 3D model.",
         "errors": {
             "create": "Couldn't create the prop",
             "delete": "Couldn't delete the prop",

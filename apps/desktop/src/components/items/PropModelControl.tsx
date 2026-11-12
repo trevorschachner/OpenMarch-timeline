@@ -1,12 +1,13 @@
 /**
  * A prop's 3D model in the prop editor: import a glTF file (.glb or .gltf) to draw the prop as it
- * in the 3D View, replace it, or go back to the plain block. Importing sizes the prop's Outline
- * to the model. Desktop only: the import runs in the main process.
+ * in the 3D View, replace it, or go back to the plain block, and see the prop in the 3D View.
+ * Importing sizes the prop's Outline to the model. Desktop only: the import runs in the main
+ * process.
  *
  * A file that can't be imported says why right here, never in a modal (props-spec section 2,
  * "The review").
  */
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { T, useTranslate } from "@tolgee/react";
 import { Button, WarningNote } from "@openmarch/ui";
@@ -24,6 +25,7 @@ import {
 } from "@/hooks/queries/useItems";
 import { conToastError } from "@/utilities/utils";
 import { isWebBuild } from "@/utilities/webBuild";
+import { viewPropIn3d } from "@/view3d/sync/view3dFocus";
 
 type ItemWithMarcher = Awaited<ReturnType<typeof getItems>>[number];
 
@@ -52,12 +54,67 @@ const refusalCodes = (report: ModelImportReport | null) => {
     return codes.length ? [...new Set(codes)] : ["other"];
 };
 
+/**
+ * Picks a model file and imports it. Resolves to the model, or to null when the file picker was
+ * canceled or the file can't be imported, which `refusal` then says why.
+ */
+export function usePickPropModel() {
+    const { t } = useTranslate();
+    const [refusal, setRefusal] = useState<Refusal | null>(null);
+    const [busy, setBusy] = useState(false);
+    const pick = useCallback(async (): Promise<ImportedModel | null> => {
+        setRefusal(null);
+        setBusy(true);
+        try {
+            const result = await window.electron.importPropModel();
+            if (result.status === "canceled") return null;
+            if (result.status === "rejected") {
+                setRefusal({
+                    filename: result.filename,
+                    codes: refusalCodes(result.report),
+                });
+                return null;
+            }
+            return {
+                glb: result.glb,
+                sidecar: result.sidecar,
+                filename: result.filename,
+            };
+        } catch (e) {
+            conToastError(t("props.model.errors.import"), e);
+            return null;
+        } finally {
+            setBusy(false);
+        }
+    }, [t]);
+    return { pick, refusal, busy };
+}
+
+/** Why a file can't be a prop model, right where it was picked. */
+export function PropModelRefusal({ refusal }: { refusal: Refusal }) {
+    const { t } = useTranslate();
+    return (
+        <WarningNote>
+            <span className="font-medium">
+                <T
+                    keyName="props.model.rejected.title"
+                    params={{ filename: refusal.filename }}
+                />
+            </span>
+            <ul className="list-disc pl-16">
+                {refusal.codes.map((code) => (
+                    <li key={code}>{t(`props.model.rejected.${code}`)}</li>
+                ))}
+            </ul>
+        </WarningNote>
+    );
+}
+
 export default function PropModelControl({ item }: { item: ItemWithMarcher }) {
     const { t } = useTranslate();
     const queryClient = useQueryClient();
     const { data: models } = useQuery(propModelsQueryOptions());
-    const [refusal, setRefusal] = useState<Refusal | null>(null);
-    const [busy, setBusy] = useState(false);
+    const { pick, refusal, busy } = usePickPropModel();
 
     const current = models?.find(
         (m) => m.versionHash === item.library_version_hash,
@@ -78,28 +135,8 @@ export default function PropModelControl({ item }: { item: ItemWithMarcher }) {
     if (isWebBuild) return null;
 
     const importModel = async () => {
-        setRefusal(null);
-        setBusy(true);
-        try {
-            const result = await window.electron.importPropModel();
-            if (result.status === "canceled") return;
-            if (result.status === "rejected") {
-                setRefusal({
-                    filename: result.filename,
-                    codes: refusalCodes(result.report),
-                });
-                return;
-            }
-            await setModel.mutateAsync({
-                glb: result.glb,
-                sidecar: result.sidecar,
-                filename: result.filename,
-            });
-        } catch (e) {
-            conToastError(t("props.model.errors.import"), e);
-        } finally {
-            setBusy(false);
-        }
+        const model = await pick();
+        if (model) await setModel.mutateAsync(model).catch(() => {});
     };
 
     return (
@@ -124,6 +161,14 @@ export default function PropModelControl({ item }: { item: ItemWithMarcher }) {
                     <Button
                         size="compact"
                         variant="secondary"
+                        onClick={() => viewPropIn3d(item.marcher_id)}
+                        data-testid="prop-view-in-3d"
+                    >
+                        <T keyName="props.model.viewIn3d" />
+                    </Button>
+                    <Button
+                        size="compact"
+                        variant="secondary"
                         disabled={busy}
                         onClick={() => void importModel()}
                     >
@@ -143,23 +188,7 @@ export default function PropModelControl({ item }: { item: ItemWithMarcher }) {
                     )}
                 </div>
             </div>
-            {refusal && (
-                <WarningNote>
-                    <span className="font-medium">
-                        <T
-                            keyName="props.model.rejected.title"
-                            params={{ filename: refusal.filename }}
-                        />
-                    </span>
-                    <ul className="list-disc pl-16">
-                        {refusal.codes.map((code) => (
-                            <li key={code}>
-                                {t(`props.model.rejected.${code}`)}
-                            </li>
-                        ))}
-                    </ul>
-                </WarningNote>
-            )}
+            {refusal && <PropModelRefusal refusal={refusal} />}
             {!refusal && !item.library_version_hash && (
                 <span className="text-text/50 text-sub">
                     <T keyName="props.model.hint" />
