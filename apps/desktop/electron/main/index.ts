@@ -16,6 +16,7 @@ import * as DatabaseServices from "../database/database.services";
 import { VIEW3D_AUTO_OPEN_SETTING } from "../../src/view3d/sync/protocol";
 import { buildApplicationMenu } from "./application-menu";
 import { onMainLanguageChange, setMainLanguage, t } from "./i18n";
+import { importPropModel } from "./model-import/propModelImport";
 import { textContextMenuTemplate } from "./textContextMenu";
 import { openSettingsWindow } from "./settings-window";
 import { TRAFFIC_LIGHT_POSITION } from "./traffic-lights";
@@ -493,6 +494,9 @@ function initDatabaseIpcHandlers() {
         }
     });
     ipcMain.handle("audio:insert", async () => insertAudioFile());
+    ipcMain.handle("prop-model:import", async () =>
+        win ? importPropModel(win) : { status: "canceled" },
+    );
     ipcMain.handle("conversion:getPending", () => conversionQuestion.current());
     ipcMain.handle("load-file:takeRefusal", () => {
         const resCode = refusalAfterReload;

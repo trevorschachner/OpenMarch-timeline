@@ -12,6 +12,7 @@ import * as DbServices from "@om-electron/database/database.services";
 
 import type { RecentFile } from "@om-electron/main/services/recent-files-service";
 import type { PreviousDotsImportResult } from "@om-electron/main/services/previous-dots-import-service";
+import type { PropModelImportResponse } from "@om-electron/main/model-import/propModelImport";
 import type {
     AuthState,
     AuthError,
@@ -495,6 +496,12 @@ const APP_API = {
             "audio:delete",
             audioFileId,
         ) as Promise<AudioFile | null>,
+
+    // Prop models: pick a 3D model file and import it in main (desktop only)
+    importPropModel: () =>
+        ipcRenderer.invoke(
+            "prop-model:import",
+        ) as Promise<PropModelImportResponse>,
 
     // SQL Proxy for Drizzle
     sqlProxy: (
