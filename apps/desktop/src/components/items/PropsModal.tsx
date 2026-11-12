@@ -264,6 +264,13 @@ function PropList({ onEdit }: { onEdit: (item: ItemWithMarcher) => void }) {
                 const visibilityLabel = hidden
                     ? t("props.show")
                     : t("props.hide");
+                const equipment = item.kind === "equipment";
+                const editLabel = equipment
+                    ? t("props.equipment.edit")
+                    : t("props.edit");
+                const deleteLabel = equipment
+                    ? t("props.equipment.delete")
+                    : t("props.delete");
                 return (
                     <div
                         key={item.id}
@@ -319,8 +326,8 @@ function PropList({ onEdit }: { onEdit: (item: ItemWithMarcher) => void }) {
                             <Button
                                 variant="secondary"
                                 size="compact"
-                                aria-label={t("props.edit")}
-                                title={t("props.edit")}
+                                aria-label={editLabel}
+                                title={editLabel}
                                 onClick={(e) => {
                                     e.stopPropagation();
                                     onEdit(item);
@@ -331,8 +338,8 @@ function PropList({ onEdit }: { onEdit: (item: ItemWithMarcher) => void }) {
                             <Button
                                 variant="red"
                                 size="compact"
-                                aria-label={t("props.delete")}
-                                title={t("props.delete")}
+                                aria-label={deleteLabel}
+                                title={deleteLabel}
                                 onClick={(e) => {
                                     e.stopPropagation();
                                     // Undoable, like deleting marchers
@@ -440,10 +447,18 @@ function EquipmentModelControl({ item }: { item: ItemWithMarcher }) {
 
 export function PropEditContents({ itemId }: { itemId: number }) {
     const { setContent } = useSidebarModalStore();
+    const { data: items } = useQuery(allItemsQueryOptions());
+    const equipment = items?.find((i) => i.id === itemId)?.kind === "equipment";
     return (
         <div className="animate-scale-in text-text flex h-full w-fit flex-col gap-16">
             <ModalHeader
-                title={<T keyName="props.editTitle" />}
+                title={
+                    equipment ? (
+                        <T keyName="props.equipment.editTitle" />
+                    ) : (
+                        <T keyName="props.editTitle" />
+                    )
+                }
                 onBack={() => setContent(<PropListContents />, "props")}
             />
             <div className="flex w-[28rem] grow flex-col gap-16 overflow-y-auto">

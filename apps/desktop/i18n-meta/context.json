@@ -2909,5 +2909,8 @@
     "pit.variant.syntheticBlack": "Part of a front ensemble model's name in the Props panel, joined to other parts with ' · ' (e.g. '5.0 octaves · Rosewood'): bars made of a black synthetic material instead of wood. Short.",
     "pit.variant.tall": "Part of a front ensemble model's name in the Props panel, joined to other parts with ' · ' (e.g. '5.0 octaves · Rosewood'): a tall loudspeaker, or a tall conductor's podium. Short.",
     "pit.variant.toms": "Part of a front ensemble model's name in the Props panel, joined to other parts with ' · ' (e.g. '5.0 octaves · Rosewood'): an aux rack holding tom drums. Short.",
-    "pit.variant.wide": "Part of a front ensemble model's name in the Props panel, joined to other parts with ' · ' (e.g. '5.0 octaves · Rosewood'): a wide, low loudspeaker. Short."
+    "pit.variant.wide": "Part of a front ensemble model's name in the Props panel, joined to other parts with ' · ' (e.g. '5.0 octaves · Rosewood'): a wide, low loudspeaker. Short.",
+    "props.equipment.delete": "Tooltip and screen-reader label of the red trash button beside a piece of equipment (a front ensemble instrument, speaker, mixer or podium) in the Props panel's list. Deletes it; undo brings it back. Same as 'Delete prop', for equipment.",
+    "props.equipment.edit": "Tooltip and screen-reader label of the pencil button beside a piece of equipment (a front ensemble instrument, speaker, mixer or podium) in the Props panel's list. Opens its edit view. Same as 'Edit prop', for equipment.",
+    "props.equipment.editTitle": "Title of the Props panel's edit view for a piece of equipment (a front ensemble instrument, speaker, mixer or podium), in title case like 'Edit Prop'."
 }

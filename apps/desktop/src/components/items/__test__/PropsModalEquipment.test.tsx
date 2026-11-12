@@ -292,4 +292,89 @@ describeDbTests("Props panel front ensemble", (it) => {
         await performUndo(db);
         expect((await getItems({ db }))[0].locked).toBe(true);
     });
+
+    it("places a podium with the turn the tool gave it", async ({
+        db,
+        marchersAndPages,
+    }) => {
+        expect(marchersAndPages).toBeDefined();
+        await setUpFeature(
+            <>
+                <PropListContents />
+                <FieldPort />
+            </>,
+            PAGE,
+            [],
+        );
+        const ensemble = screen.getByRole("region", {
+            name: "Front ensemble",
+        });
+        fireEvent.click(
+            within(ensemble).getByRole("button", { name: /Podium/ }),
+        );
+        fireEvent.click(within(ensemble).getByRole("button", { name: /^Low/ }));
+        // Behind the back sideline, turned to face the field
+        act(() =>
+            port.drawn!({
+                outlineType: "rectangle",
+                centerX: 300,
+                centerY: -40,
+                widthPixels: 1,
+                depthPixels: 1,
+                rotation: 180,
+            }),
+        );
+        await waitFor(async () =>
+            expect(await getItemGeometry({ db })).toHaveLength(1),
+        );
+        expect((await getItemGeometry({ db }))[0].rotation).toBe(180);
+        expect((await getItems({ db }))[0]).toMatchObject({
+            model: "pit/conductor-podium",
+            marcher: { name: "Podium 1", home_y: -40 },
+        });
+    });
+
+    it("calls equipment equipment, not a prop, when editing and deleting it", async ({
+        db,
+        marchersAndPages,
+    }) => {
+        expect(marchersAndPages).toBeDefined();
+        const beatId = await firstBeatId(db);
+        const [item] = await createItems({
+            db,
+            newItems: [
+                marimba(beatId),
+                {
+                    kind: "prop",
+                    name: "Riser",
+                    surfaceType: "platform",
+                    home: [40, 40],
+                    beatId,
+                    geometry: {
+                        outlineType: "rectangle",
+                        width: 2,
+                        depth: 1,
+                        height: 0.4,
+                    },
+                },
+            ],
+        });
+        const { result } = await setUpFeature(<PropListContents />, PAGE, []);
+        await screen.findByText("Marimba 1");
+        expect(
+            screen
+                .getAllByRole("button", { name: /^(Edit|Delete) / })
+                .map((b) => b.getAttribute("aria-label")),
+        ).toEqual([
+            "Edit equipment",
+            "Delete equipment",
+            "Edit prop",
+            "Delete prop",
+        ]);
+        result.unmount();
+        await setUpFeature(<PropEditContents itemId={item.id} />, PAGE, []);
+        expect(
+            await screen.findByRole("heading", { name: "Edit Equipment" }),
+        ).toBeInTheDocument();
+    });
 });

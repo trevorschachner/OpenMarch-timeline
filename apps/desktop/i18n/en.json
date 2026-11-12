@@ -1436,6 +1436,9 @@
         "lockHint": "One position for the whole show",
         "equipment": {
             "block": "Equipment",
+            "delete": "Delete equipment",
+            "edit": "Edit equipment",
+            "editTitle": "Edit Equipment",
             "model": "{family} model",
             "placeInstructions": "Click the field to place the {name}. It is on the field from the playhead's count."
         },
