@@ -22,8 +22,13 @@ export const DIMMED_ITEM_ALPHA = 0.3;
 /** A filled polygon, in field units. */
 export type FillPlan = { readonly points: readonly Pt[]; readonly color: Rgba };
 
-/** A locked item's badge: a disc this many CSS px across its radius, holding a padlock */
-export const LOCK_BADGE_RADIUS = 7;
+/**
+ * A locked item's badge: a disc of this radius in CSS px, holding a padlock. On an item small on
+ * screen it shrinks to half the item's narrower side, and below `MIN_LOCK_BADGE_RADIUS` it isn't
+ * drawn, so a zoomed-out pit doesn't turn into a row of locks.
+ */
+export const LOCK_BADGE_RADIUS = 9;
+export const MIN_LOCK_BADGE_RADIUS = 4;
 /** A playing spot's ring: as faint as this share of the Outline's line, 1 CSS px wide */
 export const PLAYING_SPOT_ALPHA = 0.55;
 const PLAYING_SPOT_WIDTH = 1;
@@ -53,7 +58,7 @@ const faded = (color: Rgba, alpha: number): Rgba => [
  * The items layer's plan: every Outline filled in its prop's color (or
  * faintly in the theme's line color) and outlined in the theme's line color,
  * a selected one outlined in the selection color. A locked item gets a
- * padlock badge at its top right corner, the same size on screen at every
+ * padlock badge at its top left corner, the same size on screen at every
  * `zoom` (CSS px per field unit, 1 by default); a pit instrument a faint ring
  * on its playing spot, as wide as the spot's reach.
  */
@@ -110,14 +115,19 @@ export function planItems(
             });
         }
         if (outline.locked) {
-            const corner = topRight(outline.points);
+            const corner = topLeft(outline.points);
             locks.push(corner);
-            badgeFills.push(
-                ...lockBadge(corner, 1 / zoom, {
-                    disc: faded(rgbaOf(theme.background), 0.9 * alpha),
-                    lock: faded(line, alpha),
-                }),
+            const radius = Math.min(
+                LOCK_BADGE_RADIUS,
+                (narrowerSide(outline.points) * zoom) / 2,
             );
+            if (radius >= MIN_LOCK_BADGE_RADIUS)
+                badgeFills.push(
+                    ...lockBadge(corner, radius / LOCK_BADGE_RADIUS / zoom, {
+                        disc: faded(rgbaOf(theme.background), 0.9 * alpha),
+                        lock: faded(line, alpha),
+                    }),
+                );
         }
     }
     return {
@@ -128,15 +138,25 @@ export function planItems(
     };
 }
 
-/** The top right corner of the points' box, in field units (y grows down the screen) */
-function topRight(points: readonly Pt[]): Pt {
-    let x = -Infinity;
+/** The top left corner of the points' box, in field units (y grows down the screen) */
+function topLeft(points: readonly Pt[]): Pt {
+    let x = Infinity;
     let y = Infinity;
     for (const p of points) {
-        x = Math.max(x, p.x);
+        x = Math.min(x, p.x);
         y = Math.min(y, p.y);
     }
     return { x, y };
+}
+
+/** The narrower side of the points' box, in field units */
+function narrowerSide(points: readonly Pt[]): number {
+    const xs = points.map((p) => p.x);
+    const ys = points.map((p) => p.y);
+    return Math.min(
+        Math.max(...xs) - Math.min(...xs),
+        Math.max(...ys) - Math.min(...ys),
+    );
 }
 
 /** A circle of `radius` about `center` as a polygon; `closed` repeats the first point at the end */
@@ -154,8 +174,8 @@ function circle(center: Pt, radius: number, closed = false): Pt[] {
 }
 
 /**
- * A padlock on a disc, centered on `at`, drawn as fills sized in CSS px (`px` field units each):
- * the disc, the lock's body, and its shackle as a thick arc with two legs.
+ * A padlock on a disc, centered on `at`, drawn as fills laid out in CSS px of a full-size badge
+ * (`px` field units each): the disc, the lock's body, and its shackle as a thick arc with two legs.
  */
 function lockBadge(
     at: Pt,
@@ -172,24 +192,29 @@ function lockBadge(
         p(x1, y1),
         p(x0, y1),
     ];
-    // The shackle: a half ring of outer radius 3 and inner 1.6, over the body's top at y = 0
-    const outer = 3;
-    const inner = 1.6;
+    // The shackle: a half ring of outer radius 3.5 and inner 2, over the body's top at y = -0.5
+    const outer = 3.5;
+    const inner = 2;
     const arc: Pt[] = [];
     const steps = 10;
     for (let i = 0; i <= steps; i++) {
         const a = Math.PI + (i / steps) * Math.PI;
-        arc.push(p(outer * Math.cos(a), -1 + outer * Math.sin(a)));
+        arc.push(p(outer * Math.cos(a), -1.5 + outer * Math.sin(a)));
     }
     for (let i = steps; i >= 0; i--) {
         const a = Math.PI + (i / steps) * Math.PI;
-        arc.push(p(inner * Math.cos(a), -1 + inner * Math.sin(a)));
+        arc.push(p(inner * Math.cos(a), -1.5 + inner * Math.sin(a)));
     }
     return [
-        { points: circle(at, LOCK_BADGE_RADIUS * px), color: colors.disc },
+        // A rim in the lock's color, then the disc inside it
+        { points: circle(at, LOCK_BADGE_RADIUS * px), color: colors.lock },
+        {
+            points: circle(at, (LOCK_BADGE_RADIUS - 1) * px),
+            color: colors.disc,
+        },
         { points: arc, color: colors.lock },
-        { points: rect(-outer, -1, -inner, 0.5), color: colors.lock },
-        { points: rect(inner, -1, outer, 0.5), color: colors.lock },
-        { points: rect(-4, 0, 4, 4.5), color: colors.lock },
+        { points: rect(-outer, -1.5, -inner, 0), color: colors.lock },
+        { points: rect(inner, -1.5, outer, 0), color: colors.lock },
+        { points: rect(-4.5, -0.5, 4.5, 5), color: colors.lock },
     ];
 }

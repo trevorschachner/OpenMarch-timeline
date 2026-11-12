@@ -253,7 +253,8 @@ function ThreeFieldView() {
     const numbersOnly = labelForm === "numbers";
     const items = useMemo(() => new FieldItems(marchers), [marchers]);
     const itemLabels = useFieldItems(items, beats);
-    const pitStrip = usePitStrip(fieldProperties);
+    const { strip: pitStrip, loaded: itemsLoaded } =
+        usePitStrip(fieldProperties);
     const saveItem = useFieldItemWrites(items);
     const propDrawn = usePropDrawn();
     const labels = useMemo(
@@ -548,7 +549,9 @@ function ThreeFieldView() {
     // The view opens once the field and a page are loaded. Latched: a page
     // briefly unselected mustn't reset the view
     const [ready, setReady] = useState(false);
-    if (!ready && fieldProperties && selectedPage) setReady(true);
+    // The items too, so a show with a pit opens fitted to the pit strip
+    if (!ready && fieldProperties && selectedPage && itemsLoaded)
+        setReady(true);
     // Until the layout settles, the view is still the opening view
     const settled = useRef(false);
     // Here, not in the camera: a canvas started over after a lost context
@@ -794,20 +797,23 @@ function useFieldItems(
 
 /**
  * The pit strip in front of the front sideline (instruments.md section 6), while the show has
- * equipment to stand there; the same rectangle until that changes.
+ * equipment to stand there; the same rectangle until that changes. `loaded` once the items are,
+ * so the view can open fitted to it.
  */
-function usePitStrip(
-    fieldProperties: FieldProperties | undefined,
-): FieldRect | null {
-    const { data: itemRows } = useQuery(allItemsQueryOptions());
+function usePitStrip(fieldProperties: FieldProperties | undefined): {
+    strip: FieldRect | null;
+    loaded: boolean;
+} {
+    const { data: itemRows, isFetched } = useQuery(allItemsQueryOptions());
     const hasEquipment = (itemRows ?? []).some(
         (item) => item.kind === "equipment",
     );
-    return useMemo(
+    const strip = useMemo(
         () =>
             fieldProperties ? pitStripOf(fieldProperties, hasEquipment) : null,
         [fieldProperties, hasEquipment],
     );
+    return { strip, loaded: isFetched };
 }
 
 /** How long to wait for Preview's layout to settle. */

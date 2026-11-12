@@ -119,17 +119,17 @@ describe("planItems for the front ensemble", () => {
     const zoom = 2;
     const withZoom = { ...options, zoom };
 
-    it("marks a locked item with a lock at its top right corner, the same size at every zoom", () => {
+    it("marks a locked item with a lock at its top left corner, the same size at every zoom", () => {
         const plain = planItems([square(1)], withZoom);
         expect(plain.locks).toEqual([]);
         const locked = planItems([{ ...square(1), locked: true }], withZoom);
-        expect(locked.locks).toEqual([{ x: 10, y: 0 }]);
+        expect(locked.locks).toEqual([{ x: 0, y: 0 }]);
         expect(locked.fills.length).toBeGreaterThan(plain.fills.length);
         // Everything the lock draws is within its badge, in CSS px
         const reach = LOCK_BADGE_RADIUS / zoom + 1e-9;
         for (const fill of locked.fills.slice(plain.fills.length))
             for (const p of fill.points) {
-                expect(Math.abs(p.x - 10)).toBeLessThanOrEqual(reach);
+                expect(Math.abs(p.x - 0)).toBeLessThanOrEqual(reach);
                 expect(Math.abs(p.y - 0)).toBeLessThanOrEqual(reach);
             }
         const zoomedIn = planItems([{ ...square(1), locked: true }], {
@@ -143,6 +143,25 @@ describe("planItems for the front ensemble", () => {
             return Math.max(...xs) - Math.min(...xs);
         };
         expect(span(zoomedIn)).toBeCloseTo(span(locked) / 2);
+    });
+
+    it("shrinks the lock on an item small on screen, and leaves it out when tiny", () => {
+        const plain = planItems([square(1)], { ...withZoom, zoom: 1 });
+        const badge = (zoom: number) =>
+            planItems([{ ...square(1), locked: true }], { ...withZoom, zoom })
+                .fills.slice(plain.fills.length)
+                .flatMap((f) => f.points.map((p) => p.x));
+        // At zoom 1 the 10-unit square is 10 px: a badge of radius 5 px
+        const small = badge(1);
+        expect(Math.max(...small) - Math.min(...small)).toBeCloseTo(10);
+        // At 0.5 it is 5 px: no badge, though it is still locked
+        expect(badge(0.5)).toEqual([]);
+        expect(
+            planItems([{ ...square(1), locked: true }], {
+                ...withZoom,
+                zoom: 0.5,
+            }).locks,
+        ).toHaveLength(1);
     });
 
     it("draws a pit instrument's playing spot as a faint ring of its reach", () => {
