@@ -473,8 +473,17 @@ reference. The model is picked as family, then variant. Default variants:
 marimba 5.0 rosewood, vibraphone 3.0 silver, synth 88-key single, drum set
 plain, speaker tall, mixer cart, podium low.
 
-Equipment is fixed for the whole show and edited with the normal prop
-editing. It is added from a "Front ensemble" group in the Props panel, which
+**Locked items.** Any item can be locked. A locked item has one position for
+the whole show and no moves: dragging it on any page moves it on every page.
+Lasso and select-all skip it, so selecting marchers never picks up the pit;
+clicking it still selects it, and 2D shows a lock icon. Unlocking gives it
+moves again. Equipment (pit instruments, podiums, speakers, the mixer,
+including everything a preset creates) is created locked; props are created
+unlocked. The flag is a boolean `items.locked` column, added in the same
+migration as `items.model`. Props that are on the field for only some pages
+are the placement work in `props-spec.md` §4, not part of this.
+
+Equipment is edited with the normal prop editing. It is added from a "Front ensemble" group in the Props panel, which
 also holds the Small, Medium and Large presets. Equipment never takes part in
 cues: items are never cue targets (ADR 0004, amendment of 2026-10-11).
 
@@ -494,29 +503,35 @@ concert bass drum and trap table stay equipment that aux players walk to.
 
 **Presets.**
 
-|                          | Small     | Medium       | Large             |
-| ------------------------ | --------- | ------------ | ----------------- |
-| Marimba                  | 2         | 4            | 6                 |
-| Vibraphone               | 2         | 3            | 4                 |
-| Xylophone / Glockenspiel | 0         | 1 + 1        | 1 + 1             |
-| Rack                     | 1         | 1            | 2                 |
-| Drum set                 | 0         | 1            | 1                 |
-| Synth                    | 1         | 1            | 2                 |
-| Speakers                 | 2 (35s)   | 4 (45s, 35s) | 6 (45s, 35s, 25s) |
-| Podium                   | on the 50 | on the 50    | on the 50         |
+|                          | Small     | Medium    | Large     |
+| ------------------------ | --------- | --------- | --------- |
+| Marimba                  | 2         | 4         | 6         |
+| Vibraphone               | 2         | 3         | 4         |
+| Xylophone / Glockenspiel | 0         | 1 + 1     | 1 + 1     |
+| Rack                     | 1         | 1         | 2         |
+| Drum set                 | 0         | 1         | 1         |
+| Synth                    | 1         | 1         | 2         |
+| Speakers                 | 2         | 4         | 6         |
+| Podium                   | on the 50 | on the 50 | on the 50 |
 
 Every size adds one mixer, behind the pit (audience side), slightly off
 center.
 
 - Two rows. The field-side row (the back line) has the xylophone and
-  glockenspiel toward center, the drum set at center, and the rack and synth
-  at the outer edges. The audience-side row has the marimbas in the center
+  glockenspiel on either side of the drum set at center, and the rack and
+  synth at the outer edges. The audience-side row has the marimbas in the center
   with vibes on each side.
-- The field-side row starts 3 ft in front of the front sideline, with 3 ft
-  between rows. The speakers stand on the outer row's line at their yard
-  lines.
+- The field-side row starts 3 ft in front of the front sideline. The
+  audience-side row starts 3 ft past the deepest item in the field-side row,
+  which is the drum set whenever there is one (about 7 ft deep), so the
+  keyboards sit about 11.6 ft out at Medium and Large.
+- The speakers stand on the audience-side row's line, one per side on
+  consecutive 5-yard lines, starting at the first yard line past the end of
+  the pit (for Medium, the 35s and 30s). They never overlap the pit.
 - The podium sits on the 50, 3 ft past the audience-side row: the drum
   major is always the closest performer to the audience, facing the field.
+  At Medium and Large this puts the podium on the edge of the track in the
+  `hs` venue; that is accepted.
 - Presets ignore the venue; in a tight venue such as the gym, fix it by
   hand.
 - "Also add performers" is checked by default: one performer per instrument
