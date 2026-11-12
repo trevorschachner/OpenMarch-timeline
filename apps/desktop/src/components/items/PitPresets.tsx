@@ -8,7 +8,6 @@ import {
     allItemsQueryOptions,
     applyPitPresetMutationOptions,
 } from "@/hooks/queries/useItems";
-import { PIT_PRESET_MARK } from "@/db-functions/pitPreset";
 import { pitVariant } from "@/view3d/core/pit/catalog";
 import {
     PIT_PRESET_SIZES,
@@ -35,8 +34,7 @@ export default function PitPresets() {
     const { data: items } = useQuery(allItemsQueryOptions());
     const { beats } = useTimingObjects()!;
     const apply = useMutation(applyPitPresetMutationOptions(queryClient));
-    const hasPreset =
-        items?.some((item) => item.marcher.notes === PIT_PRESET_MARK) ?? false;
+    const hasPreset = items?.some((item) => item.from_preset) ?? false;
     const firstBeat = beats[0];
 
     const onApply = () => {

@@ -2,15 +2,14 @@
  * Applying a front ensemble preset (instruments.md section 6, "Presets") to the show, in one
  * undo step: its equipment, locked, and the performers who play it.
  *
- * - Re-applying replaces only the items the previous preset created. A preset's items carry
- *   {@link PIT_PRESET_MARK} in their marchers row's `notes`, which nothing shows or edits for an
- *   item, so renaming or moving one keeps the mark, deleting it drops it, and undo restores it
- *   with the row. Hand-added items and performers are never removed.
+ * - Re-applying replaces only the items the previous preset created, the ones with
+ *   `items.from_preset` set. Renaming or moving one keeps the mark, deleting it drops it, and
+ *   undo restores it with the row. Hand-added items and performers are never removed.
  * - Performers are skipped when the show already has them: a section that has N of the preset's
  *   M players gets M - N more, on the spots none of that section stands on. Existing performers
  *   don't move.
  */
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { eq, inArray, sql } from "drizzle-orm";
 import type { XY } from "@openmarch/core";
 import { schema } from "@/global/database/db";
 import { getSectionObjectByName } from "@/global/classes/Sections";
@@ -23,9 +22,6 @@ import { createMarchersInTransaction } from "./marcher";
 import { updateMarcherHomesInTransaction } from "./marcherHome";
 import { removeDeletedMarchersFromTimelinesInTransaction } from "./timelineMarchers";
 import { deleteEmptyRecipes, hasShapeRecipes } from "./shapeRecipes";
-
-/** What a preset's item has in its marchers row's `notes` */
-export const PIT_PRESET_MARK = "openmarch:pit-preset";
 
 /** A piece of equipment a preset places, on the canvas */
 export interface PitPresetEquipmentArgs {
@@ -82,14 +78,9 @@ async function removePresetItemsInTransaction(
 ): Promise<number[]> {
     const ids = (
         await tx
-            .select({ id: schema.marchers.id })
-            .from(schema.marchers)
-            .where(
-                and(
-                    eq(schema.marchers.type, "item"),
-                    eq(schema.marchers.notes, PIT_PRESET_MARK),
-                ),
-            )
+            .select({ id: schema.items.marcher_id })
+            .from(schema.items)
+            .where(eq(schema.items.from_preset, true))
             .all()
     ).map((row) => row.id);
     if (ids.length === 0) return ids;
@@ -169,20 +160,12 @@ export async function applyPitPresetInTransaction({
     const newItems = equipment.map(({ variant, baseName, home, rotation }) => {
         const name = nextEquipmentName(baseName, names);
         names.push(name);
-        return newEquipment({ variant, name, home, beatId, rotation });
+        return {
+            ...newEquipment({ variant, name, home, beatId, rotation }),
+            fromPreset: true,
+        };
     });
     const items = await createItemsInTransaction({ tx, newItems });
-    if (items.length > 0)
-        await tx
-            .update(schema.marchers)
-            .set({ notes: PIT_PRESET_MARK })
-            .where(
-                inArray(
-                    schema.marchers.id,
-                    items.map((item) => item.marcher_id),
-                ),
-            )
-            .run();
 
     const existing = (
         await tx
