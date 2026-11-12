@@ -18,8 +18,8 @@ audience, +X the player's left. Each model has at most six parts (draw calls).
 
 The 3D View draws an item whose `items.model` is `pit/<name>` as `<name>.glb`, and as
 `<name>-low.glb` beyond about 30 m (`src/view3d/window/props/PitModels.tsx`). A podium's
-`standTopM`, when present, is where a performer standing on it puts their feet; without it the
-model's full height is used.
+`standTopM` is where a performer standing on it puts their feet, and `standAtM` where on the
+footprint; every podium must have both (`pitModels.test.ts` checks).
 
 ## Podiums
 

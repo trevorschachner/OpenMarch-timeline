@@ -10,6 +10,7 @@ import {
     pitAssetFile,
     pitModelName,
     podiumHeading,
+    podiumStandAt,
     podiumStandTop,
     writePitModelMatrix,
     type PitManifest,
@@ -23,8 +24,10 @@ const entry = (height: number, more: object = {}) => ({
 
 const MANIFEST: PitManifest = {
     "marimba-5.0": entry(0.9),
-    "conductor-podium": entry(1.386),
+    "conductor-podium": entry(1.386, { standTopM: 0.426, standAtM: [0, 0] }),
     "conductor-tower": entry(3, { standTopM: 2.4 }),
+    "stepladder-6ft": entry(1.829, { standTopM: 1.2192, standAtM: [0, 0.2] }),
+    "broken-podium": entry(1.5),
 };
 
 describe("pitModelName", () => {
@@ -70,12 +73,13 @@ describe("isPodiumModel", () => {
 });
 
 describe("podiumStandTop", () => {
-    it("reads standTopM when the manifest gives one", () => {
+    it("reads standTopM, the deck, not the model's full height", () => {
         expect(podiumStandTop("pit/conductor-tower", MANIFEST)).toBe(2.4);
+        expect(podiumStandTop("pit/conductor-podium", MANIFEST)).toBe(0.426);
     });
 
-    it("falls back to the detailed model's height", () => {
-        expect(podiumStandTop("pit/conductor-podium", MANIFEST)).toBe(1.386);
+    it("is null for a podium the manifest gives no standTopM: never the model's height", () => {
+        expect(podiumStandTop("pit/broken-podium", MANIFEST)).toBeNull();
     });
 
     it("is null for a model that isn't a podium or isn't listed", () => {
@@ -85,10 +89,53 @@ describe("podiumStandTop", () => {
     });
 
     it("works for the shipped podiums", () => {
-        expect(podiumStandTop("pit/conductor-podium")).toBeGreaterThan(0.5);
-        expect(podiumStandTop("pit/conductor-podium-tall")).toBeGreaterThan(
-            podiumStandTop("pit/conductor-podium")!,
+        expect(podiumStandTop("pit/conductor-podium")).toBe(0.426);
+        expect(podiumStandTop("pit/conductor-podium-tall")).toBe(1.506);
+    });
+
+    it("has a standTopM and standAtM for every podium in the shipped manifest", () => {
+        const podiums = Object.keys(PIT_MANIFEST).filter((name) =>
+            isPodiumModel(`pit/${name}`),
         );
+        expect(podiums.length).toBeGreaterThanOrEqual(14);
+        for (const name of podiums) {
+            const e = PIT_MANIFEST[name];
+            expect(e.standTopM, name).toBeGreaterThan(0);
+            expect(e.standTopM!, name).toBeLessThan(e.high.sizeM.height + 1e-6);
+            expect(e.standAtM, name).toHaveLength(2);
+            expect(Math.abs(e.standAtM![0]), name).toBeLessThan(
+                e.high.sizeM.width / 2,
+            );
+            expect(Math.abs(e.standAtM![1]), name).toBeLessThan(
+                e.high.sizeM.depth / 2,
+            );
+        }
+    });
+});
+
+describe("podiumStandAt", () => {
+    it("is the manifest's standAtM as x, z in the model's axes", () => {
+        expect(podiumStandAt("pit/stepladder-6ft", MANIFEST)).toEqual({
+            x: 0,
+            z: 0.2,
+        });
+        expect(podiumStandAt("pit/conductor-podium", MANIFEST)).toEqual({
+            x: 0,
+            z: 0,
+        });
+    });
+
+    it("is the middle for a podium with none, and null for a model that isn't a podium", () => {
+        expect(podiumStandAt("pit/conductor-tower", MANIFEST)).toEqual({
+            x: 0,
+            z: 0,
+        });
+        expect(podiumStandAt("pit/marimba-5.0", MANIFEST)).toBeNull();
+        expect(podiumStandAt("pit/missing-podium", MANIFEST)).toBeNull();
+    });
+
+    it("puts the shipped stepladder's step toward the audience", () => {
+        expect(podiumStandAt("pit/stepladder-6ft")!.z).toBeGreaterThan(0);
     });
 });
 
