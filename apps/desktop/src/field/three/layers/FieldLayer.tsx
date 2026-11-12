@@ -10,6 +10,7 @@ import {
 } from "three";
 import type { FieldProperties } from "@openmarch/core";
 import { useUiSettingsStore } from "@/stores/UiSettingsStore";
+import type { FieldRect } from "@/field/editor/selectionArea";
 import { fieldGeometry, rgba01, type FieldRects } from "../fieldGeometry";
 import { useFieldDraw } from "../fieldDrawContext";
 import { TextBatch, type GlyphAtlas, type TextLabel } from "../sdfText";
@@ -132,12 +133,17 @@ function rectsMesh(
  * Rebuilt only when the field properties or the grid and half line settings
  * change.
  */
+const NO_STRIPS: readonly FieldRect[] = [];
+
 export default function FieldLayer({
     fieldProperties,
+    strips = NO_STRIPS,
     numberAtlas,
     labelAtlas,
 }: {
     fieldProperties: FieldProperties;
+    /** The strips in front of and behind the field (`pitStripOf`, `backStripOf`) */
+    strips?: readonly FieldRect[];
     /** The yard number font. */
     numberAtlas: GlyphAtlas;
     /** The checkpoint label font. */
@@ -153,6 +159,7 @@ export default function FieldLayer({
         const { background, rects, texts } = fieldGeometry(fieldProperties, {
             gridLines,
             halfLines,
+            strips,
         });
         const batch = (atlas: GlyphAtlas, font: "number" | "label") => {
             const chosen = texts.filter((text) => text.font === font);
@@ -180,7 +187,14 @@ export default function FieldLayer({
             numbers: batch(numberAtlas, "number"),
             labels: batch(labelAtlas, "label"),
         };
-    }, [fieldProperties, gridLines, halfLines, numberAtlas, labelAtlas]);
+    }, [
+        fieldProperties,
+        strips,
+        gridLines,
+        halfLines,
+        numberAtlas,
+        labelAtlas,
+    ]);
 
     useEffect(() => {
         invalidate();

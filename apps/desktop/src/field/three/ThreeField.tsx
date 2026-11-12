@@ -87,6 +87,13 @@ import { PIXELS_PER_METER } from "@/items/itemOutlines";
 import { isMacPlatform } from "@/shortcuts/platform";
 import { planFieldImage } from "@/field/fieldPlan";
 import { dropMarchersOnTimeline } from "@/field/fieldDrop";
+import {
+    backStripOf,
+    fieldViewSize,
+    hasEquipmentBehind,
+    pitStripOf,
+} from "@/field/pitStrip";
+import type { FieldRect } from "@/field/editor/selectionArea";
 import { FieldMarchers } from "./fieldMarchers";
 import { FieldItems } from "./fieldItems";
 import FieldOverlay from "./FieldOverlay";
@@ -251,6 +258,7 @@ function ThreeFieldView() {
     const numbersOnly = labelForm === "numbers";
     const items = useMemo(() => new FieldItems(marchers), [marchers]);
     const itemLabels = useFieldItems(items, beats);
+    const { strips, loaded: itemsLoaded } = useFieldStrips(fieldProperties);
     const saveItem = useFieldItemWrites(items);
     const propDrawn = usePropDrawn();
     const labels = useMemo(
@@ -413,6 +421,8 @@ function ThreeFieldView() {
                         dropMarchersOnTimeline(
                             positions,
                             latest.current.moveMarchers,
+                            // A locked item's drop moves it on every page
+                            (id) => items.isLocked(id),
                         ),
                     // #204: a click on a placed box's member selects the whole box
                     pressSelection: (hit, shift, reachInside) =>
@@ -426,6 +436,8 @@ function ThreeFieldView() {
                     doubleClickMarcher: enterBox,
                     // C2.1: items are hit anywhere inside their Outline
                     isItem: (id) => items.isItem(id),
+                    // The pit's locked equipment: no marquee or lasso takes it
+                    isLocked: (id) => items.isLocked(id),
                     itemAt: (point) => items.itemAt(point),
                     itemFrame: (id) => items.frameOf(id),
                     previewItem: (id, size) =>
@@ -541,7 +553,9 @@ function ThreeFieldView() {
     // The view opens once the field and a page are loaded. Latched: a page
     // briefly unselected mustn't reset the view
     const [ready, setReady] = useState(false);
-    if (!ready && fieldProperties && selectedPage) setReady(true);
+    // The items too, so a show with a pit opens fitted to the pit strip
+    if (!ready && fieldProperties && selectedPage && itemsLoaded)
+        setReady(true);
     // Until the layout settles, the view is still the opening view
     const settled = useRef(false);
     // Here, not in the camera: a canvas started over after a lost context
@@ -616,6 +630,7 @@ function ThreeFieldView() {
                         <ContextLossGuard onGiveUp={startOver} />
                         <FieldCamera
                             fieldProperties={fieldProperties}
+                            strips={strips}
                             ready={ready}
                             opened={opened}
                             settled={settled}
@@ -634,6 +649,7 @@ function ThreeFieldView() {
                         />
                         <FieldLayer
                             fieldProperties={fieldProperties}
+                            strips={strips}
                             numberAtlas={atlases.number}
                             labelAtlas={atlases.checkpoint}
                         />
@@ -758,6 +774,14 @@ function useFieldItems(
                     .map((item) => item.marcher_id),
             ),
             colors: propColorsByMarcher(rows),
+            locked: new Set(
+                rows.filter((item) => item.locked).map((i) => i.marcher_id),
+            ),
+            models: new Map(
+                rows.flatMap((item) =>
+                    item.model ? [[item.marcher_id, item.model] as const] : [],
+                ),
+            ),
         });
     }, [items, itemRows, geometry, beats, hiddenPropIds]);
     return useMemo(
@@ -773,6 +797,50 @@ function useFieldItems(
             ),
         [itemRows, showPropNames, propNameOverrides],
     );
+}
+
+/**
+ * The strips beside the field (instruments.md section 6): the pit strip in front of the front
+ * sideline while the show has equipment, and the back strip behind the back sideline while
+ * equipment stands there (a back podium), by the resolver at the start of the show. The same
+ * array until they change. `loaded` once the items are, and the resolver with any equipment, so
+ * the view can open fitted to them.
+ */
+function useFieldStrips(fieldProperties: FieldProperties | undefined): {
+    strips: readonly FieldRect[];
+    loaded: boolean;
+} {
+    const { data: itemRows, isFetched } = useQuery(allItemsQueryOptions());
+    const equipment = useMemo(
+        () =>
+            (itemRows ?? [])
+                .filter((item) => item.kind === "equipment")
+                .map((item) => item.marcher_id),
+        [itemRows],
+    );
+    const resolver = useTimelineResolverStore((s) => s.resolver);
+    const version = useTimelineResolverStore((s) => s.version);
+    const behind = useMemo(() => {
+        void version; // a new version means new positions
+        if (!resolver) return false;
+        const known = new Set(resolver.marcherIds());
+        return hasEquipmentBehind(
+            equipment.filter((id) => known.has(id)),
+            (id) => resolver.positionAt(id, 0),
+        );
+    }, [resolver, version, equipment]);
+    const hasEquipment = equipment.length > 0;
+    const strips = useMemo(() => {
+        if (!fieldProperties) return [];
+        return [
+            pitStripOf(fieldProperties, hasEquipment),
+            backStripOf(fieldProperties, behind),
+        ].filter((strip): strip is FieldRect => strip !== null);
+    }, [fieldProperties, hasEquipment, behind]);
+    return {
+        strips,
+        loaded: isFetched && (!hasEquipment || resolver !== null),
+    };
 }
 
 /** How long to wait for Preview's layout to settle. */
@@ -830,11 +898,14 @@ function usePreviewFit(
  */
 function FieldCamera({
     fieldProperties,
+    strips,
     ready,
     opened,
     settled,
 }: {
     fieldProperties: FieldProperties;
+    /** The strips beside the field, which the view fits and keeps in reach with it */
+    strips: readonly FieldRect[];
     ready: boolean;
     opened: RefObject<boolean>;
     settled: RefObject<boolean>;
@@ -845,10 +916,7 @@ function FieldCamera({
     const invalidate = useThree((s) => s.invalidate);
 
     useLayoutEffect(() => {
-        const field = {
-            width: fieldProperties.width,
-            height: fieldProperties.height,
-        };
+        const field = fieldViewSize(fieldProperties, strips);
         useFieldViewStore.setState({ width, height, field });
         if (width <= 0 || height <= 0 || !ready) return;
         if (!opened.current) {
@@ -857,7 +925,7 @@ function FieldCamera({
         } else {
             fitAfterResize(settled.current);
         }
-    }, [width, height, fieldProperties, ready, opened, settled]);
+    }, [width, height, fieldProperties, strips, ready, opened, settled]);
 
     useLayoutEffect(() => {
         const apply = () => {

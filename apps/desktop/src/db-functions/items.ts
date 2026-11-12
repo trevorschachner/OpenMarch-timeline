@@ -15,6 +15,7 @@ import { transactionWithHistory } from "./history";
 import { storedBeatIdInTransaction } from "./endlessCounts";
 import { createMarchersInTransaction } from "./marcher";
 import { updateMarcherHomesInTransaction } from "./marcherHome";
+import { lockItemsInTransaction } from "./lockedItems";
 
 export type DatabaseItem = typeof schema.items.$inferSelect;
 export type DatabaseItemGeometry = typeof schema.item_geometry.$inferSelect;
@@ -286,8 +287,13 @@ export interface ModifiedItemArgs {
     color?: string | null;
     /** A built-in 3D model id such as `pit/marimba-5.0`; null draws the item as a block */
     model?: string | null;
-    /** Locks the item to one position for the whole show, or unlocks it */
+    /**
+     * Locks the item to one position for the whole show, or unlocks it. Locking clears its moves
+     * and keeps it where it is at `lockAtBeat` (`lockItemsInTransaction`)
+     */
     locked?: boolean;
+    /** The beat a lock keeps the item's position from: the playhead. 0 (its home) by default */
+    lockAtBeat?: number;
 }
 
 /** Renames items, changes props' surface types and colors, and sets items' models and locks. */
@@ -305,6 +311,7 @@ export async function updateItemsInTransaction({
         color,
         model,
         locked,
+        lockAtBeat,
     } of modifiedItems) {
         const item = await tx
             .select()
@@ -318,6 +325,9 @@ export async function updateItemsInTransaction({
                 .set({ name })
                 .where(eq(schema.marchers.id, item.marcher_id))
                 .run();
+        // Locking an unlocked item gives it one position first, from the moves it has now
+        if (locked === true && !item.locked)
+            await lockItemsInTransaction(tx, [item.marcher_id], lockAtBeat);
         if (color !== undefined || model !== undefined || locked !== undefined)
             await tx
                 .update(schema.items)
