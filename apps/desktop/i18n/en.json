@@ -1375,6 +1375,32 @@
         "counts": "counts",
         "delete": "Delete prop",
         "depth": "Depth",
+        "model": {
+            "label": "3D model",
+            "none": "None (shown as a block)",
+            "missing": "Model not found in this show",
+            "import": "Import…",
+            "replace": "Replace…",
+            "remove": "Remove",
+            "hint": "Import a .glb or .gltf file to show this prop as that model in the 3D View. The prop takes the model's size.",
+            "errors": {
+                "import": "Couldn't import the 3D model",
+                "save": "Couldn't save the 3D model to the show"
+            },
+            "rejected": {
+                "title": "Can't import {filename}",
+                "unreadable": "The file isn't a glTF model OpenMarch can read.",
+                "validatorErrors": "The file has errors a glTF validator reports. Export it again from your 3D tool.",
+                "requiredExtension": "The file needs a glTF extension OpenMarch doesn't support.",
+                "missingResource": "A file the model refers to is missing. Keep the .gltf with its .bin and images, or export a single .glb.",
+                "externalUri": "The model refers to a file on the internet. Export a single .glb instead.",
+                "resourceOutsideFolder": "The model refers to a file outside its folder. Export a single .glb instead.",
+                "noGeometry": "The file has no shapes to draw.",
+                "overTriangleCap": "The model is far too detailed for a prop. Simplify it in your 3D tool and export it again.",
+                "rigNotAllowed": "The model has a skeleton. Props must be rigid: export it without the armature.",
+                "other": "Something in the file can't be imported."
+            }
+        },
         "draw": {
             "cancel": "Cancel",
             "instructions": {
@@ -3420,7 +3446,8 @@
             "openMarchFile": "OpenMarch File",
             "allFiles": "All Files",
             "audioFile": "Audio File",
-            "video": "Video"
+            "video": "Video",
+            "model3d": "3D Model"
         },
         "newShow": {
             "button": "Create New"

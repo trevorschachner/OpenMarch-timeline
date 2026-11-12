@@ -58,6 +58,7 @@ import {
     outlineWriteBeat,
 } from "@/items/itemOutlineTimeline";
 import { parsePropColor, propColorToString } from "@/items/propColor";
+import PropModelControl from "./PropModelControl";
 
 type ItemWithMarcher = Awaited<ReturnType<typeof getItems>>[number];
 
@@ -539,6 +540,7 @@ function PropEditor({ itemId }: { itemId: number }) {
                     </Select>
                 </label>
             )}
+            {item.kind === "prop" && <PropModelControl item={item} />}
             <div className="border-stroke flex flex-col gap-12 border-t pt-12">
                 <h5 className="text-text/70 text-sm font-medium">
                     {writeBeat ? (
