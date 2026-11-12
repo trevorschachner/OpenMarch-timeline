@@ -1,4 +1,5 @@
-import type { FieldProperties, RgbaColor } from "@openmarch/core";
+import { FieldProperties, type RgbaColor } from "@openmarch/core";
+import type { FieldRect } from "@/field/editor/selectionArea";
 import {
     BASELINE_BELOW_CENTER,
     planField2d,
@@ -59,13 +60,25 @@ const ALIGN: Record<FieldPlanText["anchor"], FieldText["align"]> = {
     end: "right",
 };
 
+/** The pit strip's fill: the field's background, this much as strong, so it reads as off the field */
+export const PIT_STRIP_FILL_ALPHA = 0.45;
+/** The yard lines run on across the pit strip this faint, to place speakers and the podium by */
+export const PIT_STRIP_LINE_ALPHA = 0.35;
+
+export type FieldGeometryOptions = FieldPlanOptions & {
+    /** The pit strip in front of the front sideline (`pitStripOf`), or none */
+    pitStrip?: FieldRect | null;
+};
+
 /**
  * Plans the field of `fieldProperties` with the user's line settings. The
- * field image is its own layer (`planFieldImage`).
+ * field image is its own layer (`planFieldImage`). The pit strip, when there
+ * is one, is drawn after the field: a fainter fill, its edges and the yard
+ * lines run on across it.
  */
 export function fieldGeometry(
     fieldProperties: FieldProperties,
-    options: FieldPlanOptions = { gridLines: true, halfLines: true },
+    options: FieldGeometryOptions = { gridLines: true, halfLines: true },
 ): FieldGeometry {
     const plan = planField2d(fieldProperties, options);
 
@@ -104,6 +117,8 @@ export function fieldGeometry(
         [x1 - sw, y0 + inset, x1, y1 - inset],
     ];
     for (const rect of sides) rects.push({ rect, color: border.color });
+    const strip = options.pitStrip ?? null;
+    if (strip) rects.push(...pitStripRects(plan, strip, fieldProperties));
 
     const texts = plan.texts.map(
         (t): FieldText => ({
@@ -120,13 +135,55 @@ export function fieldGeometry(
         }),
     );
 
+    const background: { rect: Rect; color: RgbaColor }[] = [
+        { rect: [0, 0, plan.width, plan.height], color: plan.background },
+    ];
+    if (strip)
+        background.push({
+            rect: [strip.left, strip.top, strip.right, strip.bottom],
+            color: {
+                ...plan.background,
+                a: plan.background.a * PIT_STRIP_FILL_ALPHA,
+            },
+        });
     return {
-        background: packRects([
-            { rect: [0, 0, plan.width, plan.height], color: plan.background },
-        ]),
+        background: packRects(background),
         rects: packRects(rects),
         texts,
     };
+}
+
+/** The pit strip's left, right and far edges, and each yard line run on across it, faintly */
+function pitStripRects(
+    plan: ReturnType<typeof planField2d>,
+    strip: FieldRect,
+    fieldProperties: FieldProperties,
+): { rect: Rect; color: RgbaColor }[] {
+    const theme = fieldProperties.theme;
+    const edge = { ...theme.tertiaryStroke };
+    const yardColor = {
+        ...theme.primaryStroke,
+        a: theme.primaryStroke.a * PIT_STRIP_LINE_ALPHA,
+    };
+    const half = FieldProperties.GRID_STROKE_WIDTH / 2;
+    const { left, right, top, bottom } = strip;
+    const out: { rect: Rect; color: RgbaColor }[] = [
+        { rect: [left - half, top, left + half, bottom], color: edge },
+        { rect: [right - half, top, right + half, bottom], color: edge },
+        {
+            rect: [left - half, bottom - half, right + half, bottom + half],
+            color: edge,
+        },
+    ];
+    for (const line of plan.lines) {
+        if (line.role !== "yardLine" || line.x1 !== line.x2) continue;
+        const w = line.width / 2;
+        out.push({
+            rect: [line.x1 - w, top, line.x1 + w, bottom],
+            color: yardColor,
+        });
+    }
+    return out;
 }
 
 function packRects(rects: { rect: Rect; color: RgbaColor }[]): FieldRects {

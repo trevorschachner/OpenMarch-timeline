@@ -194,3 +194,50 @@ describe("fieldGeometry variants", () => {
         ).toHaveLength(0);
     });
 });
+
+describe("fieldGeometry with the pit strip", () => {
+    const strip = {
+        left: 0,
+        right: fp.width,
+        top: fp.height,
+        bottom: fp.height + 180,
+    };
+    const plain = fieldGeometry(fp);
+    const withStrip = fieldGeometry(fp, {
+        gridLines: true,
+        halfLines: true,
+        pitStrip: strip,
+    });
+
+    it("fills the strip under everything, fainter than the field", () => {
+        expect(withStrip.background.count).toBe(2);
+        expect(Array.from(withStrip.background.bounds.subarray(4, 8))).toEqual(
+            [0, fp.height, fp.width, fp.height + 180].map(Math.fround),
+        );
+        const fieldAlpha = withStrip.background.colors[3];
+        const stripAlpha = withStrip.background.colors[7];
+        expect(stripAlpha).toBeGreaterThan(0);
+        expect(stripAlpha).toBeLessThan(fieldAlpha);
+    });
+
+    it("draws the strip's edges and the yard lines across it, and nothing else changes", () => {
+        const added = rects(withStrip).slice(rects(plain).length);
+        expect(added.length).toBeGreaterThan(3);
+        for (const r of added) {
+            expect(r.minY).toBeGreaterThanOrEqual(fp.height - 1);
+            expect(r.maxY).toBeLessThanOrEqual(fp.height + 180 + 1);
+        }
+        expect(rects(withStrip).slice(0, rects(plain).length)).toEqual(
+            rects(plain),
+        );
+        // The 50 yard line runs on through the strip
+        expect(
+            added.some(
+                (r) =>
+                    r.minX < xPixels &&
+                    r.maxX > xPixels &&
+                    r.maxY - r.minY > 170,
+            ),
+        ).toBe(true);
+    });
+});
