@@ -87,6 +87,8 @@ import { PIXELS_PER_METER } from "@/items/itemOutlines";
 import { isMacPlatform } from "@/shortcuts/platform";
 import { planFieldImage } from "@/field/fieldPlan";
 import { dropMarchersOnTimeline } from "@/field/fieldDrop";
+import { fieldViewSize, pitStripOf } from "@/field/pitStrip";
+import type { FieldRect } from "@/field/editor/selectionArea";
 import { FieldMarchers } from "./fieldMarchers";
 import { FieldItems } from "./fieldItems";
 import FieldOverlay from "./FieldOverlay";
@@ -251,6 +253,7 @@ function ThreeFieldView() {
     const numbersOnly = labelForm === "numbers";
     const items = useMemo(() => new FieldItems(marchers), [marchers]);
     const itemLabels = useFieldItems(items, beats);
+    const pitStrip = usePitStrip(fieldProperties);
     const saveItem = useFieldItemWrites(items);
     const propDrawn = usePropDrawn();
     const labels = useMemo(
@@ -413,6 +416,8 @@ function ThreeFieldView() {
                         dropMarchersOnTimeline(
                             positions,
                             latest.current.moveMarchers,
+                            // A locked item's drop moves it on every page
+                            (id) => items.isLocked(id),
                         ),
                     // #204: a click on a placed box's member selects the whole box
                     pressSelection: (hit, shift, reachInside) =>
@@ -426,6 +431,8 @@ function ThreeFieldView() {
                     doubleClickMarcher: enterBox,
                     // C2.1: items are hit anywhere inside their Outline
                     isItem: (id) => items.isItem(id),
+                    // The pit's locked equipment: no marquee or lasso takes it
+                    isLocked: (id) => items.isLocked(id),
                     itemAt: (point) => items.itemAt(point),
                     itemFrame: (id) => items.frameOf(id),
                     previewItem: (id, size) =>
@@ -616,6 +623,7 @@ function ThreeFieldView() {
                         <ContextLossGuard onGiveUp={startOver} />
                         <FieldCamera
                             fieldProperties={fieldProperties}
+                            pitStrip={pitStrip}
                             ready={ready}
                             opened={opened}
                             settled={settled}
@@ -634,6 +642,7 @@ function ThreeFieldView() {
                         />
                         <FieldLayer
                             fieldProperties={fieldProperties}
+                            pitStrip={pitStrip}
                             numberAtlas={atlases.number}
                             labelAtlas={atlases.checkpoint}
                         />
@@ -758,6 +767,14 @@ function useFieldItems(
                     .map((item) => item.marcher_id),
             ),
             colors: propColorsByMarcher(rows),
+            locked: new Set(
+                rows.filter((item) => item.locked).map((i) => i.marcher_id),
+            ),
+            models: new Map(
+                rows.flatMap((item) =>
+                    item.model ? [[item.marcher_id, item.model] as const] : [],
+                ),
+            ),
         });
     }, [items, itemRows, geometry, beats, hiddenPropIds]);
     return useMemo(
@@ -772,6 +789,24 @@ function useFieldItems(
                 ]),
             ),
         [itemRows, showPropNames, propNameOverrides],
+    );
+}
+
+/**
+ * The pit strip in front of the front sideline (instruments.md section 6), while the show has
+ * equipment to stand there; the same rectangle until that changes.
+ */
+function usePitStrip(
+    fieldProperties: FieldProperties | undefined,
+): FieldRect | null {
+    const { data: itemRows } = useQuery(allItemsQueryOptions());
+    const hasEquipment = (itemRows ?? []).some(
+        (item) => item.kind === "equipment",
+    );
+    return useMemo(
+        () =>
+            fieldProperties ? pitStripOf(fieldProperties, hasEquipment) : null,
+        [fieldProperties, hasEquipment],
     );
 }
 
@@ -830,11 +865,14 @@ function usePreviewFit(
  */
 function FieldCamera({
     fieldProperties,
+    pitStrip,
     ready,
     opened,
     settled,
 }: {
     fieldProperties: FieldProperties;
+    /** The pit strip, which the view fits and keeps in reach with the field */
+    pitStrip: FieldRect | null;
     ready: boolean;
     opened: RefObject<boolean>;
     settled: RefObject<boolean>;
@@ -845,10 +883,7 @@ function FieldCamera({
     const invalidate = useThree((s) => s.invalidate);
 
     useLayoutEffect(() => {
-        const field = {
-            width: fieldProperties.width,
-            height: fieldProperties.height,
-        };
+        const field = fieldViewSize(fieldProperties, pitStrip);
         useFieldViewStore.setState({ width, height, field });
         if (width <= 0 || height <= 0 || !ready) return;
         if (!opened.current) {
@@ -857,7 +892,7 @@ function FieldCamera({
         } else {
             fitAfterResize(settled.current);
         }
-    }, [width, height, fieldProperties, ready, opened, settled]);
+    }, [width, height, fieldProperties, pitStrip, ready, opened, settled]);
 
     useLayoutEffect(() => {
         const apply = () => {

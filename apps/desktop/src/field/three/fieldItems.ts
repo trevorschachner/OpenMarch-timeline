@@ -15,6 +15,7 @@ import type {
     ItemOutlineChanges,
 } from "@/items/itemOutlineTimeline";
 import type { ItemFrame } from "@/field/editor/itemTransform";
+import { playingSpotOf, type PlayingSpot } from "@/view3d/core/pit/playingSpot";
 import type { FieldItemSource, FieldMarchers } from "./fieldMarchers";
 
 /** An item's Outline where the field draws it. */
@@ -30,6 +31,10 @@ export type DrawnItemOutline = {
     readonly center: Pt;
     /** The prop's own color (`items.color`), or null for the theme's line color */
     readonly color: RgbaColor | null;
+    /** Locked to one position for the whole show (`items.locked`): drawn with a lock */
+    readonly locked: boolean;
+    /** Where a player stands to play it, for a pit instrument (`playingSpotOf`), else null */
+    readonly playingSpot: PlayingSpot | null;
 };
 
 /**
@@ -50,6 +55,8 @@ export class FieldItems implements FieldItemSource {
     private changes: ItemOutlineChanges = new Map();
     private hidden: ReadonlySet<number> = new Set();
     private colors: ReadonlyMap<number, RgbaColor> = new Map();
+    private locked: ReadonlySet<number> = new Set();
+    private models: ReadonlyMap<number, string> = new Map();
     private previews = new Map<number, DrawnItemGeometry>();
     private drawn: {
         version: number;
@@ -67,24 +74,31 @@ export class FieldItems implements FieldItemSource {
     constructor(private readonly marchers: FieldMarchers) {}
 
     /**
-     * The items by marcher id, their Outline changes, those the user hid, and
-     * the colors of those that have one.
+     * The items by marcher id, their Outline changes, those the user hid, the
+     * colors of those that have one, those locked to one position, and the
+     * built-in models of those that name one.
      */
     set({
         itemIds,
         changes,
         hidden,
         colors = new Map(),
+        locked = new Set(),
+        models = new Map(),
     }: {
         itemIds: ReadonlySet<number>;
         changes: ItemOutlineChanges;
         hidden: ReadonlySet<number>;
         colors?: ReadonlyMap<number, RgbaColor>;
+        locked?: ReadonlySet<number>;
+        models?: ReadonlyMap<number, string>;
     }) {
         this.ids = itemIds;
         this.changes = changes;
         this.hidden = hidden;
         this.colors = colors;
+        this.locked = locked;
+        this.models = models;
         this.geometries = null;
         // The marchers' marks first, so a listener reads the items as they now are
         this.version++;
@@ -94,6 +108,11 @@ export class FieldItems implements FieldItemSource {
 
     isItem(id: number): boolean {
         return this.ids.has(id);
+    }
+
+    /** Whether item `id` is locked to one position for the whole show. */
+    isLocked(id: number): boolean {
+        return this.locked.has(id);
     }
 
     /** Whether item `id` is drawn at `beat`: on field there and not hidden. */
@@ -146,6 +165,16 @@ export class FieldItems implements FieldItemSource {
                     geometry,
                     center,
                     color: this.colors.get(id) ?? null,
+                    locked: this.locked.has(id),
+                    playingSpot: playingSpotOf(
+                        this.models.get(id),
+                        {
+                            center,
+                            depth: geometry.depth,
+                            rotation: geometry.rotation,
+                        },
+                        PIXELS_PER_METER,
+                    ),
                 });
             }
         }
