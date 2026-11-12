@@ -6,6 +6,7 @@ import {
     hidesVenuePodium,
     isNearPitItem,
     isPodiumModel,
+    modelsByMarcher,
     pitAssetFile,
     pitModelName,
     podiumStandTop,
@@ -171,5 +172,42 @@ describe("writePitModelMatrix", () => {
         expect(Array.from(out, (v) => v + 0)).toEqual([
             1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1,
         ]);
+    });
+});
+
+describe("modelsByMarcher", () => {
+    const item = (marcher_id: number, model: string | null) => ({
+        marcher_id,
+        model,
+    });
+
+    it("is each item drawn as a model, by marchers row, with its model's name", () => {
+        expect(
+            modelsByMarcher(
+                [
+                    item(101, "pit/marimba-5.0"),
+                    item(102, null),
+                    item(103, "pit/marimba-9.9"),
+                    item(104, "pit/conductor-podium"),
+                ],
+                new Set(),
+                MANIFEST,
+            ),
+        ).toEqual(
+            new Map([
+                [101, "marimba-5.0"],
+                [104, "conductor-podium"],
+            ]),
+        );
+    });
+
+    it("leaves out a model that failed to load: its item draws as a block", () => {
+        expect(
+            modelsByMarcher(
+                [item(101, "pit/marimba-5.0")],
+                new Set(["marimba-5.0"]),
+                MANIFEST,
+            ).size,
+        ).toBe(0);
     });
 });

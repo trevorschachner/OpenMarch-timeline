@@ -79,6 +79,24 @@ export function podiumStandTop(
     return entry.standTopM ?? entry.high.sizeM.height;
 }
 
+/**
+ * The items drawn as models, by marchers row, with their model's name: those whose model id
+ * names a listed model that hasn't failed to load (`failed`, by name). Every other item draws as
+ * a block.
+ */
+export function modelsByMarcher(
+    items: readonly { marcher_id: number; model: string | null }[],
+    failed: ReadonlySet<string>,
+    manifest: PitManifest = PIT_MANIFEST,
+): Map<number, string> {
+    const out = new Map<number, string>();
+    for (const item of items) {
+        const name = pitModelName(item.model, manifest);
+        if (name !== null && !failed.has(name)) out.set(item.marcher_id, name);
+    }
+    return out;
+}
+
 /** What {@link hidesVenuePodium} reads of an item. */
 interface ItemModel {
     id: number;
