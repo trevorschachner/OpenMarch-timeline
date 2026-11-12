@@ -65,7 +65,10 @@ import {
 } from "@/view3d/core/marchers/looks";
 import { useShowPositions } from "@/view3d/positions";
 import { useShowProps } from "@/hooks/useShowProps";
-import { writePerformerLifts } from "../props/performerLift";
+import {
+    writePerformerLifts,
+    writePerformerPodiumHeadings,
+} from "../props/performerLift";
 import { useView3dSyncStore } from "@/view3d/sync/view3dSyncStore";
 import type { View3dSelection } from "@/view3d/sync/protocol";
 import { useView3dSceneStore } from "../sceneStore";
@@ -623,6 +626,8 @@ export default function Performers({ fieldProperties }: PerformersProps) {
                 else motion?.update(c, xz, placed, headings);
                 // where the bodies are now
                 writePerformerLifts(propsNow, xz, placed, lift);
+                // a drum major on a podium faces the band, whatever the drill says
+                writePerformerPodiumHeadings(propsNow, xz, placed, headings);
                 marcherBodies.writeFrame(
                     xz,
                     headings,

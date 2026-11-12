@@ -1,12 +1,13 @@
 /**
  * The props at a moment, shared by the 3D View's props and performers (C4.5): `PropBlocks.tsx`
- * stands each block on the platform under it and `Performers.tsx` stands performers on them, both
- * from one layout a frame.
+ * stands each block on the platform under it and `Performers.tsx` stands performers on them, and
+ * turns those on a podium to face the band, all from one layout a frame.
  */
-import type { FieldProperties } from "@openmarch/core";
+import { fieldFootprint, type FieldProperties } from "@openmarch/core";
 import {
     liftPlatforms,
     writeLifts,
+    writePodiumHeadings,
     type LiftPlatform,
 } from "@/view3d/core/props/platformLift";
 import {
@@ -87,4 +88,39 @@ export function writePerformerLifts(
     const at = layout(moment);
     at.platforms ??= liftPlatforms(at.solids);
     writeLifts(at.platforms, xz, placed, stepRamp(moment.fieldProperties), out);
+}
+
+/** The field's front-to-back midpoint, in world meters, by field properties. */
+const centers = new WeakMap<FieldProperties, number>();
+const fieldCenterZ = (fieldProperties: FieldProperties): number => {
+    let z = centers.get(fieldProperties);
+    if (z === undefined) {
+        const f = fieldFootprint(fieldProperties);
+        z = (f.minZ + f.maxZ) / 2;
+        centers.set(fieldProperties, z);
+    }
+    return z;
+};
+
+/**
+ * Turns the performers standing on a podium at `ms` to face the band across the field
+ * (docs/3d/instruments.md §6), over the drill's heading in `headings`. Call it after the motion
+ * writes the headings and before the bodies are drawn. A show with no podium changes nothing.
+ */
+export function writePerformerPodiumHeadings(
+    moment: PropsMoment,
+    xz: Float32Array,
+    placed: Uint8Array,
+    headings: Float32Array,
+): void {
+    if (!moment.props.some((p) => p.facesAcross)) return;
+    const at = layout(moment);
+    at.platforms ??= liftPlatforms(at.solids);
+    writePodiumHeadings(
+        at.platforms,
+        xz,
+        placed,
+        fieldCenterZ(moment.fieldProperties),
+        headings,
+    );
 }

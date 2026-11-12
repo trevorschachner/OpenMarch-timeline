@@ -10,6 +10,7 @@
  * Plain TypeScript only, and the per-frame path allocates nothing.
  */
 import type { PropSolid } from "./propLayout";
+import { podiumHeading } from "../pit/pitModels";
 
 /** A platform as the lift reads it: its Outline as flat x, z pairs, its top and its bounds. */
 export interface LiftPlatform {
@@ -20,6 +21,10 @@ export interface LiftPlatform {
     readonly maxX: number;
     readonly minZ: number;
     readonly maxZ: number;
+    /** A podium: whoever stands on it faces the band */
+    readonly facesAcross: boolean;
+    /** Its center, front to back */
+    readonly centerZ: number;
 }
 
 /** The platforms performers can stand on, lowest top first. */
@@ -40,7 +45,16 @@ export function liftPlatforms(solids: readonly PropSolid[]): LiftPlatform[] {
             minZ = Math.min(minZ, p.z);
             maxZ = Math.max(maxZ, p.z);
         });
-        out.push({ ring, top: s.base + s.height, minX, maxX, minZ, maxZ });
+        out.push({
+            ring,
+            top: s.base + s.height,
+            minX,
+            maxX,
+            minZ,
+            maxZ,
+            facesAcross: s.facesAcross ?? false,
+            centerZ: s.center.z,
+        });
     }
     return out.sort((a, b) => a.top - b.top);
 }
@@ -118,4 +132,39 @@ export function writeLifts(
             placed[i] && platforms.length > 0
                 ? liftAt(platforms, xz[i * 2], xz[i * 2 + 1], ramp)
                 : 0;
+}
+
+/**
+ * Turns each placed performer standing inside a podium's footprint to face the band across the
+ * field (docs/3d/instruments.md §6), replacing the drill's heading in `headings`: the back
+ * sideline from a podium in front of the field, the audience from one behind it. Of podiums
+ * over each other, the highest decides. Everyone else keeps their heading.
+ *
+ * @param fieldCenterZ the field's front-to-back midpoint, in world meters
+ */
+export function writePodiumHeadings(
+    platforms: readonly LiftPlatform[],
+    xz: Float32Array,
+    placed: Uint8Array,
+    fieldCenterZ: number,
+    headings: Float32Array,
+): void {
+    for (let i = 0; i < headings.length; i++) {
+        if (!placed[i]) continue;
+        const x = xz[i * 2],
+            z = xz[i * 2 + 1];
+        // Lowest top first: the last podium holding the dot is the highest
+        let on: LiftPlatform | null = null;
+        for (const p of platforms)
+            if (
+                p.facesAcross &&
+                x >= p.minX &&
+                x <= p.maxX &&
+                z >= p.minZ &&
+                z <= p.maxZ &&
+                signedDistance(p.ring, x, z) > 0
+            )
+                on = p;
+        if (on) headings[i] = podiumHeading(on.centerZ, fieldCenterZ);
+    }
 }

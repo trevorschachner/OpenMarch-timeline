@@ -204,9 +204,12 @@ describe("propsAt", () => {
         const podium: PropInput = {
             ...prop(1, "platform", [box(0, 1.2, 1.5, 0)]),
             standTop: 1.386,
+            facesAcross: true,
         };
         const [solid] = propsAt([podium], 0, at({ 1: { x: 0, z: 0 } }));
         expect(solid!.height).toBe(1.386);
+        expect(solid!.facesAcross).toBe(true);
+        expect(liftPlatforms([solid!])[0]!.facesAcross).toBe(true);
         expect(platformTopAt([solid!], { x: 0.2, z: 0.2 })).toBe(1.386);
         // A performer inside its footprint stands on top; one outside stays on the ground
         const platforms = liftPlatforms([solid!]);

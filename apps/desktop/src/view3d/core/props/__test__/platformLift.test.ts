@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 import type { ItemGeometry } from "@openmarch/core";
 import type { PropSolid } from "../propLayout";
-import { liftAt, liftPlatforms, writeLifts } from "../platformLift";
+import {
+    liftAt,
+    liftPlatforms,
+    writeLifts,
+    writePodiumHeadings,
+} from "../platformLift";
 
 const square = (
     id: number,
@@ -72,5 +77,55 @@ describe("writeLifts", () => {
         const out = new Float32Array(3).fill(9);
         writeLifts(platforms, xz, placed, RAMP, out);
         expect([...out].map((v) => +v.toFixed(3))).toEqual([0.6, 0, 0]);
+    });
+});
+
+describe("writePodiumHeadings", () => {
+    const CENTER = -21.3;
+    const podium = (id: number, cx: number, cz: number): PropSolid => ({
+        ...square(id, cx, 0.6, 0, 0.43),
+        center: { x: cx, z: cz },
+        outline: [
+            { x: cx - 0.6, z: cz - 0.6 },
+            { x: cx + 0.6, z: cz - 0.6 },
+            { x: cx + 0.6, z: cz + 0.6 },
+            { x: cx - 0.6, z: cz + 0.6 },
+        ],
+        facesAcross: true,
+    });
+
+    it("turns a performer on a front podium to face the field, one on a back podium the audience", () => {
+        const platforms = liftPlatforms([
+            podium(1, 0, 5),
+            podium(2, 0, -48),
+            square(3, 10, 2, 0, 0.6),
+        ]);
+        // On the front podium, on the back podium, on a plain platform, off them all, not placed
+        const xz = new Float32Array([
+            0.1, 5.2, -0.2, -47.9, 10, 0, 30, 0, 0, 5,
+        ]);
+        const placed = new Uint8Array([1, 1, 1, 1, 0]);
+        const headings = new Float32Array([0.3, 0.3, 0.3, 0.3, 0.3]);
+        writePodiumHeadings(platforms, xz, placed, CENTER, headings);
+        expect([...headings].map((v) => +v.toFixed(3))).toEqual([
+            +Math.PI.toFixed(3),
+            0,
+            0.3,
+            0.3,
+            0.3,
+        ]);
+    });
+
+    it("leaves a performer just outside a podium's footprint alone", () => {
+        const platforms = liftPlatforms([podium(1, 0, 5)]);
+        const headings = new Float32Array([0.3]);
+        writePodiumHeadings(
+            platforms,
+            new Float32Array([0.7, 5]),
+            new Uint8Array([1]),
+            CENTER,
+            headings,
+        );
+        expect(headings[0]).toBeCloseTo(0.3);
     });
 });

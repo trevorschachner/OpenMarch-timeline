@@ -9,6 +9,7 @@ import {
     modelsByMarcher,
     pitAssetFile,
     pitModelName,
+    podiumHeading,
     podiumStandTop,
     writePitModelMatrix,
     type PitManifest,
@@ -134,6 +135,20 @@ describe("hidesVenuePodium", () => {
                 MANIFEST,
             ),
         ).toBe(false);
+    });
+});
+
+describe("podiumHeading", () => {
+    const CENTER = -21.3;
+
+    it("faces a podium in front of the field toward the back sideline", () => {
+        expect(podiumHeading(5, CENTER)).toBeCloseTo(Math.PI);
+        expect(podiumHeading(-20, CENTER)).toBeCloseTo(Math.PI);
+    });
+
+    it("faces a podium behind the field toward the audience", () => {
+        expect(podiumHeading(-48, CENTER)).toBe(0);
+        expect(podiumHeading(-22, CENTER)).toBe(0);
     });
 });
 

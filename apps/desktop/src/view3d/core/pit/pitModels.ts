@@ -9,7 +9,8 @@
  *   the audience and +X the player's left. They draw at real size: the item's Outline gives the
  *   position and the turn, not the size.
  * - A podium (an id naming a podium, tower, scaffold or stepladder) is stood on: its standing
- *   height is the manifest's `standTopM`, else the detailed model's height.
+ *   height is the manifest's `standTopM`, else the detailed model's height, and whoever stands
+ *   on it faces the band across the field.
  *
  * Plain TypeScript only: this module lives under `view3d/core/`.
  */
@@ -96,6 +97,19 @@ export function modelsByMarcher(
     }
     return out;
 }
+
+/** Whether a podium centered at `z` stands in front of the field: on the audience side of its center line. */
+export const isFrontPodium = (z: number, fieldCenterZ: number): boolean =>
+    z > fieldCenterZ;
+
+/**
+ * The heading (radians about +Y, 0 facing +Z) of a performer standing on a podium centered at
+ * `z`: across the field toward the band (docs/3d/instruments.md §6), straight, whatever the
+ * drill's facing. A podium in front of the field faces the back sideline (-Z); one behind it
+ * faces the audience.
+ */
+export const podiumHeading = (z: number, fieldCenterZ: number): number =>
+    isFrontPodium(z, fieldCenterZ) ? Math.PI : 0;
 
 /** What {@link hidesVenuePodium} reads of an item. */
 interface ItemModel {

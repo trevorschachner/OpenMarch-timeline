@@ -113,10 +113,12 @@ describe("_combineShowPropsQueries", () => {
             },
         ]);
         const props = propsOf(withPodium);
-        expect(props.map((p) => [p.id, p.surface, p.standTop])).toEqual([
-            [101, "platform", undefined],
-            [103, "floor", undefined],
-            [104, "platform", podiumStandTop("pit/conductor-podium")],
+        expect(
+            props.map((p) => [p.id, p.surface, p.standTop, p.facesAcross]),
+        ).toEqual([
+            [101, "platform", undefined, undefined],
+            [103, "floor", undefined, undefined],
+            [104, "platform", podiumStandTop("pit/conductor-podium"), true],
         ]);
         expect(
             propsOf(withPodium, new Set([4])).map((p) => p.id),

@@ -56,7 +56,15 @@ export function propInputs(
             item.kind === "equipment" ? podiumStandTop(item.model) : null;
         return standTop === null
             ? []
-            : [{ id: item.marcher_id, surface: "platform", changes, standTop }];
+            : [
+                  {
+                      id: item.marcher_id,
+                      surface: "platform",
+                      changes,
+                      standTop,
+                      facesAcross: true,
+                  },
+              ];
     });
 }
 

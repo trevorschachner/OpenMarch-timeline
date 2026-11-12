@@ -42,6 +42,8 @@ export interface PropInput {
      * standing height from its model (docs/3d/instruments.md §6). Unset for a prop.
      */
     standTop?: number;
+    /** A podium: whoever stands on it faces the band across the field (`writePodiumHeadings`) */
+    facesAcross?: boolean;
 }
 
 /** A prop as the 3D View draws it at one moment. */
@@ -58,6 +60,8 @@ export interface PropSolid {
     /** False for an open freehand path, which has no inside */
     closed: boolean;
     geometry: ItemGeometry;
+    /** A podium, as {@link PropInput.facesAcross} */
+    facesAcross?: boolean;
 }
 
 type Footprint = Omit<PropSolid, "base">;
@@ -91,6 +95,7 @@ function footprintOf(
         outline,
         closed: shape.closed,
         geometry,
+        ...(input.facesAcross ? { facesAcross: true } : {}),
     };
 }
 
