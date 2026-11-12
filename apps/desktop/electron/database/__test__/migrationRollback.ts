@@ -151,6 +151,7 @@ const ROLLBACKS: Record<number, (db: DatabaseSync) => void> = {
             db.exec(`DROP TRIGGER IF EXISTS \`items_${suffix}\``);
         db.exec("ALTER TABLE items DROP COLUMN model");
         db.exec("ALTER TABLE items DROP COLUMN locked");
+        db.exec("ALTER TABLE items DROP COLUMN from_preset");
     },
 };
 
