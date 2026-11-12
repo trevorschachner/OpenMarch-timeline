@@ -178,6 +178,13 @@ describeDbTests("Props panel front ensemble", (it) => {
         const ensemble = screen.getByRole("region", {
             name: "Front ensemble",
         });
+        // Folded once the show has equipment, so the list stays in view
+        expect(
+            within(ensemble).queryByRole("button", { name: "Chimes" }),
+        ).toBeNull();
+        fireEvent.click(
+            within(ensemble).getByRole("button", { name: /Front ensemble/ }),
+        );
         fireEvent.click(
             within(ensemble).getByRole("button", { name: "Chimes" }),
         );

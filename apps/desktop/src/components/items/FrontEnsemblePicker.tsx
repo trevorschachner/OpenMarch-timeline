@@ -1,6 +1,8 @@
 import { useState } from "react";
+import * as RadixCollapsible from "@radix-ui/react-collapsible";
 import {
     BellSimpleIcon,
+    CaretDownIcon,
     CaretLeftIcon,
     CaretRightIcon,
     CylinderIcon,
@@ -66,11 +68,18 @@ const meters = (value: number) => String(Number(value.toFixed(2)));
 /**
  * The Props panel's Front ensemble (instruments.md §6): pick a family, then a variant, and place
  * it on the field with a click, as a locked equipment item named for its family ("Marimba 2").
- * A family with one model is placed straight from the list.
+ * A family with one model is placed straight from the list. It starts open until the show has
+ * equipment, then folded, so the list of items below stays in view.
  */
-export default function FrontEnsemblePicker() {
+export default function FrontEnsemblePicker({
+    hasEquipment,
+}: {
+    hasEquipment: boolean;
+}) {
     const { t } = useTranslate();
     const [family, setFamily] = useState<PitFamily | null>(null);
+    const [openChoice, setOpenChoice] = useState<boolean | null>(null);
+    const open = openChoice ?? !hasEquipment;
     const placeEquipment = useItemDrawingStore((s) => s.placeEquipment);
     const { toggleOpen } = useSidebarModalStore();
 
@@ -85,33 +94,44 @@ export default function FrontEnsemblePicker() {
     };
 
     return (
-        <section
-            className="flex flex-col gap-12"
-            aria-label={t("props.frontEnsemble.title")}
-        >
-            <h5 className="text-text/70 text-sm font-medium">
-                <T keyName="props.frontEnsemble.title" />
-            </h5>
-            {/*
-             * PRESETS SLOT: the Small, Medium and Large presets (instruments.md §6) go here, above
-             * the families. They belong to the presets branch; this branch leaves the spot empty.
-             */}
-            {family ? (
-                <VariantList
-                    family={family}
-                    onBack={() => setFamily(null)}
-                    onPick={place}
-                />
-            ) : (
-                <FamilyList
-                    onPick={(picked) => {
-                        const variants = pitVariantsOf(picked.id);
-                        if (variants.length === 1) place(variants[0]);
-                        else setFamily(picked);
-                    }}
-                />
-            )}
-        </section>
+        <RadixCollapsible.Root asChild open={open} onOpenChange={setOpenChoice}>
+            <section
+                className="flex flex-col gap-12"
+                aria-label={t("props.frontEnsemble.title")}
+            >
+                <RadixCollapsible.Trigger className="text-text/70 hover:text-text focus-visible:text-accent flex items-center justify-between text-sm font-medium outline-hidden duration-150 ease-out">
+                    <span role="heading" aria-level={5}>
+                        <T keyName="props.frontEnsemble.title" />
+                    </span>
+                    <CaretDownIcon
+                        size={16}
+                        aria-hidden
+                        className={`transition-transform duration-150 ${open ? "rotate-180" : ""}`}
+                    />
+                </RadixCollapsible.Trigger>
+                <RadixCollapsible.Content className="flex flex-col gap-12">
+                    {/*
+                     * PRESETS SLOT: the Small, Medium and Large presets (instruments.md §6) go here, above
+                     * the families. They belong to the presets branch; this branch leaves the spot empty.
+                     */}
+                    {family ? (
+                        <VariantList
+                            family={family}
+                            onBack={() => setFamily(null)}
+                            onPick={place}
+                        />
+                    ) : (
+                        <FamilyList
+                            onPick={(picked) => {
+                                const variants = pitVariantsOf(picked.id);
+                                if (variants.length === 1) place(variants[0]);
+                                else setFamily(picked);
+                            }}
+                        />
+                    )}
+                </RadixCollapsible.Content>
+            </section>
+        </RadixCollapsible.Root>
     );
 }
 

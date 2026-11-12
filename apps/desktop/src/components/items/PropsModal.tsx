@@ -134,12 +134,17 @@ function ModalHeader({
 
 export function PropListContents() {
     const { setContent } = useSidebarModalStore();
+    const { data: items } = useQuery(allItemsQueryOptions());
     return (
         <div className="animate-scale-in text-text flex h-full w-fit flex-col gap-16">
             <ModalHeader title={<T keyName="props.title" />} />
             <div className="flex w-[28rem] grow flex-col gap-16 overflow-y-auto">
                 <PropToolSelector />
-                <FrontEnsemblePicker />
+                <FrontEnsemblePicker
+                    hasEquipment={
+                        items?.some((i) => i.kind === "equipment") ?? false
+                    }
+                />
                 <div className="border-stroke border-t pt-12">
                     <PropList
                         onEdit={(item) =>
