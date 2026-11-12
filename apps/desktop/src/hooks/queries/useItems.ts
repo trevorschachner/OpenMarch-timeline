@@ -9,6 +9,7 @@ import {
     deleteMarchers,
     getItemGeometry,
     getItems,
+    getPropModels,
     setItemGeometry,
     updateItems,
     type ItemGeometryArgs,
@@ -26,6 +27,8 @@ const GEOMETRY_KEY = "item_geometry";
 
 export const itemKeys = {
     all: () => [ITEMS_KEY] as const,
+    /** Under `items`, so whatever refreshes the items (undo, redo) refreshes the models too */
+    models: () => [ITEMS_KEY, "models"] as const,
 };
 
 export const itemGeometryKeys = {
@@ -45,6 +48,14 @@ export const allItemsQueryOptions = () =>
     queryOptions({
         queryKey: itemKeys.all(),
         queryFn: () => getItems({ db }),
+        staleTime: DEFAULT_STALE_TIME,
+    });
+
+/** Every 3D model a prop in the show points at (ADR 0010 D-12) */
+export const propModelsQueryOptions = () =>
+    queryOptions({
+        queryKey: itemKeys.models(),
+        queryFn: () => getPropModels({ db }),
         staleTime: DEFAULT_STALE_TIME,
     });
 
