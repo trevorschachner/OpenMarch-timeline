@@ -25,7 +25,7 @@ import type { FieldEditor, FieldPoint } from "@/field/editor/fieldEditor";
 
 /**
  * The footprint equipment is placed with, in field units, turned for where it lands (a podium
- * on the back half faces the field) once the field is known
+ * on the back half is turned around) once the field is known
  */
 const stampOf = (
     placing: EquipmentPlacement | null,

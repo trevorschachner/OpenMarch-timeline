@@ -19,7 +19,8 @@ import type { FieldPoint, FieldPointer } from "./fieldEditor";
  *
  * With a stamp it places a fixed footprint instead (front ensemble equipment, whose size is its
  * model's): the footprint follows the pointer, centered and snapped, turned as the stamp says for
- * that spot, with a notch in its front edge to show which way it faces, and a click places it.
+ * that spot, with a notch in the edge built toward the audience so a turn shows, and a click
+ * places it.
  * Nothing keeps it on the field: equipment can stand past either sideline.
  */
 
@@ -192,8 +193,8 @@ export class PropTool {
 }
 
 /**
- * A stamp's outline: its footprint with a notch in the middle of its front edge (the side toward
- * the audience, +y, before turning), turned `degrees` clockwise on screen around `center`.
+ * A stamp's outline: its footprint with a notch in the middle of the edge its model has toward the
+ * audience as built (+y, before turning), turned `degrees` clockwise on screen around `center`.
  */
 function stampOutline(
     stamp: PropToolStamp,

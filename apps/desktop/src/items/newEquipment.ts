@@ -34,10 +34,11 @@ export function newEquipment({
 
 /**
  * The turn, in degrees, equipment placed with its center at `center` gets (instruments.md §6).
- * The models face the audience (+Z, down the canvas); a podium's performer faces the band, so a
- * podium on the back half of the field, behind its front-to-back center line (including behind the
- * back sideline), is turned 180° to face the field. Everything else, and a podium on the front
- * half or the line itself, keeps 0.
+ * The models are built for the front of the field, with their audience side toward +Z (down the
+ * canvas), so a podium unturned has its performer facing the band across the field. A podium on
+ * the back half, behind the field's front-to-back center line (including behind the back
+ * sideline), is turned 180° so its performer faces the field from there. Everything else, and a
+ * podium on the front half or the line itself, keeps 0.
  */
 export function equipmentRotationAt(
     variant: PitVariant,

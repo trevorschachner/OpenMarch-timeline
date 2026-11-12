@@ -176,13 +176,13 @@ describe("the prop tool", () => {
                 y: Math.round(y * 1e6) / 1e6 + 0,
             }));
 
-        it("shows the footprint centered on the pointer before any press, notched at its front", () => {
+        it("shows the footprint centered on the pointer before any press, notched on its audience side", () => {
             const { editor } = setup("rectangle", stamp);
             expect(editor.propToolShape()?.preview).toBeNull();
             editor.pointerMove(at(101, 99));
             const preview = editor.propToolShape()?.preview;
             expect(preview?.closed).toBe(true);
-            // The front (toward the audience, down the canvas) has a notch in its middle
+            // The edge toward the audience as built (down the canvas) has a notch in its middle
             expect(rounded(preview?.points)).toEqual([
                 { x: 80, y: 90 },
                 { x: 120, y: 90 },
@@ -200,7 +200,7 @@ describe("the prop tool", () => {
                 rotationAt: (center) => (center.y < 50 ? 180 : 0),
             });
             editor.pointerMove(at(100, 20));
-            // Turned: the notch is on the back edge
+            // Turned: the notch is on the edge toward the back sideline
             expect(rounded(editor.propToolShape()?.preview?.points)).toEqual([
                 { x: 120, y: 30 },
                 { x: 80, y: 30 },
