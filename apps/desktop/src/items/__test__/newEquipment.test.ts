@@ -1,7 +1,11 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
 import { pitVariant } from "@/view3d/core/pit/catalog";
-import { newEquipment, nextEquipmentName } from "../newEquipment";
+import {
+    equipmentRotationAt,
+    newEquipment,
+    nextEquipmentName,
+} from "../newEquipment";
 
 describe("nextEquipmentName", () => {
     it("numbers the first of a kind 1", () => {
@@ -57,4 +61,64 @@ describe("newEquipment", () => {
             },
         });
     });
+});
+
+describe("equipmentRotationAt", () => {
+    // A field 800 units deep: the back sideline at y 0, the front at 800, the center line at 400
+    const field = {
+        centerFrontPoint: { xPixels: 600, yPixels: 800 },
+        height: 800,
+    };
+    const podium = pitVariant("pit/conductor-podium")!;
+    const tallPodium = pitVariant("pit/conductor-podium-tall")!;
+    const marimba = pitVariant("pit/marimba-5.0")!;
+
+    it("turns a podium on the back half to face the field", () => {
+        expect(equipmentRotationAt(podium, { x: 600, y: 399 }, field)).toBe(
+            180,
+        );
+        expect(equipmentRotationAt(tallPodium, { x: 0, y: 10 }, field)).toBe(
+            180,
+        );
+    });
+
+    it("turns a podium behind the back sideline too", () => {
+        expect(equipmentRotationAt(podium, { x: 600, y: -60 }, field)).toBe(
+            180,
+        );
+    });
+
+    it("leaves a podium on the front half, on the center line or in front of the field facing the field as built", () => {
+        expect(equipmentRotationAt(podium, { x: 600, y: 400 }, field)).toBe(0);
+        expect(equipmentRotationAt(podium, { x: 600, y: 700 }, field)).toBe(0);
+        expect(equipmentRotationAt(podium, { x: 600, y: 900 }, field)).toBe(0);
+    });
+
+    it("never turns other equipment", () => {
+        expect(equipmentRotationAt(marimba, { x: 600, y: 10 }, field)).toBe(0);
+    });
+
+    it("reads the center line from where the field's front is", () => {
+        const shifted = {
+            centerFrontPoint: { xPixels: 600, yPixels: 1000 },
+            height: 800,
+        };
+        expect(equipmentRotationAt(podium, { x: 0, y: 599 }, shifted)).toBe(
+            180,
+        );
+        expect(equipmentRotationAt(podium, { x: 0, y: 601 }, shifted)).toBe(0);
+    });
+});
+
+it("newEquipment keeps a turn it is given", () => {
+    const podium = pitVariant("pit/conductor-podium")!;
+    expect(
+        newEquipment({
+            variant: podium,
+            name: "Podium 1",
+            home: [0, 0],
+            beatId: 1,
+            rotation: 180,
+        }).geometry.rotation,
+    ).toBe(180);
 });

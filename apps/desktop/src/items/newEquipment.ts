@@ -1,22 +1,24 @@
-import type { XY } from "@openmarch/core";
+import type { FieldProperties, XY } from "@openmarch/core";
 import type { NewItemArgs } from "@/db-functions/items";
 import type { PitVariant } from "@/view3d/core/pit/catalog";
 
 /**
  * A new equipment item from the front ensemble catalog (instruments.md §6): it names its built-in
- * model, is locked, and its Outline is the model's footprint, a rectangle centered on `home`, on
- * field from `beatId`.
+ * model, is locked, and its Outline is the model's footprint, a rectangle centered on `home` and
+ * turned `rotation` degrees (none by default), on field from `beatId`.
  */
 export function newEquipment({
     variant,
     name,
     home,
     beatId,
+    rotation,
 }: {
     variant: PitVariant;
     name: string;
     home: XY;
     beatId: number;
+    rotation?: number;
 }): NewItemArgs {
     const { width, depth, height } = variant.footprint;
     return {
@@ -26,8 +28,25 @@ export function newEquipment({
         locked: true,
         home,
         beatId,
-        geometry: { outlineType: "rectangle", width, depth, height },
+        geometry: { outlineType: "rectangle", width, depth, height, rotation },
     };
+}
+
+/**
+ * The turn, in degrees, equipment placed with its center at `center` gets (instruments.md §6).
+ * The models face the audience (+Z, down the canvas); a podium's performer faces the band, so a
+ * podium on the back half of the field, behind its front-to-back center line (including behind the
+ * back sideline), is turned 180° to face the field. Everything else, and a podium on the front
+ * half or the line itself, keeps 0.
+ */
+export function equipmentRotationAt(
+    variant: PitVariant,
+    center: { x: number; y: number },
+    field: Pick<FieldProperties, "centerFrontPoint" | "height">,
+): number {
+    if (variant.family !== "podium") return 0;
+    const centerLine = field.centerFrontPoint.yPixels - field.height / 2;
+    return center.y < centerLine ? 180 : 0;
 }
 
 const escapeRegExp = (text: string) =>
