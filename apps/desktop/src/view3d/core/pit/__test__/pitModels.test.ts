@@ -93,28 +93,32 @@ describe("podiumStandTop", () => {
 });
 
 describe("hidesVenuePodium", () => {
-    const item = (id: number, model: string | null, kind = "equipment") => ({
+    /** The field's front-to-back midpoint: front sideline at z = 0, back at z = -42.67 */
+    const CENTER = -21.3;
+    const item = (id: number, model: string | null, z: number | null = 5) => ({
         id,
-        kind,
         model,
+        z,
     });
 
-    it("is true when the show has a podium item", () => {
+    it("is true when the show has a podium item in front of the field", () => {
         expect(
             hidesVenuePodium(
                 [item(1, "pit/marimba-5.0"), item(2, "pit/conductor-podium")],
                 new Set(),
+                CENTER,
                 MANIFEST,
             ),
         ).toBe(true);
     });
 
     it("is false with no podium, or only one hidden on the field", () => {
-        expect(hidesVenuePodium([], new Set(), MANIFEST)).toBe(false);
+        expect(hidesVenuePodium([], new Set(), CENTER, MANIFEST)).toBe(false);
         expect(
             hidesVenuePodium(
                 [item(1, "pit/marimba-5.0"), item(2, null)],
                 new Set(),
+                CENTER,
                 MANIFEST,
             ),
         ).toBe(false);
@@ -122,6 +126,26 @@ describe("hidesVenuePodium", () => {
             hidesVenuePodium(
                 [item(2, "pit/conductor-podium")],
                 new Set([2]),
+                CENTER,
+                MANIFEST,
+            ),
+        ).toBe(false);
+    });
+
+    it("keeps the venue's podium, which stands in front, for a podium behind the field", () => {
+        expect(
+            hidesVenuePodium(
+                [item(2, "pit/conductor-podium", -48)],
+                new Set(),
+                CENTER,
+                MANIFEST,
+            ),
+        ).toBe(false);
+        expect(
+            hidesVenuePodium(
+                [item(2, "pit/conductor-podium", null)],
+                new Set(),
+                CENTER,
                 MANIFEST,
             ),
         ).toBe(false);
@@ -132,6 +156,7 @@ describe("hidesVenuePodium", () => {
             hidesVenuePodium(
                 [item(2, "pit/missing-podium")],
                 new Set(),
+                CENTER,
                 MANIFEST,
             ),
         ).toBe(false);

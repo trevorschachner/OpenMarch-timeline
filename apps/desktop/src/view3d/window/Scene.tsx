@@ -9,7 +9,8 @@
  *
  * - environment: quality;
  * - kit: kit id, field footprint, venue params, quality, and whether the
- *   show has its own podium item (which hides the venue's);
+ *   show has its own podium item in front of the field (which hides the
+ *   venue's);
  * - field surface: field properties, the kit's surface style, venue params,
  *   field image, renderer limits;
  * - crowd: kit, crowd toggle, team colors, quality;
@@ -32,7 +33,11 @@ import DrawWhenNeeded from "./DrawWhenNeeded";
 import { requestDraw } from "./drawWake";
 import { frameCapped } from "./drawPolicy";
 import { useQuery } from "@tanstack/react-query";
-import type { FieldProperties } from "@openmarch/core";
+import {
+    fieldFootprint,
+    pixelsToWorld,
+    type FieldProperties,
+} from "@openmarch/core";
 import {
     ACESFilmicToneMapping,
     PCFShadowMap,
@@ -80,6 +85,7 @@ import PropBlocks from "./props/PropBlocks";
 import PitModels from "./props/PitModels";
 import { warmLightingPresets } from "./warmLighting";
 import { allItemsQueryOptions } from "@/hooks/queries/useItems";
+import { allMarcherRowsQueryOptions } from "@/hooks/queries/useMarchers";
 import { hidesVenuePodium } from "@/view3d/core/pit/pitModels";
 import { useView3dSyncStore } from "@/view3d/sync/view3dSyncStore";
 import { maxPixelRatio } from "./renderPrefs";
@@ -257,13 +263,33 @@ function SceneContents({
         useView3dSceneStore.getState()._setSavedCameras(savedCameras);
     }, [savedCameras]);
 
-    // The venue's own podium hides when the show has a podium item (instruments.md §6).
+    // The venue's own podium, which stands in front of the field, hides when
+    // the show has a podium item there (instruments.md §6). Equipment is
+    // locked, so its home is where it stands.
     const { data: items } = useQuery(allItemsQueryOptions());
+    const { data: rows } = useQuery(allMarcherRowsQueryOptions());
     const hiddenItemIds = useView3dSyncStore((s) => s.hiddenItemIds);
-    const venuePodium = useMemo(
-        () => !hidesVenuePodium(items ?? [], hiddenItemIds),
-        [items, hiddenItemIds],
-    );
+    const venuePodium = useMemo(() => {
+        const homes = new Map((rows ?? []).map((m) => [m.id, m]));
+        const footprint = fieldFootprint(fieldProperties);
+        return !hidesVenuePodium(
+            (items ?? []).map((item) => {
+                const home = homes.get(item.marcher_id);
+                return {
+                    id: item.id,
+                    model: item.model,
+                    z: home
+                        ? pixelsToWorld(fieldProperties, {
+                              x: home.home_x,
+                              y: home.home_y,
+                          }).z
+                        : null,
+                };
+            }),
+            hiddenItemIds,
+            (footprint.minZ + footprint.maxZ) / 2,
+        );
+    }, [items, rows, hiddenItemIds, fieldProperties]);
 
     // Kit: rebuilt only for a new kit id, footprint, params, quality or podium.
     useEffect(() => {

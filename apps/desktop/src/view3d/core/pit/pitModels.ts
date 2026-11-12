@@ -98,6 +98,14 @@ export function modelsByMarcher(
     return out;
 }
 
+/** What {@link hidesVenuePodium} reads of an item. */
+interface ItemModel {
+    id: number;
+    model: string | null;
+    /** Where its center stands front to back (world meters, +Z toward the audience), if known */
+    z: number | null;
+}
+
 /** Whether a podium centered at `z` stands in front of the field: on the audience side of its center line. */
 export const isFrontPodium = (z: number, fieldCenterZ: number): boolean =>
     z > fieldCenterZ;
@@ -111,24 +119,24 @@ export const isFrontPodium = (z: number, fieldCenterZ: number): boolean =>
 export const podiumHeading = (z: number, fieldCenterZ: number): number =>
     isFrontPodium(z, fieldCenterZ) ? Math.PI : 0;
 
-/** What {@link hidesVenuePodium} reads of an item. */
-interface ItemModel {
-    id: number;
-    model: string | null;
-}
-
 /**
  * Whether the venue's own podium (`hs`, `bighs`) hides: the show has a podium item the 3D View
- * draws, one not hidden on the field (`hidden`, by item id).
+ * draws in front of the field, where the venue's stands, and not hidden on the field (`hidden`,
+ * by item id). A podium behind the field leaves the venue's in place.
+ *
+ * @param fieldCenterZ the field's front-to-back midpoint, in world meters
  */
 export function hidesVenuePodium(
     items: readonly ItemModel[],
     hidden: ReadonlySet<number>,
+    fieldCenterZ: number,
     manifest: PitManifest = PIT_MANIFEST,
 ): boolean {
     return items.some(
         (item) =>
             !hidden.has(item.id) &&
+            item.z !== null &&
+            isFrontPodium(item.z, fieldCenterZ) &&
             podiumStandTop(item.model, manifest) !== null,
     );
 }
