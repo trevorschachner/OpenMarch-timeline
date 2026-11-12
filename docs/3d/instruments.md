@@ -545,9 +545,17 @@ the model's metadata, not through `surface_type`: the items check
 constraint keeps equipment without one. The `hs` and `bighs` venues draw
 their own podium box; it hides when the show has a podium item.
 
+A performer on a podium always faces the band, across the field: on a podium
+in front of the field (audience side) they face the back sideline, and on a
+podium behind the back sideline they face the audience. The drill's facing
+doesn't change this while they stand on it. Podiums can stand at the back of
+the field too; a podium placed on the back half is turned to face the field.
+
 **2D.** The field draws a pit strip up to 30 ft deep in front of the front
-sideline, with the footprints, playing-spot markers and pit dots. It is a
-drawing aid only; `FieldProperties` doesn't change.
+sideline, with the footprints, playing-spot markers and pit dots, and a
+matching strip behind the back sideline when the show has equipment there
+(a back podium). They are drawing aids only; `FieldProperties` doesn't
+change.
 
 **Later.** Instrument swaps (their own design), more podium models
 (scaffold, traditional and others), artwork slots, amps, and a
