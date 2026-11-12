@@ -75,6 +75,7 @@ import {
 } from "./qualityFallback";
 import Performers from "./performers/Performers";
 import PropBlocks from "./props/PropBlocks";
+import PropModels from "./props/PropModels";
 import { warmLightingPresets } from "./warmLighting";
 import { maxPixelRatio } from "./renderPrefs";
 
@@ -415,6 +416,7 @@ function SceneContents({
         <>
             <Performers fieldProperties={fieldProperties} />
             <PropBlocks fieldProperties={fieldProperties} />
+            <PropModels fieldProperties={fieldProperties} />
         </>
     );
 }
