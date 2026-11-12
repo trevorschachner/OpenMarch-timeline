@@ -145,6 +145,13 @@ const ROLLBACKS: Record<number, (db: DatabaseSync) => void> = {
             if (object.type === "index" && PAGE_ERA_TABLES.includes(object.tbl))
                 db.exec(object.sql);
     },
+    // An item's built-in 3D model and lock. Its history triggers name the columns
+    19: (db) => {
+        for (const suffix of ["it", "ut", "dt"])
+            db.exec(`DROP TRIGGER IF EXISTS \`items_${suffix}\``);
+        db.exec("ALTER TABLE items DROP COLUMN model");
+        db.exec("ALTER TABLE items DROP COLUMN locked");
+    },
 };
 
 /**

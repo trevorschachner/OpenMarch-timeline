@@ -44,6 +44,10 @@ export interface NewItemArgs {
     name?: string | null;
     /** Props only */
     surfaceType?: SurfaceType;
+    /** A built-in 3D model id such as `pit/marimba-5.0`; none (a block) by default */
+    model?: string | null;
+    /** One position for the whole show; equipment is locked and props unlocked by default */
+    locked?: boolean;
     /** Where it was drawn: its home, `[x, y]` in canvas coordinates like a marcher's */
     home: XY;
     /** The beat it was created on: Off field before it, on field from it */
@@ -145,6 +149,8 @@ export async function createItemsInTransaction({
                     newItem.kind === "prop"
                         ? (newItem.surfaceType ?? "obstacle")
                         : null,
+                model: newItem.model ?? null,
+                locked: newItem.locked ?? newItem.kind === "equipment",
             })
             .returning()
             .get();
@@ -278,9 +284,13 @@ export interface ModifiedItemArgs {
     surfaceType?: SurfaceType;
     /** The prop's color as `rgba(r, g, b, a)` (`propColorToString`); null clears it */
     color?: string | null;
+    /** A built-in 3D model id such as `pit/marimba-5.0`; null draws the item as a block */
+    model?: string | null;
+    /** Locks the item to one position for the whole show, or unlocks it */
+    locked?: boolean;
 }
 
-/** Renames items, changes props' surface types and colors. */
+/** Renames items, changes props' surface types and colors, and sets items' models and locks. */
 export async function updateItemsInTransaction({
     tx,
     modifiedItems,
@@ -288,7 +298,14 @@ export async function updateItemsInTransaction({
     tx: DbTransaction;
     modifiedItems: readonly ModifiedItemArgs[];
 }): Promise<void> {
-    for (const { itemId, name, surfaceType, color } of modifiedItems) {
+    for (const {
+        itemId,
+        name,
+        surfaceType,
+        color,
+        model,
+        locked,
+    } of modifiedItems) {
         const item = await tx
             .select()
             .from(schema.items)
@@ -301,10 +318,10 @@ export async function updateItemsInTransaction({
                 .set({ name })
                 .where(eq(schema.marchers.id, item.marcher_id))
                 .run();
-        if (color !== undefined)
+        if (color !== undefined || model !== undefined || locked !== undefined)
             await tx
                 .update(schema.items)
-                .set({ color })
+                .set({ color, model, locked })
                 .where(eq(schema.items.id, itemId))
                 .run();
         if (surfaceType !== undefined) {

@@ -3,7 +3,7 @@ import { count, eq } from "drizzle-orm";
 import type { SQLiteTable } from "drizzle-orm/sqlite-core";
 import { describeDbTests, schema, type DbConnection } from "@/test/base";
 import { getTestWithHistory } from "@/test/history";
-import { performUndo } from "../history";
+import { performRedo, performUndo } from "../history";
 import { deleteBeats } from "../beat";
 import {
     createItems,
@@ -301,6 +301,117 @@ describeDbTests("items", (it) => {
                 expect((await getItems({ db }))[0].color).toBeNull();
             },
         );
+
+        it("sets, clears and undoes an item's built-in model", async ({
+            db,
+            beats,
+        }) => {
+            expect(beats).toBeDefined();
+            const [beat] = await firstBeatIds(db);
+            const [riserItem, marimba] = await createItems({
+                db,
+                newItems: [
+                    riser(beat),
+                    {
+                        kind: "equipment",
+                        name: "Marimba",
+                        model: "pit/marimba-5.0",
+                        home: [0, 0],
+                        beatId: beat,
+                        geometry: {
+                            outlineType: "rectangle",
+                            width: 2.6,
+                            depth: 1,
+                            height: 0.9,
+                        },
+                    },
+                ],
+            });
+            // A block unless it names a model
+            expect(riserItem.model).toBeNull();
+            expect(marimba).toMatchObject({
+                kind: "equipment",
+                surface_type: null,
+                model: "pit/marimba-5.0",
+            });
+            const models = async () =>
+                (await getItems({ db })).map((i) => i.model);
+            expect(await models()).toEqual([null, "pit/marimba-5.0"]);
+
+            await updateItems({
+                db,
+                modifiedItems: [
+                    { itemId: riserItem.id, model: "pit/vibraphone" },
+                    { itemId: marimba.id, model: null },
+                ],
+            });
+            expect(await models()).toEqual(["pit/vibraphone", null]);
+
+            // Changing something else leaves the model alone
+            await updateItems({
+                db,
+                modifiedItems: [{ itemId: riserItem.id, color: "red" }],
+            });
+            expect(await models()).toEqual(["pit/vibraphone", null]);
+
+            await performUndo(db);
+            await performUndo(db);
+            expect(await models()).toEqual([null, "pit/marimba-5.0"]);
+            await performRedo(db);
+            expect(await models()).toEqual(["pit/vibraphone", null]);
+        });
+
+        it("locks equipment by default, and locks and unlocks items in one undo step", async ({
+            db,
+            beats,
+        }) => {
+            expect(beats).toBeDefined();
+            const [beat] = await firstBeatIds(db);
+            const equipment = {
+                kind: "equipment" as const,
+                home: [0, 0] as [number, number],
+                beatId: beat,
+                geometry: {
+                    outlineType: "rectangle" as const,
+                    width: 1,
+                    depth: 1,
+                    height: 1,
+                },
+            };
+            const [riserItem, speaker, looseCart] = await createItems({
+                db,
+                newItems: [
+                    riser(beat),
+                    { ...equipment, name: "Speaker" },
+                    { ...equipment, name: "Cart", locked: false },
+                ],
+            });
+            expect(riserItem.locked).toBe(false);
+            expect(speaker.locked).toBe(true);
+            expect(looseCart.locked).toBe(false);
+            const locks = async () =>
+                (await getItems({ db })).map((i) => i.locked);
+
+            await updateItems({
+                db,
+                modifiedItems: [
+                    { itemId: riserItem.id, locked: true },
+                    { itemId: speaker.id, locked: false },
+                ],
+            });
+            expect(await locks()).toEqual([true, false, false]);
+
+            // Changing something else leaves the lock alone
+            await updateItems({
+                db,
+                modifiedItems: [{ itemId: riserItem.id, color: "red" }],
+            });
+            expect(await locks()).toEqual([true, false, false]);
+
+            await performUndo(db);
+            await performUndo(db);
+            expect(await locks()).toEqual([false, true, false]);
+        });
 
         it("refuses a surface type on equipment", async ({ db, beats }) => {
             expect(beats).toBeDefined();
