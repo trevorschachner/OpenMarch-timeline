@@ -8,9 +8,9 @@
  * - Models are in meters, +Y up, origin on the ground at the middle of the footprint, +Z toward
  *   the audience and +X the player's left. They draw at real size: the item's Outline gives the
  *   position and the turn, not the size.
- * - A podium (an id naming a podium, tower, scaffold or stepladder) is stood on: its standing
- *   height is the manifest's `standTopM`, else the detailed model's height, and whoever stands
- *   on it faces the band across the field.
+ * - A podium (an id naming a podium, tower, scaffold or stepladder) is stood on: at the
+ *   manifest's `standAtM` on its footprint, on its deck at `standTopM`, facing the band across
+ *   the field. Every podium the manifest lists has both; one without is a bug in the manifest.
  *
  * Plain TypeScript only: this module lives under `view3d/core/`.
  */
@@ -30,6 +30,8 @@ export interface PitManifestEntry {
     low: { sizeM: PitSize };
     /** A podium's standing height (m), where the drum major's feet go */
     standTopM?: number;
+    /** Where on a podium's footprint the drum major stands: [x, z] in the model's axes (m) */
+    standAtM?: readonly number[];
 }
 
 export type PitManifest = Readonly<Record<string, PitManifestEntry>>;
@@ -65,19 +67,40 @@ export const isPodiumModel = (modelId: string | null | undefined): boolean =>
     !!modelId?.startsWith(PIT_MODEL_PREFIX) &&
     PODIUM_WORDS.test(modelId.slice(PIT_MODEL_PREFIX.length));
 
+/** A podium model's manifest entry, or null for a model that isn't a podium or isn't listed. */
+function podiumEntry(
+    modelId: string | null | undefined,
+    manifest: PitManifest,
+): PitManifestEntry | null {
+    if (!isPodiumModel(modelId)) return null;
+    const name = pitModelName(modelId, manifest);
+    return name === null ? null : manifest[name];
+}
+
 /**
- * How high a performer stands on a podium model (m): its `standTopM`, else the detailed
- * model's height. Null for a model that isn't a podium or isn't listed.
+ * How high a performer stands on a podium model (m): the top of its deck, `standTopM`. Null for
+ * a model that isn't a podium or isn't listed, or (a manifest bug) has no `standTopM`.
  */
 export function podiumStandTop(
     modelId: string | null | undefined,
     manifest: PitManifest = PIT_MANIFEST,
 ): number | null {
-    if (!isPodiumModel(modelId)) return null;
-    const name = pitModelName(modelId, manifest);
-    if (name === null) return null;
-    const entry = manifest[name];
-    return entry.standTopM ?? entry.high.sizeM.height;
+    return podiumEntry(modelId, manifest)?.standTopM ?? null;
+}
+
+/**
+ * Where on a podium model's footprint a performer stands, in the model's axes (m, before the
+ * item's turn): its `standAtM`, else the middle. Null for a model that isn't a podium or isn't
+ * listed.
+ */
+export function podiumStandAt(
+    modelId: string | null | undefined,
+    manifest: PitManifest = PIT_MANIFEST,
+): { x: number; z: number } | null {
+    const entry = podiumEntry(modelId, manifest);
+    if (!entry) return null;
+    const [x, z] = entry.standAtM ?? [0, 0];
+    return { x, z };
 }
 
 /**

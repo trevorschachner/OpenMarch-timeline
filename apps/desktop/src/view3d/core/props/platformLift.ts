@@ -7,6 +7,9 @@
  * half a count at the show's step size. On the edge a performer is halfway up. Stacked platforms
  * make steps: each platform lifts from whatever is under it toward its own top.
  *
+ * A podium is not a ramp: a performer whose dot is on it, or within {@link PODIUM_REACH} of it,
+ * stands on its deck at the stand point, exactly (`writePodiumStands`).
+ *
  * Plain TypeScript only, and the per-frame path allocates nothing.
  */
 import type { PropSolid } from "./propLayout";
@@ -21,42 +24,60 @@ export interface LiftPlatform {
     readonly maxX: number;
     readonly minZ: number;
     readonly maxZ: number;
-    /** A podium: whoever stands on it faces the band */
-    readonly facesAcross: boolean;
+}
+
+/** A podium as the lift reads it: a platform with the point its performer stands on. */
+export interface LiftPodium extends LiftPlatform {
+    /** Where the performer stands, in world meters */
+    readonly standX: number;
+    readonly standZ: number;
     /** Its center, front to back */
     readonly centerZ: number;
 }
 
-/** The platforms performers can stand on, lowest top first. */
+/** How far outside a podium's footprint a dot still puts its performer on the podium (m): 1 ft. */
+export const PODIUM_REACH = 0.3048;
+
+const isPodium = (s: PropSolid) => s.facesAcross === true;
+
+const standsOnIt = (s: PropSolid) =>
+    s.surface === "platform" && s.closed && s.height > 0;
+
+/** The ramped platforms performers can stand on, lowest top first. Podiums aren't among them. */
 export function liftPlatforms(solids: readonly PropSolid[]): LiftPlatform[] {
-    const out: LiftPlatform[] = [];
-    for (const s of solids) {
-        if (s.surface !== "platform" || !s.closed || s.height <= 0) continue;
-        const ring = new Float64Array(s.outline.length * 2);
-        let minX = Infinity,
-            maxX = -Infinity,
-            minZ = Infinity,
-            maxZ = -Infinity;
-        s.outline.forEach((p, i) => {
-            ring[i * 2] = p.x;
-            ring[i * 2 + 1] = p.z;
-            minX = Math.min(minX, p.x);
-            maxX = Math.max(maxX, p.x);
-            minZ = Math.min(minZ, p.z);
-            maxZ = Math.max(maxZ, p.z);
-        });
-        out.push({
-            ring,
-            top: s.base + s.height,
-            minX,
-            maxX,
-            minZ,
-            maxZ,
-            facesAcross: s.facesAcross ?? false,
+    return solids
+        .filter((s) => standsOnIt(s) && !isPodium(s))
+        .map(toPlatform)
+        .sort((a, b) => a.top - b.top);
+}
+
+/** The podiums performers can stand on, as {@link writePodiumStands} reads them. */
+export function liftPodiums(solids: readonly PropSolid[]): LiftPodium[] {
+    return solids
+        .filter((s) => standsOnIt(s) && isPodium(s))
+        .map((s) => ({
+            ...toPlatform(s),
+            standX: s.standPoint?.x ?? s.center.x,
+            standZ: s.standPoint?.z ?? s.center.z,
             centerZ: s.center.z,
-        });
-    }
-    return out.sort((a, b) => a.top - b.top);
+        }));
+}
+
+function toPlatform(s: PropSolid): LiftPlatform {
+    const ring = new Float64Array(s.outline.length * 2);
+    let minX = Infinity,
+        maxX = -Infinity,
+        minZ = Infinity,
+        maxZ = -Infinity;
+    s.outline.forEach((p, i) => {
+        ring[i * 2] = p.x;
+        ring[i * 2 + 1] = p.z;
+        minX = Math.min(minX, p.x);
+        maxX = Math.max(maxX, p.x);
+        minZ = Math.min(minZ, p.z);
+        maxZ = Math.max(maxZ, p.z);
+    });
+    return { ring, top: s.base + s.height, minX, maxX, minZ, maxZ };
 }
 
 /** How far (x, z) is inside the ring: positive inside, negative outside, 0 on an edge. */
@@ -135,36 +156,54 @@ export function writeLifts(
 }
 
 /**
- * Turns each placed performer standing inside a podium's footprint to face the band across the
- * field (docs/3d/instruments.md §6), replacing the drill's heading in `headings`: the back
- * sideline from a podium in front of the field, the audience from one behind it. Of podiums
- * over each other, the highest decides. Everyone else keeps their heading.
+ * Stands each placed performer whose dot is on a podium's footprint, or within
+ * {@link PODIUM_REACH} outside it, on that podium (docs/3d/instruments.md §6): replaces their
+ * position in `xz` with the podium's stand point, their lift in `lift` with its deck (its base
+ * plus its standing height, exactly, with no ramp), and their heading in `headings` with one
+ * facing the band across the field: the back sideline from a podium in front of the field, the
+ * audience from one behind it. Of podiums in reach, the one whose stand point is nearest wins.
+ * Everyone else keeps what they had.
+ *
+ * Render-only: `xz` is the frame's buffer, not the stored drill. Call it after the ramped lifts
+ * and before anything is drawn at the feet, so the body, instrument, silks and plumes all follow.
+ * The step onto the podium is instant as the dot comes into reach; there's no climb in v1.
  *
  * @param fieldCenterZ the field's front-to-back midpoint, in world meters
  */
-export function writePodiumHeadings(
-    platforms: readonly LiftPlatform[],
+export function writePodiumStands(
+    podiums: readonly LiftPodium[],
     xz: Float32Array,
     placed: Uint8Array,
     fieldCenterZ: number,
+    lift: Float32Array,
     headings: Float32Array,
 ): void {
-    for (let i = 0; i < headings.length; i++) {
+    if (podiums.length === 0) return;
+    for (let i = 0; i < lift.length; i++) {
         if (!placed[i]) continue;
         const x = xz[i * 2],
             z = xz[i * 2 + 1];
-        // Lowest top first: the last podium holding the dot is the highest
-        let on: LiftPlatform | null = null;
-        for (const p of platforms)
+        let on: LiftPodium | null = null;
+        let nearest = Infinity;
+        for (const p of podiums) {
             if (
-                p.facesAcross &&
-                x >= p.minX &&
-                x <= p.maxX &&
-                z >= p.minZ &&
-                z <= p.maxZ &&
-                signedDistance(p.ring, x, z) > 0
+                x < p.minX - PODIUM_REACH ||
+                x > p.maxX + PODIUM_REACH ||
+                z < p.minZ - PODIUM_REACH ||
+                z > p.maxZ + PODIUM_REACH ||
+                signedDistance(p.ring, x, z) < -PODIUM_REACH
             )
+                continue;
+            const d = Math.hypot(x - p.standX, z - p.standZ);
+            if (d < nearest) {
+                nearest = d;
                 on = p;
-        if (on) headings[i] = podiumHeading(on.centerZ, fieldCenterZ);
+            }
+        }
+        if (!on) continue;
+        xz[i * 2] = on.standX;
+        xz[i * 2 + 1] = on.standZ;
+        lift[i] = on.top;
+        headings[i] = podiumHeading(on.centerZ, fieldCenterZ);
     }
 }

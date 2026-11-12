@@ -72,7 +72,7 @@ import { useShowProps } from "@/hooks/useShowProps";
 import {
     findPerformerPlayers,
     writePerformerLifts,
-    writePerformerPodiumHeadings,
+    writePerformerPodiumStands,
 } from "../props/performerLift";
 import { PLAYING_CLIP, writePlayers } from "@/view3d/core/pit/pitPlayers";
 import { useView3dSyncStore } from "@/view3d/sync/view3dSyncStore";
@@ -663,8 +663,15 @@ export default function Performers({ fieldProperties }: PerformersProps) {
                 writePlayers(spots, players, xz, headings);
                 // where the bodies are now
                 writePerformerLifts(propsNow, xz, placed, lift);
-                // a drum major on a podium faces the band, whatever the drill says
-                writePerformerPodiumHeadings(propsNow, xz, placed, headings);
+                // a drum major at a podium stands on its deck facing the band,
+                // whatever the drill says: before anything is drawn at the feet
+                writePerformerPodiumStands(
+                    propsNow,
+                    xz,
+                    placed,
+                    lift,
+                    headings,
+                );
                 marcherBodies.writeFrame(
                     xz,
                     headings,
@@ -681,6 +688,13 @@ export default function Performers({ fieldProperties }: PerformersProps) {
             } else {
                 writePlayers(spots, players, xz);
                 writePerformerLifts(propsNow, xz, placed, lift);
+                writePerformerPodiumStands(
+                    propsNow,
+                    xz,
+                    placed,
+                    lift,
+                    headings,
+                );
                 writePerformerMatrices(
                     count,
                     xz,
