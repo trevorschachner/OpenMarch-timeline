@@ -87,7 +87,12 @@ import { PIXELS_PER_METER } from "@/items/itemOutlines";
 import { isMacPlatform } from "@/shortcuts/platform";
 import { planFieldImage } from "@/field/fieldPlan";
 import { dropMarchersOnTimeline } from "@/field/fieldDrop";
-import { fieldViewSize, pitStripOf } from "@/field/pitStrip";
+import {
+    backStripOf,
+    fieldViewSize,
+    hasEquipmentBehind,
+    pitStripOf,
+} from "@/field/pitStrip";
 import type { FieldRect } from "@/field/editor/selectionArea";
 import { FieldMarchers } from "./fieldMarchers";
 import { FieldItems } from "./fieldItems";
@@ -253,8 +258,7 @@ function ThreeFieldView() {
     const numbersOnly = labelForm === "numbers";
     const items = useMemo(() => new FieldItems(marchers), [marchers]);
     const itemLabels = useFieldItems(items, beats);
-    const { strip: pitStrip, loaded: itemsLoaded } =
-        usePitStrip(fieldProperties);
+    const { strips, loaded: itemsLoaded } = useFieldStrips(fieldProperties);
     const saveItem = useFieldItemWrites(items);
     const propDrawn = usePropDrawn();
     const labels = useMemo(
@@ -626,7 +630,7 @@ function ThreeFieldView() {
                         <ContextLossGuard onGiveUp={startOver} />
                         <FieldCamera
                             fieldProperties={fieldProperties}
-                            pitStrip={pitStrip}
+                            strips={strips}
                             ready={ready}
                             opened={opened}
                             settled={settled}
@@ -645,7 +649,7 @@ function ThreeFieldView() {
                         />
                         <FieldLayer
                             fieldProperties={fieldProperties}
-                            pitStrip={pitStrip}
+                            strips={strips}
                             numberAtlas={atlases.number}
                             labelAtlas={atlases.checkpoint}
                         />
@@ -796,24 +800,47 @@ function useFieldItems(
 }
 
 /**
- * The pit strip in front of the front sideline (instruments.md section 6), while the show has
- * equipment to stand there; the same rectangle until that changes. `loaded` once the items are,
- * so the view can open fitted to it.
+ * The strips beside the field (instruments.md section 6): the pit strip in front of the front
+ * sideline while the show has equipment, and the back strip behind the back sideline while
+ * equipment stands there (a back podium), by the resolver at the start of the show. The same
+ * array until they change. `loaded` once the items are, and the resolver with any equipment, so
+ * the view can open fitted to them.
  */
-function usePitStrip(fieldProperties: FieldProperties | undefined): {
-    strip: FieldRect | null;
+function useFieldStrips(fieldProperties: FieldProperties | undefined): {
+    strips: readonly FieldRect[];
     loaded: boolean;
 } {
     const { data: itemRows, isFetched } = useQuery(allItemsQueryOptions());
-    const hasEquipment = (itemRows ?? []).some(
-        (item) => item.kind === "equipment",
-    );
-    const strip = useMemo(
+    const equipment = useMemo(
         () =>
-            fieldProperties ? pitStripOf(fieldProperties, hasEquipment) : null,
-        [fieldProperties, hasEquipment],
+            (itemRows ?? [])
+                .filter((item) => item.kind === "equipment")
+                .map((item) => item.marcher_id),
+        [itemRows],
     );
-    return { strip, loaded: isFetched };
+    const resolver = useTimelineResolverStore((s) => s.resolver);
+    const version = useTimelineResolverStore((s) => s.version);
+    const behind = useMemo(() => {
+        void version; // a new version means new positions
+        if (!resolver) return false;
+        const known = new Set(resolver.marcherIds());
+        return hasEquipmentBehind(
+            equipment.filter((id) => known.has(id)),
+            (id) => resolver.positionAt(id, 0),
+        );
+    }, [resolver, version, equipment]);
+    const hasEquipment = equipment.length > 0;
+    const strips = useMemo(() => {
+        if (!fieldProperties) return [];
+        return [
+            pitStripOf(fieldProperties, hasEquipment),
+            backStripOf(fieldProperties, behind),
+        ].filter((strip): strip is FieldRect => strip !== null);
+    }, [fieldProperties, hasEquipment, behind]);
+    return {
+        strips,
+        loaded: isFetched && (!hasEquipment || resolver !== null),
+    };
 }
 
 /** How long to wait for Preview's layout to settle. */
@@ -871,14 +898,14 @@ function usePreviewFit(
  */
 function FieldCamera({
     fieldProperties,
-    pitStrip,
+    strips,
     ready,
     opened,
     settled,
 }: {
     fieldProperties: FieldProperties;
-    /** The pit strip, which the view fits and keeps in reach with the field */
-    pitStrip: FieldRect | null;
+    /** The strips beside the field, which the view fits and keeps in reach with it */
+    strips: readonly FieldRect[];
     ready: boolean;
     opened: RefObject<boolean>;
     settled: RefObject<boolean>;
@@ -889,7 +916,7 @@ function FieldCamera({
     const invalidate = useThree((s) => s.invalidate);
 
     useLayoutEffect(() => {
-        const field = fieldViewSize(fieldProperties, pitStrip);
+        const field = fieldViewSize(fieldProperties, strips);
         useFieldViewStore.setState({ width, height, field });
         if (width <= 0 || height <= 0 || !ready) return;
         if (!opened.current) {
@@ -898,7 +925,7 @@ function FieldCamera({
         } else {
             fitAfterResize(settled.current);
         }
-    }, [width, height, fieldProperties, pitStrip, ready, opened, settled]);
+    }, [width, height, fieldProperties, strips, ready, opened, settled]);
 
     useLayoutEffect(() => {
         const apply = () => {

@@ -133,15 +133,17 @@ function rectsMesh(
  * Rebuilt only when the field properties or the grid and half line settings
  * change.
  */
+const NO_STRIPS: readonly FieldRect[] = [];
+
 export default function FieldLayer({
     fieldProperties,
-    pitStrip = null,
+    strips = NO_STRIPS,
     numberAtlas,
     labelAtlas,
 }: {
     fieldProperties: FieldProperties;
-    /** The pit strip in front of the front sideline (`pitStripOf`), or none */
-    pitStrip?: FieldRect | null;
+    /** The strips in front of and behind the field (`pitStripOf`, `backStripOf`) */
+    strips?: readonly FieldRect[];
     /** The yard number font. */
     numberAtlas: GlyphAtlas;
     /** The checkpoint label font. */
@@ -157,7 +159,7 @@ export default function FieldLayer({
         const { background, rects, texts } = fieldGeometry(fieldProperties, {
             gridLines,
             halfLines,
-            pitStrip,
+            strips,
         });
         const batch = (atlas: GlyphAtlas, font: "number" | "label") => {
             const chosen = texts.filter((text) => text.font === font);
@@ -187,7 +189,7 @@ export default function FieldLayer({
         };
     }, [
         fieldProperties,
-        pitStrip,
+        strips,
         gridLines,
         halfLines,
         numberAtlas,

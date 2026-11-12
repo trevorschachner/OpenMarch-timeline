@@ -206,7 +206,7 @@ describe("fieldGeometry with the pit strip", () => {
     const withStrip = fieldGeometry(fp, {
         gridLines: true,
         halfLines: true,
-        pitStrip: strip,
+        strips: [strip],
     });
 
     it("fills the strip under everything, fainter than the field", () => {
@@ -237,6 +237,38 @@ describe("fieldGeometry with the pit strip", () => {
                     r.minX < xPixels &&
                     r.maxX > xPixels &&
                     r.maxY - r.minY > 170,
+            ),
+        ).toBe(true);
+    });
+});
+
+describe("fieldGeometry with a back strip", () => {
+    const back = { left: 0, right: fp.width, top: -180, bottom: 0 };
+    const plain = fieldGeometry(fp);
+    const geometry = fieldGeometry(fp, {
+        gridLines: true,
+        halfLines: true,
+        strips: [back],
+    });
+
+    it("fills it behind the back sideline", () => {
+        expect(Array.from(geometry.background.bounds.subarray(4, 8))).toEqual(
+            [0, -180, fp.width, 0].map(Math.fround),
+        );
+    });
+
+    it("draws its far edge behind the field, and nothing of it on the field", () => {
+        const added = rects(geometry).slice(rects(plain).length);
+        for (const r of added) {
+            expect(r.minY).toBeGreaterThanOrEqual(-180 - 1);
+            expect(r.maxY).toBeLessThanOrEqual(1);
+        }
+        // The far edge: a full-width line at y = -180
+        expect(
+            added.some(
+                (r) =>
+                    r.maxX - r.minX >= fp.width &&
+                    Math.abs((r.minY + r.maxY) / 2 + 180) < 1e-3,
             ),
         ).toBe(true);
     });

@@ -66,15 +66,18 @@ export const PIT_STRIP_FILL_ALPHA = 0.45;
 export const PIT_STRIP_LINE_ALPHA = 0.35;
 
 export type FieldGeometryOptions = FieldPlanOptions & {
-    /** The pit strip in front of the front sideline (`pitStripOf`), or none */
-    pitStrip?: FieldRect | null;
+    /**
+     * The strips beside the field: the pit strip in front of the front sideline (`pitStripOf`)
+     * and the back strip behind the back sideline (`backStripOf`), when there are any
+     */
+    strips?: readonly FieldRect[];
 };
 
 /**
  * Plans the field of `fieldProperties` with the user's line settings. The
- * field image is its own layer (`planFieldImage`). The pit strip, when there
- * is one, is drawn after the field: a fainter fill, its edges and the yard
- * lines run on across it.
+ * field image is its own layer (`planFieldImage`). The strips beside the
+ * field, when there are any, are drawn after it: a fainter fill, their edges
+ * and the yard lines run on across them.
  */
 export function fieldGeometry(
     fieldProperties: FieldProperties,
@@ -117,8 +120,9 @@ export function fieldGeometry(
         [x1 - sw, y0 + inset, x1, y1 - inset],
     ];
     for (const rect of sides) rects.push({ rect, color: border.color });
-    const strip = options.pitStrip ?? null;
-    if (strip) rects.push(...pitStripRects(plan, strip, fieldProperties));
+    const strips = options.strips ?? [];
+    for (const strip of strips)
+        rects.push(...stripRects(plan, strip, fieldProperties));
 
     const texts = plan.texts.map(
         (t): FieldText => ({
@@ -138,7 +142,7 @@ export function fieldGeometry(
     const background: { rect: Rect; color: RgbaColor }[] = [
         { rect: [0, 0, plan.width, plan.height], color: plan.background },
     ];
-    if (strip)
+    for (const strip of strips)
         background.push({
             rect: [strip.left, strip.top, strip.right, strip.bottom],
             color: {
@@ -153,8 +157,11 @@ export function fieldGeometry(
     };
 }
 
-/** The pit strip's left, right and far edges, and each yard line run on across it, faintly */
-function pitStripRects(
+/**
+ * A strip's left, right and far edges (away from the field: the bottom of the pit strip, the top
+ * of the back strip), and each yard line run on across it, faintly
+ */
+function stripRects(
     plan: ReturnType<typeof planField2d>,
     strip: FieldRect,
     fieldProperties: FieldProperties,
@@ -167,11 +174,13 @@ function pitStripRects(
     };
     const half = FieldProperties.GRID_STROKE_WIDTH / 2;
     const { left, right, top, bottom } = strip;
+    // A strip that ends at the field's top edge is behind it
+    const far = bottom <= 0 ? top : bottom;
     const out: { rect: Rect; color: RgbaColor }[] = [
         { rect: [left - half, top, left + half, bottom], color: edge },
         { rect: [right - half, top, right + half, bottom], color: edge },
         {
-            rect: [left - half, bottom - half, right + half, bottom + half],
+            rect: [left - half, far - half, right + half, far + half],
             color: edge,
         },
     ];
