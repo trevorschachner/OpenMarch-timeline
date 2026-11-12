@@ -41,6 +41,8 @@ export type AreaPorts = {
     canSelect(id: number): boolean;
     /** Whether a marcher is an item (C2.2), which an area takes only when nothing else is in it */
     isItem?(id: number): boolean;
+    /** Whether a marcher is a locked item, which an area never takes */
+    isLocked?(id: number): boolean;
     selection(): readonly number[];
     select(ids: readonly number[]): void;
     /** The shape changed: the overlay draws it again. */
@@ -104,6 +106,7 @@ export function startMarquee(
                     ports.canSelect,
                 ),
                 (id) => ports.isItem?.(id) ?? false,
+                (id) => ports.isLocked?.(id) ?? false,
             );
             ports.select(selectionAfterArea(ports.selection(), inside, choice));
         },
@@ -151,6 +154,7 @@ export function startLasso(
             const inside = areaPicks(
                 marchersInPolygon(ports.marchers(), points, ports.canSelect),
                 (id) => ports.isItem?.(id) ?? false,
+                (id) => ports.isLocked?.(id) ?? false,
             );
             ports.select(selectionAfterArea(ports.selection(), inside, choice));
         },

@@ -152,6 +152,11 @@ export type FieldEditorPorts = {
      * hit by their Outline ({@link itemAt}), not by a dot at their center.
      */
     isItem?(id: number): boolean;
+    /**
+     * Whether item `id` is locked to one position for the whole show (the pit's equipment): a
+     * marquee and a lasso never take it, a click still selects it.
+     */
+    isLocked?(id: number): boolean;
     /** The item whose Outline holds `point`, topmost first, or null. */
     itemAt?(point: FieldPoint): number | null;
     /** Item `id`'s Outline as drawn, or null when it isn't drawn. */
@@ -544,6 +549,7 @@ export class FieldEditor {
             canSelect: (id) =>
                 ports.canSelect(id) && !ports.marcherHidden?.(id),
             isItem: (id) => ports.isItem?.(id) ?? false,
+            isLocked: (id) => ports.isLocked?.(id) ?? false,
             selection: () => ports.selection.get(),
             select: (ids) => this.write(ids),
             changed: () => this.emit(),
