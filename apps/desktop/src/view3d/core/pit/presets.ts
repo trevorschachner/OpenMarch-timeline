@@ -136,6 +136,9 @@ const MIXER_STANDOFF = 6 * FEET;
  */
 const PLAYING_SPOT_STANDOFF = 1 * FEET;
 
+/** How near a performer must stand to a playing spot to be on it, as `PLAYING_SPOT_TOLERANCE_M` */
+const PLAYING_SPOT_REACH = 1 * FEET;
+
 const footprint = (familyId: PitFamilyId) =>
     defaultPitVariant(familyId).footprint;
 
@@ -295,6 +298,8 @@ export function pitPresetOnCanvas(
 ): {
     equipment: PitPresetEquipmentOnCanvas[];
     performers: PitPresetPerformerOnCanvas[];
+    /** How near a performer must stand to a spot to be on it, in canvas units: about a foot */
+    reach: number;
 } {
     const home = ({ x, z }: { x: number; z: number }): XY => {
         const p = worldToPixels(field, { x, z });
@@ -303,5 +308,8 @@ export function pitPresetOnCanvas(
     return {
         equipment: preset.equipment.map((e) => ({ ...e, home: home(e) })),
         performers: preset.performers.map((p) => ({ ...p, home: home(p) })),
+        reach:
+            worldToPixels(field, { x: PLAYING_SPOT_REACH, z: 0 }).x -
+            field.centerFrontPoint.xPixels,
     };
 }

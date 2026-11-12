@@ -1392,7 +1392,8 @@
             "create": "Couldn't create the prop",
             "delete": "Couldn't delete the prop",
             "outline": "Couldn't change the prop's outline",
-            "update": "Couldn't change the prop"
+            "update": "Couldn't change the prop",
+            "preset": "Couldn't apply the preset"
         },
         "height": "Height",
         "hide": "Hide on the field",
@@ -1451,7 +1452,23 @@
                 "keyboards": "Keyboards",
                 "percussion": "Percussion"
             },
-            "title": "Front ensemble"
+            "title": "Front ensemble",
+            "presets": {
+                "title": "Presets",
+                "size": "Preset size",
+                "small": "Small",
+                "medium": "Medium",
+                "large": "Large",
+                "summary": {
+                    "small": "2 marimbas, 2 vibes, a rack, a synth and 2 speakers",
+                    "medium": "4 marimbas, 3 vibes, xylophone, glockenspiel, rack, drum set, synth and 4 speakers",
+                    "large": "6 marimbas, 4 vibes, xylophone, glockenspiel, 2 racks, drum set, 2 synths and 6 speakers"
+                },
+                "always": "Each also adds a podium on the 50 and a mixer behind the pit.",
+                "addPerformers": "Also add performers",
+                "apply": "Apply",
+                "replaces": "Replaces the equipment the last preset added. Equipment you added yourself stays."
+            }
         }
     },
     "section": {

@@ -346,6 +346,8 @@ describe("pitPresetOnCanvas", () => {
         expect(speaker.home[0] - field.centerFrontPoint.xPixels).toBeCloseTo(
             3 * 8 * field.pixelsPerStep,
         );
+        // A player is on a spot within about a foot of it
+        expect(onCanvas.reach).toBeCloseTo(FEET * pixelsPerMeter);
         expect(onCanvas.performers).toHaveLength(preset.performers.length);
         expect(onCanvas.performers[0].section).toBe(
             preset.performers[0].section,

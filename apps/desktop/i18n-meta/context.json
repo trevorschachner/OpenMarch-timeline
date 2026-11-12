@@ -2916,5 +2916,18 @@
     "pit.variant.wide": "Part of a front ensemble model's name in the Props panel, joined to other parts with ' · ' (e.g. '5.0 octaves · Rosewood'): a wide, low loudspeaker. Short.",
     "props.equipment.delete": "Tooltip and screen-reader label of the red trash button beside a piece of equipment (a front ensemble instrument, speaker, mixer or podium) in the Props panel's list. Deletes it; undo brings it back. Same as 'Delete prop', for equipment.",
     "props.equipment.edit": "Tooltip and screen-reader label of the pencil button beside a piece of equipment (a front ensemble instrument, speaker, mixer or podium) in the Props panel's list. Opens its edit view. Same as 'Edit prop', for equipment.",
-    "props.equipment.editTitle": "Title of the Props panel's edit view for a piece of equipment (a front ensemble instrument, speaker, mixer or podium), in title case like 'Edit Prop'."
+    "props.equipment.editTitle": "Title of the Props panel's edit view for a piece of equipment (a front ensemble instrument, speaker, mixer or podium), in title case like 'Edit Prop'.",
+    "props.errors.preset": "Error toast shown when applying a front ensemble preset (a ready-made set of pit instruments, speakers, a podium and a mixer) fails.",
+    "props.frontEnsemble.presets.addPerformers": "Checkbox label, checked by default. When checked, applying a preset also adds one performer (marcher) for each instrument, standing where they play it, and a drum major on the podium. Performers the show already has in those sections are not added again.",
+    "props.frontEnsemble.presets.always": "Note under the preset's list: every preset size also places a conductor's podium on the 50-yard line and a sound mixer cart behind the pit.",
+    "props.frontEnsemble.presets.apply": "Button that places the chosen front ensemble preset on the field. Can be undone in one step.",
+    "props.frontEnsemble.presets.large": "Option in a three-way switch picking the largest front ensemble (pit) preset. Keep it to one short word.",
+    "props.frontEnsemble.presets.medium": "Option in a three-way switch picking the middle-sized front ensemble (pit) preset. Keep it to one short word.",
+    "props.frontEnsemble.presets.replaces": "Note shown above the Apply button when the show already has equipment from an earlier preset: applying again removes only that earlier preset's equipment, not equipment placed by hand, and not performers.",
+    "props.frontEnsemble.presets.size": "Screen-reader label of the Small / Medium / Large switch that picks which front ensemble preset to apply.",
+    "props.frontEnsemble.presets.small": "Option in a three-way switch picking the smallest front ensemble (pit) preset. Keep it to one short word.",
+    "props.frontEnsemble.presets.summary.large": "One line under the preset switch listing what the Large front ensemble preset places in front of the field. 'Vibes' are vibraphones, a 'rack' is a rack of auxiliary percussion, a 'synth' is a keyboard synthesizer.",
+    "props.frontEnsemble.presets.summary.medium": "One line under the preset switch listing what the Medium front ensemble preset places in front of the field. 'Vibes' are vibraphones, a 'rack' is a rack of auxiliary percussion, a 'synth' is a keyboard synthesizer.",
+    "props.frontEnsemble.presets.summary.small": "One line under the preset switch listing what the Small front ensemble preset places in front of the field. 'Vibes' are vibraphones, a 'rack' is a rack of auxiliary percussion, a 'synth' is a keyboard synthesizer.",
+    "props.frontEnsemble.presets.title": "Small uppercase heading in the Props panel's Front ensemble section, over ready-made layouts of a whole front ensemble (pit) in Small, Medium and Large sizes."
 }
