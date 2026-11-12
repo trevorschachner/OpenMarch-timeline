@@ -17,7 +17,7 @@ import {
     type ItemOutlineChanges,
 } from "@/items/itemOutlineTimeline";
 import type { PropInput } from "@/view3d/core/props/propLayout";
-import { podiumStandTop } from "@/view3d/core/pit/pitModels";
+import { podiumStandAt, podiumStandTop } from "@/view3d/core/pit/pitModels";
 
 type ShowPropItem = Pick<
     DatabaseItem,
@@ -54,7 +54,8 @@ export function propInputs(
             ];
         const standTop =
             item.kind === "equipment" ? podiumStandTop(item.model) : null;
-        return standTop === null
+        const standAt = podiumStandAt(item.model);
+        return standTop === null || standAt === null
             ? []
             : [
                   {
@@ -63,6 +64,7 @@ export function propInputs(
                       changes,
                       standTop,
                       facesAcross: true,
+                      standAt,
                   },
               ];
     });

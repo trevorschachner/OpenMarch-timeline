@@ -6,7 +6,7 @@ import {
     type PropInput,
     type PropSolid,
 } from "../propLayout";
-import { liftAt, liftPlatforms } from "../platformLift";
+import { liftPlatforms, liftPodiums } from "../platformLift";
 
 const box = (
     beat: number,
@@ -209,12 +209,29 @@ describe("propsAt", () => {
         const [solid] = propsAt([podium], 0, at({ 1: { x: 0, z: 0 } }));
         expect(solid!.height).toBe(1.386);
         expect(solid!.facesAcross).toBe(true);
-        expect(liftPlatforms([solid!])[0]!.facesAcross).toBe(true);
         expect(platformTopAt([solid!], { x: 0.2, z: 0.2 })).toBe(1.386);
-        // A performer inside its footprint stands on top; one outside stays on the ground
-        const platforms = liftPlatforms([solid!]);
-        expect(liftAt(platforms, 0.1, 0, 0.2858)).toBeCloseTo(1.386);
-        expect(liftAt(platforms, 3, 0, 0.2858)).toBe(0);
+        // Performers stand on it at its stand point (`writePodiumStands`), not up a ramp
+        expect(liftPlatforms([solid!])).toEqual([]);
+        expect(liftPodiums([solid!])[0]!.top).toBe(1.386);
+    });
+
+    it("turns a podium's stand point with it, as its model turns", () => {
+        const podium: PropInput = {
+            ...prop(1, "platform", [box(0, 0.61, 0.97, 0, { rotation: 90 })]),
+            standTop: 1.2192,
+            facesAcross: true,
+            standAt: { x: 0.1, z: 0.2 },
+        };
+        const [solid] = propsAt([podium], 0, at({ 1: { x: 3, z: -2 } }));
+        // writePitModelMatrix at 90°: model +X toward world +Z, model +Z toward world -X
+        expect(solid!.standPoint!.x).toBeCloseTo(3 - 0.2);
+        expect(solid!.standPoint!.z).toBeCloseTo(-2 + 0.1);
+        const [plain] = propsAt(
+            [prop(2, "platform", [box(0, 1, 1, 0.2)])],
+            0,
+            at({ 2: { x: 0, z: 0 } }),
+        );
+        expect(plain!.standPoint).toBeUndefined();
     });
 
     it("never stands a prop on an obstacle or a Floor prop", () => {

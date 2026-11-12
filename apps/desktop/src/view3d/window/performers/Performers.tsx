@@ -67,7 +67,7 @@ import { useShowPositions } from "@/view3d/positions";
 import { useShowProps } from "@/hooks/useShowProps";
 import {
     writePerformerLifts,
-    writePerformerPodiumHeadings,
+    writePerformerPodiumStands,
 } from "../props/performerLift";
 import { useView3dSyncStore } from "@/view3d/sync/view3dSyncStore";
 import type { View3dSelection } from "@/view3d/sync/protocol";
@@ -626,8 +626,15 @@ export default function Performers({ fieldProperties }: PerformersProps) {
                 else motion?.update(c, xz, placed, headings);
                 // where the bodies are now
                 writePerformerLifts(propsNow, xz, placed, lift);
-                // a drum major on a podium faces the band, whatever the drill says
-                writePerformerPodiumHeadings(propsNow, xz, placed, headings);
+                // a drum major at a podium stands on its deck facing the band,
+                // whatever the drill says: before anything is drawn at the feet
+                writePerformerPodiumStands(
+                    propsNow,
+                    xz,
+                    placed,
+                    lift,
+                    headings,
+                );
                 marcherBodies.writeFrame(
                     xz,
                     headings,
@@ -643,6 +650,13 @@ export default function Performers({ fieldProperties }: PerformersProps) {
                 lod[2] = cam[2];
             } else {
                 writePerformerLifts(propsNow, xz, placed, lift);
+                writePerformerPodiumStands(
+                    propsNow,
+                    xz,
+                    placed,
+                    lift,
+                    headings,
+                );
                 writePerformerMatrices(
                     count,
                     xz,

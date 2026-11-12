@@ -1,14 +1,16 @@
 /**
  * The props at a moment, shared by the 3D View's props and performers (C4.5): `PropBlocks.tsx`
  * stands each block on the platform under it and `Performers.tsx` stands performers on them, and
- * turns those on a podium to face the band, all from one layout a frame.
+ * stands those at a podium on its deck, facing the band, all from one layout a frame.
  */
 import { fieldFootprint, type FieldProperties } from "@openmarch/core";
 import {
     liftPlatforms,
+    liftPodiums,
     writeLifts,
-    writePodiumHeadings,
+    writePodiumStands,
     type LiftPlatform,
+    type LiftPodium,
 } from "@/view3d/core/props/platformLift";
 import {
     propsAt,
@@ -39,6 +41,7 @@ let last: {
     ms: number;
     solids: PropSolid[];
     platforms: LiftPlatform[] | null;
+    podiums: LiftPodium[] | null;
 } | null = null;
 
 function layout(moment: PropsMoment) {
@@ -64,6 +67,7 @@ function layout(moment: PropsMoment) {
         ms,
         solids,
         platforms: null,
+        podiums: null,
     });
 }
 
@@ -103,24 +107,27 @@ const fieldCenterZ = (fieldProperties: FieldProperties): number => {
 };
 
 /**
- * Turns the performers standing on a podium at `ms` to face the band across the field
- * (docs/3d/instruments.md §6), over the drill's heading in `headings`. Call it after the motion
- * writes the headings and before the bodies are drawn. A show with no podium changes nothing.
+ * Stands the performers at a podium at `ms` on its deck, at its stand point, facing the band
+ * across the field (`writePodiumStands`): over their position in `xz`, lift in `lift` and the
+ * drill's heading in `headings`. Call it after {@link writePerformerLifts} and before anything is
+ * drawn at the feet. A show with no podium changes nothing.
  */
-export function writePerformerPodiumHeadings(
+export function writePerformerPodiumStands(
     moment: PropsMoment,
     xz: Float32Array,
     placed: Uint8Array,
+    lift: Float32Array,
     headings: Float32Array,
 ): void {
     if (!moment.props.some((p) => p.facesAcross)) return;
     const at = layout(moment);
-    at.platforms ??= liftPlatforms(at.solids);
-    writePodiumHeadings(
-        at.platforms,
+    at.podiums ??= liftPodiums(at.solids);
+    writePodiumStands(
+        at.podiums,
         xz,
         placed,
         fieldCenterZ(moment.fieldProperties),
+        lift,
         headings,
     );
 }

@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { UseQueryResult } from "@tanstack/react-query";
 import type { DatabaseItemGeometry } from "@/db-functions/items";
-import { podiumStandTop } from "@/view3d/core/pit/pitModels";
 import { _combineShowPropsQueries, propInputs } from "../useShowProps";
 
 type Results = Parameters<typeof _combineShowPropsQueries>[0];
@@ -111,14 +110,28 @@ describe("_combineShowPropsQueries", () => {
                 surface_type: null,
                 model: "pit/unknown-podium",
             },
+            {
+                id: 6,
+                marcher_id: 106,
+                kind: "equipment",
+                surface_type: null,
+                model: "pit/stepladder-6ft",
+            },
         ]);
         const props = propsOf(withPodium);
         expect(
-            props.map((p) => [p.id, p.surface, p.standTop, p.facesAcross]),
+            props.map((p) => [
+                p.id,
+                p.surface,
+                p.standTop,
+                p.facesAcross,
+                p.standAt,
+            ]),
         ).toEqual([
-            [101, "platform", undefined, undefined],
-            [103, "floor", undefined, undefined],
-            [104, "platform", podiumStandTop("pit/conductor-podium"), true],
+            [101, "platform", undefined, undefined, undefined],
+            [103, "floor", undefined, undefined, undefined],
+            [104, "platform", 0.426, true, { x: 0, z: 0 }],
+            [106, "platform", 1.2192, true, { x: 0, z: 0.2 }],
         ]);
         expect(
             propsOf(withPodium, new Set([4])).map((p) => p.id),
