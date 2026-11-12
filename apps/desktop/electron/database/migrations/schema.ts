@@ -703,6 +703,11 @@ export const items = sqliteTable(
          * it on every page, and lasso and select-all skip it. Equipment is created locked.
          */
         locked: integer({ mode: "boolean" }).notNull().default(false),
+        /**
+         * Placed by a front ensemble preset. Re-applying a preset replaces only these items, so
+         * hand-added ones stay. Renaming or moving the item keeps it; copies don't take it.
+         */
+        from_preset: integer({ mode: "boolean" }).notNull().default(false),
         ...timestamps,
     },
     (_table) => [

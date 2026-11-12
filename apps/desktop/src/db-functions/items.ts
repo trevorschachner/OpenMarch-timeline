@@ -48,6 +48,8 @@ export interface NewItemArgs {
     model?: string | null;
     /** One position for the whole show; equipment is locked and props unlocked by default */
     locked?: boolean;
+    /** Placed by a front ensemble preset; false by default */
+    fromPreset?: boolean;
     /** Where it was drawn: its home, `[x, y]` in canvas coordinates like a marcher's */
     home: XY;
     /** The beat it was created on: Off field before it, on field from it */
@@ -151,6 +153,7 @@ export async function createItemsInTransaction({
                         : null,
                 model: newItem.model ?? null,
                 locked: newItem.locked ?? newItem.kind === "equipment",
+                from_preset: newItem.fromPreset ?? false,
             })
             .returning()
             .get();

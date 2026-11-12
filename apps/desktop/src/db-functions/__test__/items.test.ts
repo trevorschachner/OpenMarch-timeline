@@ -458,6 +458,9 @@ describeDbTests("items", (it) => {
                     { ...equipment, name: "Cart", locked: false },
                 ],
             });
+            expect(
+                [riserItem, speaker, looseCart].map((i) => i.from_preset),
+            ).toEqual([false, false, false]);
             expect(riserItem.locked).toBe(false);
             expect(speaker.locked).toBe(true);
             expect(looseCart.locked).toBe(false);
