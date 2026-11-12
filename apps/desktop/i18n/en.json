@@ -1430,6 +1430,25 @@
         "width": "Width",
         "units": {
             "meters": "m"
+        },
+        "locked": "Locked",
+        "lockLabel": "Locked",
+        "lockHint": "One position for the whole show",
+        "equipment": {
+            "block": "Equipment",
+            "model": "{family} model",
+            "placeInstructions": "Click the field to place the {name}. It is on the field from the playhead's count."
+        },
+        "frontEnsemble": {
+            "allFamilies": "Back to all front ensemble equipment",
+            "default": "Default",
+            "footprint": "{width} × {depth} m",
+            "groups": {
+                "audio": "Audio and staging",
+                "keyboards": "Keyboards",
+                "percussion": "Percussion"
+            },
+            "title": "Front ensemble"
         }
     },
     "section": {
@@ -3799,5 +3818,48 @@
         "label": "Workspace",
         "editor": "Editor",
         "preview": "Preview"
+    },
+    "pit": {
+        "family": {
+            "auxRack": "Aux rack",
+            "bongos": "Bongos",
+            "chimes": "Chimes",
+            "concertBassDrum": "Concert bass drum",
+            "congas": "Congas",
+            "drumSet": "Drum set",
+            "glockenspiel": "Glockenspiel",
+            "gong": "Gong",
+            "marimba": "Marimba",
+            "mixer": "Mixer",
+            "podium": "Podium",
+            "speaker": "Speaker",
+            "synth": "Synth",
+            "timpani": "Timpani",
+            "trapTable": "Trap table",
+            "vibraphone": "Vibraphone",
+            "xylophone": "Xylophone"
+        },
+        "variant": {
+            "accessories": "Accessories",
+            "cage": "Cage rack",
+            "covered": "Covered",
+            "double": "Two keyboards",
+            "gold": "Gold",
+            "inches": "{size} in",
+            "keys": "{size} keys",
+            "low": "Low",
+            "mixed": "Mixed",
+            "octaves": "{size} octaves",
+            "open": "Open",
+            "plain": "Standard",
+            "rosewood": "Rosewood",
+            "silver": "Silver",
+            "single": "One keyboard",
+            "square": "Square",
+            "syntheticBlack": "Black synthetic",
+            "tall": "Tall",
+            "toms": "Toms",
+            "wide": "Wide"
+        }
     }
 }

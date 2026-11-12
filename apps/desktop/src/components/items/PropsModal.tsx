@@ -7,6 +7,7 @@ import {
     CubeIcon,
     EyeIcon,
     EyeSlashIcon,
+    LockSimpleIcon,
     PencilSimpleIcon,
     PolygonIcon,
     SquareIcon,
@@ -58,6 +59,12 @@ import {
     outlineWriteBeat,
 } from "@/items/itemOutlineTimeline";
 import { parsePropColor, propColorToString } from "@/items/propColor";
+import {
+    pitFamily,
+    pitVariant,
+    pitVariantsOf,
+} from "@/view3d/core/pit/catalog";
+import FrontEnsemblePicker, { usePitVariantLabel } from "./FrontEnsemblePicker";
 
 type ItemWithMarcher = Awaited<ReturnType<typeof getItems>>[number];
 
@@ -75,8 +82,9 @@ const itemLabel = (item: ItemWithMarcher) =>
     item.marcher.name || drillNumber(item);
 
 /**
- * Props in the show (C2.1, rebuilt from PR 1013): draw a new one at the playhead, hide them or
- * show their names on the field, and edit one's name, surface and Outline at the playhead.
+ * Props and equipment in the show (C2.1, rebuilt from PR 1013): draw a new prop at the playhead or
+ * place front ensemble equipment, hide them or show their names on the field, and edit one's name,
+ * surface, model, lock and Outline at the playhead.
  */
 export default function PropsModal() {
     return (
@@ -131,6 +139,7 @@ export function PropListContents() {
             <ModalHeader title={<T keyName="props.title" />} />
             <div className="flex w-[28rem] grow flex-col gap-16 overflow-y-auto">
                 <PropToolSelector />
+                <FrontEnsemblePicker />
                 <div className="border-stroke border-t pt-12">
                     <PropList
                         onEdit={(item) =>
@@ -185,13 +194,14 @@ function PropList({ onEdit }: { onEdit: (item: ItemWithMarcher) => void }) {
     const deleteItems = useMutation(deleteItemsMutationOptions(queryClient));
     const { selectedMarchers, setSelectedMarchers } = useSelectedMarchers()!;
     const { uiSettings, setUiSettings } = useUiSettingsStore();
-    const propItems = useMemo(
-        () => items?.filter((i) => i.kind === "prop") ?? [],
-        [items],
-    );
+    // Props and equipment alike: equipment is edited as props are (instruments.md §6)
+    const propItems = useMemo(() => items ?? [], [items]);
+    const variantLabel = usePitVariantLabel();
     const selectedProps = useMemo(() => {
         const ids = new Set(selectedMarchers.map((m) => m.id));
-        return propItems.filter((item) => ids.has(item.marcher_id));
+        return propItems.filter(
+            (item) => item.kind === "prop" && ids.has(item.marcher_id),
+        );
     }, [propItems, selectedMarchers]);
 
     if (propItems.length === 0)
@@ -200,6 +210,19 @@ function PropList({ onEdit }: { onEdit: (item: ItemWithMarcher) => void }) {
                 <T keyName="props.empty" />
             </p>
         );
+
+    const itemSubtitle = (item: ItemWithMarcher) => {
+        if (item.kind === "prop")
+            return item.surface_type
+                ? t(`props.surface.${item.surface_type}`)
+                : null;
+        const variant = pitVariant(item.model);
+        if (!variant) return t("props.equipment.block");
+        const family = t(`pit.family.${variant.family}`);
+        return variant.label.length > 0
+            ? `${family} · ${variantLabel(variant)}`
+            : family;
+    };
 
     const nameShown = (id: number) =>
         uiSettings.propNameOverrides[id] ?? uiSettings.showPropNames;
@@ -269,12 +292,21 @@ function PropList({ onEdit }: { onEdit: (item: ItemWithMarcher) => void }) {
                                 )}
                             </button>
                             <div className="flex flex-col">
-                                <span className="font-medium">
+                                <span className="flex items-center gap-4 font-medium">
                                     {itemLabel(item)}
+                                    {item.locked && (
+                                        <LockSimpleIcon
+                                            size={12}
+                                            className="text-text-subtitle"
+                                            role="img"
+                                            aria-label={t("props.locked")}
+                                        >
+                                            <title>{t("props.locked")}</title>
+                                        </LockSimpleIcon>
+                                    )}
                                 </span>
                                 <span className="text-text/50 text-sm">
-                                    {item.surface_type &&
-                                        t(`props.surface.${item.surface_type}`)}
+                                    {itemSubtitle(item)}
                                 </span>
                             </div>
                         </div>
@@ -352,7 +384,56 @@ function PropColorControl({ items }: { items: readonly ItemWithMarcher[] }) {
     );
 }
 
-function PropEditContents({ itemId }: { itemId: number }) {
+/**
+ * An equipment item's built-in model: another variant of its family, which resizes its Outline to
+ * the new model's footprint, in one undo step. Nothing for a prop or a block.
+ */
+function EquipmentModelControl({ item }: { item: ItemWithMarcher }) {
+    const { t } = useTranslate();
+    const queryClient = useQueryClient();
+    const updateItems = useMutation(updateItemsMutationOptions(queryClient));
+    const label = usePitVariantLabel();
+    const variant = item.kind === "equipment" ? pitVariant(item.model) : null;
+    const family = pitFamily(item.model);
+    if (!variant || !family) return null;
+    const variants = pitVariantsOf(family.id);
+    return (
+        <label className="flex flex-col gap-4 text-sm">
+            <span className="text-text/70">
+                <T
+                    keyName="props.equipment.model"
+                    params={{ family: t(family.labelKey) }}
+                />
+            </span>
+            <Select
+                value={variant.modelId}
+                disabled={variants.length < 2}
+                onValueChange={(modelId) => {
+                    const next = variants.find((v) => v.modelId === modelId);
+                    if (!next || next === variant) return;
+                    updateItems.mutate([
+                        {
+                            itemId: item.id,
+                            model: next.modelId,
+                            footprint: next.footprint,
+                        },
+                    ]);
+                }}
+            >
+                <SelectTriggerCompact label={label(variant)} />
+                <SelectContent>
+                    {variants.map((v) => (
+                        <SelectItem key={v.modelId} value={v.modelId}>
+                            {label(v)}
+                        </SelectItem>
+                    ))}
+                </SelectContent>
+            </Select>
+        </label>
+    );
+}
+
+export function PropEditContents({ itemId }: { itemId: number }) {
     const { setContent } = useSidebarModalStore();
     return (
         <div className="animate-scale-in text-text flex h-full w-fit flex-col gap-16">
@@ -498,6 +579,25 @@ function PropEditor({ itemId }: { itemId: number }) {
                     onKeyDown={(e) => {
                         if (e.key === "Enter") commitName();
                     }}
+                />
+            </label>
+            <EquipmentModelControl item={item} />
+            <label className="flex items-center justify-between gap-12 text-sm">
+                <span className="flex flex-col gap-2">
+                    <span className="text-text/70 flex items-center gap-4">
+                        <LockSimpleIcon size={12} aria-hidden />
+                        <T keyName="props.lockLabel" />
+                    </span>
+                    <span className="text-text/50">
+                        <T keyName="props.lockHint" />
+                    </span>
+                </span>
+                <Switch
+                    aria-label={t("props.lockLabel")}
+                    checked={item.locked}
+                    onCheckedChange={(locked) =>
+                        updateItems.mutate([{ itemId: item.id, locked }])
+                    }
                 />
             </label>
             {item.kind === "prop" && (

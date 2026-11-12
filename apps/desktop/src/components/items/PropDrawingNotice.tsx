@@ -12,10 +12,14 @@ const INSTRUCTION_KEYS: Record<OutlineType, string> = {
     freehand: "props.draw.instructions.drag",
 };
 
-/** How to draw the chosen Outline, with a way out, while the prop drawing tool is on. */
+/**
+ * How to draw the chosen Outline, or place the chosen equipment, with a way out, while the prop
+ * drawing tool is on.
+ */
 export default function PropDrawingNotice() {
     const { t } = useTranslate();
     const drawingMode = useItemDrawingStore((s) => s.drawingMode);
+    const placing = useItemDrawingStore((s) => s.placing);
     const reset = useItemDrawingStore((s) => s.resetDrawingState);
     if (!drawingMode) return null;
     return (
@@ -23,7 +27,11 @@ export default function PropDrawingNotice() {
             <div className="flex items-center gap-16">
                 <InfoIcon size={24} />
                 <span className="text-body text-text flex-1">
-                    {t(INSTRUCTION_KEYS[drawingMode])}
+                    {placing
+                        ? t("props.equipment.placeInstructions", {
+                              name: placing.baseName,
+                          })
+                        : t(INSTRUCTION_KEYS[drawingMode])}
                 </span>
             </div>
             <Button size="compact" variant="secondary" onClick={reset}>

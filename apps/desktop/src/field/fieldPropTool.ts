@@ -1,27 +1,48 @@
 import { useCallback, useEffect, useRef } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { FieldProperties } from "@openmarch/core";
-import { createItemsMutationOptions } from "@/hooks/queries/useItems";
+import {
+    allItemsQueryOptions,
+    createItemsMutationOptions,
+} from "@/hooks/queries/useItems";
 import { useTimingObjects } from "@/hooks";
-import { useItemDrawingStore } from "@/stores/ItemDrawingStore";
+import {
+    useItemDrawingStore,
+    type EquipmentPlacement,
+} from "@/stores/ItemDrawingStore";
 import { useUiSettingsStore } from "@/stores/UiSettingsStore";
 import { getRoundCoordinates2 } from "@/utilities/CoordinateActions";
 import { outlineWriteBeatNow } from "@/items/itemOutlineTimeline";
 import { newPropFromDrawing } from "@/items/newPropFromDrawing";
-import type { DrawnOutline } from "@/items/itemOutlines";
+import { PIXELS_PER_METER, type DrawnOutline } from "@/items/itemOutlines";
+import { newEquipment, nextEquipmentName } from "@/items/newEquipment";
+import type { PropToolStamp } from "@/field/editor/propTool";
 import type { FieldEditor, FieldPoint } from "@/field/editor/fieldEditor";
 
+/** The footprint equipment is placed with, in field units */
+const stampOf = (placing: EquipmentPlacement | null): PropToolStamp | null =>
+    placing
+        ? {
+              widthPixels: placing.variant.footprint.width * PIXELS_PER_METER,
+              depthPixels: placing.variant.footprint.depth * PIXELS_PER_METER,
+          }
+        : null;
+
 /**
- * Turns the field's prop tool on and off with the Props panel's Draw
- * (`ItemDrawingStore`, C2.1). Escape turns it off through the canvas's
- * cancel action.
+ * Turns the field's prop tool on and off with the Props panel's Draw and
+ * Front ensemble (`ItemDrawingStore`, C2.1). Escape turns it off through the
+ * canvas's cancel action.
  */
 export function useFieldPropTool(editor: FieldEditor) {
     useEffect(() => {
-        editor.setPropTool(useItemDrawingStore.getState().drawingMode);
+        const { drawingMode, placing } = useItemDrawingStore.getState();
+        editor.setPropTool(drawingMode, stampOf(placing));
         const unsubscribe = useItemDrawingStore.subscribe((now, before) => {
-            if (now.drawingMode !== before.drawingMode)
-                editor.setPropTool(now.drawingMode);
+            if (
+                now.drawingMode !== before.drawingMode ||
+                now.placing !== before.placing
+            )
+                editor.setPropTool(now.drawingMode, stampOf(now.placing));
         });
         return () => {
             unsubscribe();
@@ -51,22 +72,39 @@ export function snapToRounding(
 }
 
 /**
- * Makes the prop the prop tool drew: home at its Outline's center, on field
- * from the beat at or before the playhead, then turns the tool off. Returns
- * the editor's `propDrawn` port.
+ * Makes the prop the prop tool drew, or the equipment it placed: home at its
+ * Outline's center, on field from the beat at or before the playhead, then
+ * turns the tool off. Returns the editor's `propDrawn` port.
  */
 export function usePropDrawn(): (outline: DrawnOutline) => void {
     const queryClient = useQueryClient();
     const { beats } = useTimingObjects()!;
+    const { data: items } = useQuery(allItemsQueryOptions());
     const { mutate } = useMutation(createItemsMutationOptions(queryClient));
-    const latest = useRef({ beats, mutate });
+    const latest = useRef({ beats, items, mutate });
     useEffect(() => {
-        latest.current = { beats, mutate };
+        latest.current = { beats, items, mutate };
     });
     return useCallback((outline) => {
-        const { beats, mutate } = latest.current;
-        useItemDrawingStore.getState().resetDrawingState();
+        const { beats, items, mutate } = latest.current;
+        const { placing, resetDrawingState } = useItemDrawingStore.getState();
+        resetDrawingState();
         const beat = outlineWriteBeatNow(beats);
-        if (beat) mutate([newPropFromDrawing(outline, beat.id)]);
+        if (!beat) return;
+        if (!placing) {
+            mutate([newPropFromDrawing(outline, beat.id)]);
+            return;
+        }
+        mutate([
+            newEquipment({
+                variant: placing.variant,
+                name: nextEquipmentName(
+                    placing.baseName,
+                    (items ?? []).map((item) => item.marcher.name),
+                ),
+                home: [outline.centerX, outline.centerY],
+                beatId: beat.id,
+            }),
+        ]);
     }, []);
 }
