@@ -1,7 +1,9 @@
 /**
  * The props at a moment, shared by the 3D View's props and performers (C4.5): `PropBlocks.tsx`
  * stands each block on the platform under it and `Performers.tsx` stands performers on them, and
- * turns those on a podium to face the band, all from one layout a frame.
+ * turns those on a podium to face the band, all from one layout a frame. The pit instruments'
+ * playing spots at a moment are worked out once a frame the same way, for the performers who
+ * play them.
  */
 import { fieldFootprint, type FieldProperties } from "@openmarch/core";
 import {
@@ -16,6 +18,12 @@ import {
     type PropSolid,
 } from "@/view3d/core/props/propLayout";
 import { METERS_PER_INCH } from "@/view3d/core/sizes/units";
+import {
+    assignPlayers,
+    playingSpotsAt,
+    type PlayedInstrumentInput,
+} from "@/view3d/core/pit/pitPlayers";
+import type { PlayingSpot } from "@/view3d/core/pit/playingSpot";
 import type { ShowPositions } from "@/view3d/positions";
 
 /** How far a dot goes in half a count at the show's step size: the width of a step up or down. */
@@ -123,4 +131,54 @@ export function writePerformerPodiumHeadings(
         fieldCenterZ(moment.fieldProperties),
         headings,
     );
+}
+
+const NO_SPOTS: PlayingSpot[] = [];
+
+/** The last spots worked out, so a still show works them out once. */
+let lastSpots: {
+    instruments: readonly PlayedInstrumentInput[];
+    positions: ShowPositions | null;
+    fieldProperties: FieldProperties;
+    ms: number;
+    spots: PlayingSpot[];
+} | null = null;
+
+/** Every played pit instrument's playing spot at `ms`, in world meters. */
+export function playingSpotsNow(
+    instruments: readonly PlayedInstrumentInput[],
+    moment: Omit<PropsMoment, "props">,
+): readonly PlayingSpot[] {
+    const { positions, ms, fieldProperties } = moment;
+    if (!positions || instruments.length === 0) return NO_SPOTS;
+    if (
+        lastSpots &&
+        lastSpots.instruments === instruments &&
+        lastSpots.positions === positions &&
+        lastSpots.fieldProperties === fieldProperties &&
+        lastSpots.ms === ms
+    )
+        return lastSpots.spots;
+    const spots = playingSpotsAt(instruments, positions.beatAt(ms), (id) =>
+        positions.positionAt(id, ms, fieldProperties),
+    );
+    lastSpots = { instruments, positions, fieldProperties, ms, spots };
+    return spots;
+}
+
+/**
+ * Who plays which pit instrument at `ms` (docs/3d/instruments.md §6): writes into `players`, per
+ * performer, the index of the spot they play in the returned spots, or `NOT_PLAYING`, from their
+ * dots at `ms` itself (`dots`, `placed`). A show with no played instrument writes nobody.
+ */
+export function findPerformerPlayers(
+    instruments: readonly PlayedInstrumentInput[],
+    moment: Omit<PropsMoment, "props">,
+    dots: Float32Array,
+    placed: Uint8Array,
+    players: Int32Array,
+): readonly PlayingSpot[] {
+    const spots = playingSpotsNow(instruments, moment);
+    assignPlayers(spots, dots, placed, players);
+    return spots;
 }

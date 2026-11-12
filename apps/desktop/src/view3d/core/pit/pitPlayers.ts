@@ -28,6 +28,13 @@ export interface PlayedInstrumentInput {
     changes: readonly GeometryChange[];
 }
 
+/**
+ * The Feet clip a player holds while playing, by its base name (before the height class suffix).
+ * om-pose has no playing clip yet, so players stand at attention; when one lands, name it here and
+ * the 3D View loads, bakes and plays it for every player from this name alone.
+ */
+export const PLAYING_CLIP = "attention";
+
 /** No player: an entry of {@link assignPlayers}' output. */
 export const NOT_PLAYING = -1;
 
