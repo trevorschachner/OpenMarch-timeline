@@ -1,6 +1,7 @@
 import type { OutlineType } from "@/db-functions/items";
 import {
     ITEM_OUTLINES,
+    placeOutline,
     type DrawnOutline,
     type OutlinePath,
 } from "@/items/itemOutlines";
@@ -17,13 +18,17 @@ import type { FieldPoint, FieldPointer } from "./fieldEditor";
  * to the app, which makes the prop and turns the tool off.
  *
  * With a stamp it places a fixed footprint instead (front ensemble equipment, whose size is its
- * model's): the footprint follows the pointer, centered and snapped, and a click places it.
+ * model's): the footprint follows the pointer, centered and snapped, turned as the stamp says for
+ * that spot, with a notch in its front edge to show which way it faces, and a click places it.
+ * Nothing keeps it on the field: equipment can stand past either sideline.
  */
 
 /** A fixed footprint to place with a click, in field units. */
 export type PropToolStamp = {
     readonly widthPixels: number;
     readonly depthPixels: number;
+    /** Its turn, in degrees clockwise on screen, centered at `center`; 0 when absent */
+    readonly rotationAt?: (center: FieldPoint) => number;
 };
 
 /** What the overlay draws for the prop tool, and what the field test API reads. */
@@ -89,7 +94,11 @@ export class PropTool {
             this.snapshot = {
                 outlineType: this.outlineType,
                 preview: {
-                    points: stampCorners(this.stamp, center),
+                    points: stampOutline(
+                        this.stamp,
+                        center,
+                        this.stamp.rotationAt?.(center) ?? 0,
+                    ),
                     closed: true,
                 },
             };
@@ -152,6 +161,7 @@ export class PropTool {
             centerY: center.y,
             widthPixels: stamp.widthPixels,
             depthPixels: stamp.depthPixels,
+            rotation: stamp.rotationAt?.(center) ?? 0,
         });
     }
 
@@ -181,14 +191,26 @@ export class PropTool {
     }
 }
 
-/** A stamp's corners around its center, clockwise from the top left. */
-function stampCorners(stamp: PropToolStamp, center: FieldPoint): FieldPoint[] {
+/**
+ * A stamp's outline: its footprint with a notch in the middle of its front edge (the side toward
+ * the audience, +y, before turning), turned `degrees` clockwise on screen around `center`.
+ */
+function stampOutline(
+    stamp: PropToolStamp,
+    center: FieldPoint,
+    degrees: number,
+): FieldPoint[] {
     const halfWidth = stamp.widthPixels / 2;
     const halfDepth = stamp.depthPixels / 2;
-    return [
-        { x: center.x - halfWidth, y: center.y - halfDepth },
-        { x: center.x + halfWidth, y: center.y - halfDepth },
-        { x: center.x + halfWidth, y: center.y + halfDepth },
-        { x: center.x - halfWidth, y: center.y + halfDepth },
+    const notch = Math.min(stamp.widthPixels, stamp.depthPixels) * 0.2;
+    const shape = [
+        { x: -halfWidth, y: -halfDepth },
+        { x: halfWidth, y: -halfDepth },
+        { x: halfWidth, y: halfDepth },
+        { x: notch, y: halfDepth },
+        { x: 0, y: halfDepth - notch },
+        { x: -notch, y: halfDepth },
+        { x: -halfWidth, y: halfDepth },
     ];
+    return placeOutline({ points: shape, closed: true }, center, degrees);
 }

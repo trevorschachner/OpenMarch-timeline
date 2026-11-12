@@ -15,16 +15,32 @@ import { getRoundCoordinates2 } from "@/utilities/CoordinateActions";
 import { outlineWriteBeatNow } from "@/items/itemOutlineTimeline";
 import { newPropFromDrawing } from "@/items/newPropFromDrawing";
 import { PIXELS_PER_METER, type DrawnOutline } from "@/items/itemOutlines";
-import { newEquipment, nextEquipmentName } from "@/items/newEquipment";
+import {
+    equipmentRotationAt,
+    newEquipment,
+    nextEquipmentName,
+} from "@/items/newEquipment";
 import type { PropToolStamp } from "@/field/editor/propTool";
 import type { FieldEditor, FieldPoint } from "@/field/editor/fieldEditor";
 
-/** The footprint equipment is placed with, in field units */
-const stampOf = (placing: EquipmentPlacement | null): PropToolStamp | null =>
+/**
+ * The footprint equipment is placed with, in field units, turned for where it lands (a podium
+ * on the back half faces the field) once the field is known
+ */
+const stampOf = (
+    placing: EquipmentPlacement | null,
+    field: () => FieldProperties | null | undefined,
+): PropToolStamp | null =>
     placing
         ? {
               widthPixels: placing.variant.footprint.width * PIXELS_PER_METER,
               depthPixels: placing.variant.footprint.depth * PIXELS_PER_METER,
+              rotationAt: (center) => {
+                  const grid = field();
+                  return grid
+                      ? equipmentRotationAt(placing.variant, center, grid)
+                      : 0;
+              },
           }
         : null;
 
@@ -33,16 +49,27 @@ const stampOf = (placing: EquipmentPlacement | null): PropToolStamp | null =>
  * Front ensemble (`ItemDrawingStore`, C2.1). Escape turns it off through the
  * canvas's cancel action.
  */
-export function useFieldPropTool(editor: FieldEditor) {
+export function useFieldPropTool(
+    editor: FieldEditor,
+    field: () => FieldProperties | null | undefined,
+) {
+    const latestField = useRef(field);
     useEffect(() => {
+        latestField.current = field;
+    });
+    useEffect(() => {
+        const fieldNow = () => latestField.current();
         const { drawingMode, placing } = useItemDrawingStore.getState();
-        editor.setPropTool(drawingMode, stampOf(placing));
+        editor.setPropTool(drawingMode, stampOf(placing, fieldNow));
         const unsubscribe = useItemDrawingStore.subscribe((now, before) => {
             if (
                 now.drawingMode !== before.drawingMode ||
                 now.placing !== before.placing
             )
-                editor.setPropTool(now.drawingMode, stampOf(now.placing));
+                editor.setPropTool(
+                    now.drawingMode,
+                    stampOf(now.placing, fieldNow),
+                );
         });
         return () => {
             unsubscribe();
@@ -104,6 +131,7 @@ export function usePropDrawn(): (outline: DrawnOutline) => void {
                 ),
                 home: [outline.centerX, outline.centerY],
                 beatId: beat.id,
+                rotation: outline.rotation,
             }),
         ]);
     }, []);

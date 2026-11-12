@@ -169,19 +169,66 @@ describe("the prop tool", () => {
     describe("placing a footprint (front ensemble equipment)", () => {
         const stamp = { widthPixels: 40, depthPixels: 20 };
 
-        it("shows the footprint centered on the pointer before any press", () => {
+        /** Points rounded past floating-point noise from a turn */
+        const rounded = (points: readonly FieldPoint[] | undefined) =>
+            points?.map(({ x, y }) => ({
+                x: Math.round(x * 1e6) / 1e6 + 0,
+                y: Math.round(y * 1e6) / 1e6 + 0,
+            }));
+
+        it("shows the footprint centered on the pointer before any press, notched at its front", () => {
             const { editor } = setup("rectangle", stamp);
             expect(editor.propToolShape()?.preview).toBeNull();
             editor.pointerMove(at(101, 99));
-            expect(editor.propToolShape()?.preview).toEqual({
-                points: [
-                    { x: 80, y: 90 },
-                    { x: 120, y: 90 },
-                    { x: 120, y: 110 },
-                    { x: 80, y: 110 },
-                ],
-                closed: true,
+            const preview = editor.propToolShape()?.preview;
+            expect(preview?.closed).toBe(true);
+            // The front (toward the audience, down the canvas) has a notch in its middle
+            expect(rounded(preview?.points)).toEqual([
+                { x: 80, y: 90 },
+                { x: 120, y: 90 },
+                { x: 120, y: 110 },
+                { x: 104, y: 110 },
+                { x: 100, y: 106 },
+                { x: 96, y: 110 },
+                { x: 80, y: 110 },
+            ]);
+        });
+
+        it("turns the footprint as the stamp says for where the pointer is", () => {
+            const { editor } = setup("rectangle", {
+                ...stamp,
+                rotationAt: (center) => (center.y < 50 ? 180 : 0),
             });
+            editor.pointerMove(at(100, 20));
+            // Turned: the notch is on the back edge
+            expect(rounded(editor.propToolShape()?.preview?.points)).toEqual([
+                { x: 120, y: 30 },
+                { x: 80, y: 30 },
+                { x: 80, y: 10 },
+                { x: 96, y: 10 },
+                { x: 100, y: 14 },
+                { x: 104, y: 10 },
+                { x: 120, y: 10 },
+            ]);
+            editor.pointerMove(at(100, 80));
+            expect(editor.propToolShape()?.preview?.points[3]).toEqual({
+                x: 104,
+                y: 90,
+            });
+        });
+
+        it("places it with its turn", () => {
+            const { editor, state } = setup("rectangle", {
+                ...stamp,
+                rotationAt: (center) => (center.y < 0 ? 180 : 0),
+            });
+            // Behind the back sideline: nothing keeps it on the field
+            click(editor, 100, -60);
+            click(editor, 100, 60);
+            expect(state.drawn).toEqual([
+                expect.objectContaining({ centerY: -60, rotation: 180 }),
+                expect.objectContaining({ centerY: 60, rotation: 0 }),
+            ]);
         });
 
         it("places it with one click, centered on the snapped point", () => {
@@ -194,6 +241,7 @@ describe("the prop tool", () => {
                     centerY: 140,
                     widthPixels: 40,
                     depthPixels: 20,
+                    rotation: 0,
                 },
             ]);
         });

@@ -484,7 +484,7 @@ function ThreeFieldView() {
         return () => setShapeField(null);
     }, [marchers]);
     useShapeFieldModes(editor, isPlaying);
-    useFieldPropTool(editor);
+    useFieldPropTool(editor, () => latest.current.fieldProperties);
     const menu = useFieldMenu({
         marchers,
         editor,
