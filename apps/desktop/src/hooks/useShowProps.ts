@@ -1,7 +1,8 @@
 /**
  * The show's props as the 3D View stands them (C4.5): each prop's surface type and Outline
  * changes, beats as ordinals (their place among the beats by position), as the timeline resolver
- * counts them. Podium items join them as platforms at their standing height.
+ * counts them. Podium items join them as platforms at their standing height. The played pit
+ * instruments come with them, for the performers who play them (`pitPlayers.ts`).
  */
 import { useMemo } from "react";
 import { useQueries, type UseQueryResult } from "@tanstack/react-query";
@@ -18,6 +19,8 @@ import {
 } from "@/items/itemOutlineTimeline";
 import type { PropInput } from "@/view3d/core/props/propLayout";
 import { podiumStandTop } from "@/view3d/core/pit/pitModels";
+import { isPlayedPitModel } from "@/view3d/core/pit/playingSpot";
+import type { PlayedInstrumentInput } from "@/view3d/core/pit/pitPlayers";
 
 type ShowPropItem = Pick<
     DatabaseItem,
@@ -26,11 +29,14 @@ type ShowPropItem = Pick<
 
 export type ShowPropsReturn = {
     props: PropInput[];
+    /** The played pit instruments, whose playing spots performers snap onto */
+    instruments: PlayedInstrumentInput[];
     isLoading: boolean;
     hasError: boolean;
 };
 
 const NO_PROPS: PropInput[] = [];
+const NO_INSTRUMENTS: PlayedInstrumentInput[] = [];
 const NONE_HIDDEN: ReadonlySet<number> = new Set();
 
 /**
@@ -66,6 +72,33 @@ export function propInputs(
                   },
               ];
     });
+}
+
+/**
+ * The played pit instruments among the items (docs/3d/instruments.md §6, "Players are
+ * marchers"): equipment whose model someone plays (`isPlayedPitModel`), with its Outline changes
+ * by marchers row. Speakers, the mixer and podiums aren't played; an item hidden on the field in
+ * the editor (`hidden`, by item id) isn't drawn, so nobody plays it.
+ */
+export function playedInstrumentInputs(
+    items: readonly ShowPropItem[],
+    outlines: ItemOutlineChanges,
+    hidden: ReadonlySet<number> = NONE_HIDDEN,
+): PlayedInstrumentInput[] {
+    return items.flatMap((item): PlayedInstrumentInput[] =>
+        item.kind === "equipment" &&
+        item.model &&
+        isPlayedPitModel(item.model) &&
+        !hidden.has(item.id)
+            ? [
+                  {
+                      id: item.marcher_id,
+                      model: item.model,
+                      changes: outlines.get(item.marcher_id) ?? [],
+                  },
+              ]
+            : [],
+    );
 }
 
 /** Every prop with its item id, before the hidden ones are left out. */
@@ -125,5 +158,16 @@ export function useShowProps(
                 : NO_PROPS,
         [combined, hidden],
     );
-    return { props, isLoading, hasError };
+    const instruments = useMemo(
+        () =>
+            combined
+                ? playedInstrumentInputs(
+                      combined.items,
+                      combined.outlines,
+                      hidden,
+                  )
+                : NO_INSTRUMENTS,
+        [combined, hidden],
+    );
+    return { props, instruments, isLoading, hasError };
 }

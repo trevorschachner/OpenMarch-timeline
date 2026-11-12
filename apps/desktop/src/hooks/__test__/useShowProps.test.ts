@@ -2,7 +2,11 @@ import { describe, expect, it } from "vitest";
 import type { UseQueryResult } from "@tanstack/react-query";
 import type { DatabaseItemGeometry } from "@/db-functions/items";
 import { podiumStandTop } from "@/view3d/core/pit/pitModels";
-import { _combineShowPropsQueries, propInputs } from "../useShowProps";
+import {
+    _combineShowPropsQueries,
+    playedInstrumentInputs,
+    propInputs,
+} from "../useShowProps";
 
 type Results = Parameters<typeof _combineShowPropsQueries>[0];
 
@@ -123,6 +127,39 @@ describe("_combineShowPropsQueries", () => {
         expect(
             propsOf(withPodium, new Set([4])).map((p) => p.id),
         ).not.toContain(104);
+    });
+
+    it("lists the played pit instruments, not speakers, the mixer, podiums or hidden items", () => {
+        const pit = results();
+        pit[0] = ok([
+            ...pit[0].data!,
+            ...[
+                "pit/speaker-tall",
+                "pit/mixer-cart-covered",
+                "pit/conductor-podium",
+                "pit/vibraphone-3.0-gold",
+            ].map((model, k) => ({
+                id: 4 + k,
+                marcher_id: 104 + k,
+                kind: "equipment" as const,
+                surface_type: null,
+                model,
+            })),
+        ]);
+        const { combined } = _combineShowPropsQueries(pit);
+        const played = (hidden?: ReadonlySet<number>) =>
+            playedInstrumentInputs(
+                combined!.items,
+                combined!.outlines,
+                hidden,
+            ).map((p) => [p.id, p.model]);
+        expect(played()).toEqual([
+            [102, "pit/marimba-5.0"],
+            [107, "pit/vibraphone-3.0-gold"],
+        ]);
+        expect(played(new Set([2]))).toEqual([
+            [107, "pit/vibraphone-3.0-gold"],
+        ]);
     });
 
     it("has no props while a query loads or fails", () => {
