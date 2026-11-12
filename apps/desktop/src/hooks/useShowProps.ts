@@ -1,7 +1,7 @@
 /**
  * The show's props as the 3D View stands them (C4.5): each prop's surface type and Outline
  * changes, beats as ordinals (their place among the beats by position), as the timeline resolver
- * counts them.
+ * counts them. Podium items join them as platforms at their standing height.
  */
 import { useMemo } from "react";
 import { useQueries, type UseQueryResult } from "@tanstack/react-query";
@@ -17,10 +17,11 @@ import {
     type ItemOutlineChanges,
 } from "@/items/itemOutlineTimeline";
 import type { PropInput } from "@/view3d/core/props/propLayout";
+import { podiumStandTop } from "@/view3d/core/pit/pitModels";
 
 type ShowPropItem = Pick<
     DatabaseItem,
-    "id" | "marcher_id" | "kind" | "surface_type"
+    "id" | "marcher_id" | "kind" | "surface_type" | "model"
 >;
 
 export type ShowPropsReturn = {
@@ -33,8 +34,10 @@ const NO_PROPS: PropInput[] = [];
 const NONE_HIDDEN: ReadonlySet<number> = new Set();
 
 /**
- * The props among the items (equipment is carried, not stood), with their Outline changes by
- * marchers row. A prop hidden on the field in the editor (`hidden`, by item id) is left out: it
+ * The props among the items, with their Outline changes by marchers row, and the podium items
+ * (docs/3d/instruments.md §6): a podium is stood on like a platform, at its model's standing
+ * height rather than through `surface_type`, which equipment never has. Other equipment isn't
+ * stood on. An item hidden on the field in the editor (`hidden`, by item id) is left out: it
  * isn't drawn, so nobody stands on it.
  */
 export function propInputs(
@@ -42,17 +45,19 @@ export function propInputs(
     outlines: ItemOutlineChanges,
     hidden: ReadonlySet<number> = NONE_HIDDEN,
 ): PropInput[] {
-    return items.flatMap((item) =>
-        item.kind === "prop" && item.surface_type && !hidden.has(item.id)
-            ? [
-                  {
-                      id: item.marcher_id,
-                      surface: item.surface_type,
-                      changes: outlines.get(item.marcher_id) ?? [],
-                  },
-              ]
-            : [],
-    );
+    return items.flatMap((item): PropInput[] => {
+        if (hidden.has(item.id)) return [];
+        const changes = outlines.get(item.marcher_id) ?? [];
+        if (item.kind === "prop" && item.surface_type)
+            return [
+                { id: item.marcher_id, surface: item.surface_type, changes },
+            ];
+        const standTop =
+            item.kind === "equipment" ? podiumStandTop(item.model) : null;
+        return standTop === null
+            ? []
+            : [{ id: item.marcher_id, surface: "platform", changes, standTop }];
+    });
 }
 
 /** Every prop with its item id, before the hidden ones are left out. */

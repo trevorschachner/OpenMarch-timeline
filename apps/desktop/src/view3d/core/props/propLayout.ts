@@ -37,6 +37,11 @@ export interface PropInput {
     surface: SurfaceType;
     /** Its Outline changes, by beat ordinal */
     changes: readonly GeometryChange[];
+    /**
+     * How high performers stand on it (m), in place of its Outline's height: a podium item's
+     * standing height from its model (docs/3d/instruments.md §6). Unset for a prop.
+     */
+    standTop?: number;
 }
 
 /** A prop as the 3D View draws it at one moment. */
@@ -81,7 +86,8 @@ function footprintOf(
         id: input.id,
         surface: input.surface,
         center,
-        height: input.surface === "floor" ? 0 : geometry.height,
+        height:
+            input.surface === "floor" ? 0 : (input.standTop ?? geometry.height),
         outline,
         closed: shape.closed,
         geometry,

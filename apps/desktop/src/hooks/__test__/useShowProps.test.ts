@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { UseQueryResult } from "@tanstack/react-query";
 import type { DatabaseItemGeometry } from "@/db-functions/items";
+import { podiumStandTop } from "@/view3d/core/pit/pitModels";
 import { _combineShowPropsQueries, propInputs } from "../useShowProps";
 
 type Results = Parameters<typeof _combineShowPropsQueries>[0];
@@ -30,9 +31,27 @@ const geometryRow = (
 
 const results = (): Results => [
     ok([
-        { id: 1, marcher_id: 101, kind: "prop", surface_type: "platform" },
-        { id: 2, marcher_id: 102, kind: "equipment", surface_type: null },
-        { id: 3, marcher_id: 103, kind: "prop", surface_type: "floor" },
+        {
+            id: 1,
+            marcher_id: 101,
+            kind: "prop",
+            surface_type: "platform",
+            model: null,
+        },
+        {
+            id: 2,
+            marcher_id: 102,
+            kind: "equipment",
+            surface_type: null,
+            model: "pit/marimba-5.0",
+        },
+        {
+            id: 3,
+            marcher_id: 103,
+            kind: "prop",
+            surface_type: "floor",
+            model: null,
+        },
     ]),
     ok([geometryRow(1, 30, 2), geometryRow(1, 10, 4), geometryRow(3, 20, 1)]),
     // beat ids out of position order
@@ -56,7 +75,7 @@ describe("_combineShowPropsQueries", () => {
         expect(isLoading).toBe(false);
         expect(hasError).toBe(false);
         const props = propsOf(results());
-        // equipment is carried, not stood on
+        // equipment other than a podium is not stood on
         expect(props.map((p) => [p.id, p.surface])).toEqual([
             [101, "platform"],
             [103, "floor"],
@@ -72,6 +91,36 @@ describe("_combineShowPropsQueries", () => {
         expect(propsOf(results(), new Set([1])).map((p) => p.id)).toEqual([
             103,
         ]);
+    });
+
+    it("stands performers on a podium item, at its model's standing height", () => {
+        const withPodium = results();
+        withPodium[0] = ok([
+            ...withPodium[0].data!,
+            {
+                id: 4,
+                marcher_id: 104,
+                kind: "equipment",
+                surface_type: null,
+                model: "pit/conductor-podium",
+            },
+            {
+                id: 5,
+                marcher_id: 105,
+                kind: "equipment",
+                surface_type: null,
+                model: "pit/unknown-podium",
+            },
+        ]);
+        const props = propsOf(withPodium);
+        expect(props.map((p) => [p.id, p.surface, p.standTop])).toEqual([
+            [101, "platform", undefined],
+            [103, "floor", undefined],
+            [104, "platform", podiumStandTop("pit/conductor-podium")],
+        ]);
+        expect(
+            propsOf(withPodium, new Set([4])).map((p) => p.id),
+        ).not.toContain(104);
     });
 
     it("has no props while a query loads or fails", () => {
