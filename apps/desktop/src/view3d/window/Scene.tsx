@@ -8,7 +8,8 @@
  * uses, and is removed and disposed when those inputs change:
  *
  * - environment: quality;
- * - kit: kit id, field footprint, venue params, quality;
+ * - kit: kit id, field footprint, venue params, quality, and whether the
+ *   show has its own podium item (which hides the venue's);
  * - field surface: field properties, the kit's surface style, venue params,
  *   field image, renderer limits;
  * - crowd: kit, crowd toggle, team colors, quality;
@@ -76,6 +77,9 @@ import {
 import Performers from "./performers/Performers";
 import PropBlocks from "./props/PropBlocks";
 import { warmLightingPresets } from "./warmLighting";
+import { allItemsQueryOptions } from "@/hooks/queries/useItems";
+import { hidesVenuePodium } from "@/view3d/core/pit/pitModels";
+import { useView3dSyncStore } from "@/view3d/sync/view3dSyncStore";
 import { maxPixelRatio } from "./renderPrefs";
 
 /** Default vertical field of view, as in the reference demo. */
@@ -251,10 +255,23 @@ function SceneContents({
         useView3dSceneStore.getState()._setSavedCameras(savedCameras);
     }, [savedCameras]);
 
-    // Kit: rebuilt only for a new kit id, footprint, params or quality.
+    // The venue's own podium hides when the show has a podium item (instruments.md §6).
+    const { data: items } = useQuery(allItemsQueryOptions());
+    const hiddenItemIds = useView3dSyncStore((s) => s.hiddenItemIds);
+    const venuePodium = useMemo(
+        () => !hidesVenuePodium(items ?? [], hiddenItemIds),
+        [items, hiddenItemIds],
+    );
+
+    // Kit: rebuilt only for a new kit id, footprint, params, quality or podium.
     useEffect(() => {
         const footprint = JSON.parse(footprintKey) as FieldFootprint;
-        const built = KIT_BUILDERS[kitId]({ footprint, params, quality });
+        const built = KIT_BUILDERS[kitId]({
+            footprint,
+            params,
+            quality,
+            venuePodium,
+        });
         scene.add(built.root);
         useView3dSceneStore.getState()._setKit(kitId, built);
         return () => {
@@ -263,7 +280,7 @@ function SceneContents({
             if (store.kit === built) store._setKit(null, null);
             built.dispose();
         };
-    }, [scene, kitId, footprintKey, params, quality]);
+    }, [scene, kitId, footprintKey, params, quality, venuePodium]);
 
     // Field surface.
     useEffect(() => {
