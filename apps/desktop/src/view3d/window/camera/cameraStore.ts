@@ -15,6 +15,8 @@
  *   `defaultPrevented`.
  * - `markActive(id)`: the view is already at camera `id` (it was just saved
  *   there), so highlight it without flying.
+ * - `lookAt(position, target)`: fly to any view, such as one framing a prop. Clears the
+ *   active camera.
  * - `currentPose()`: the view right now (eye, look-at point, field of
  *   view), for saving it as a camera. Null before the rig mounts.
  *
@@ -23,6 +25,13 @@
 import { create } from "zustand";
 import { useView3dSceneStore } from "../sceneStore";
 import type { ViewPose } from "@/view3d/core/cameraList";
+
+/** A pending fly-to a free view. `seq` changes on every request. */
+export interface LookRequest {
+    position: [number, number, number];
+    target: [number, number, number];
+    seq: number;
+}
 
 /** A pending fly-to. `seq` changes on every request, even for the same id. */
 export interface CameraRequest {
@@ -36,11 +45,17 @@ export interface CameraState {
     pickMode: boolean;
     setPickMode: (on: boolean) => void;
     markActive: (id: string) => void;
+    lookAt: (
+        position: [number, number, number],
+        target: [number, number, number],
+    ) => void;
     currentPose: () => ViewPose | null;
     /** Rig only: sets where `currentPose` reads from. */
     _setPoseSource: (source: (() => ViewPose) | null) => void;
     /** Rig only: the latest `selectCamera` call. */
     _request: CameraRequest | null;
+    /** Rig only: the latest `lookAt` call. */
+    _look: LookRequest | null;
     /** Rig only. */
     _setActive: (id: string | null) => void;
 }
@@ -61,10 +76,17 @@ export const useCameraStore = create<CameraState>()((set, get) => ({
     pickMode: false,
     setPickMode: (on) => set({ pickMode: on }),
     markActive: (id) => set({ activeCameraId: id, pickMode: false }),
+    lookAt: (position, target) =>
+        set({
+            activeCameraId: null,
+            pickMode: false,
+            _look: { position, target, seq: (get()._look?.seq ?? 0) + 1 },
+        }),
     currentPose: () => poseSource?.() ?? null,
     _setPoseSource: (source) => {
         poseSource = source;
     },
     _request: null,
+    _look: null,
     _setActive: (id) => set({ activeCameraId: id }),
 }));

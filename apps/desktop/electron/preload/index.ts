@@ -44,6 +44,7 @@ const VIEW3D_PUBLISH_CHANNELS: readonly string[] = [
     "view3d:selection",
     "view3d:invalidate",
     "view3d:hidden-props",
+    "view3d:focus",
 ] satisfies View3dPublishChannel[];
 
 function domReady(

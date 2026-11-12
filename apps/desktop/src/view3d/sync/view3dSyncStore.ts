@@ -1,7 +1,7 @@
 /**
  * Window side of the 3D View sync (ADR 0010 D-4, docs/3d/design.md §7).
  *
- * Holds the editor's latest clock, selection and hidden props. Scene code reads
+ * Holds the editor's latest clock, selection, hidden props and focus request. Scene code reads
  * `showMs()` inside `useFrame` (`useView3dSyncStore.getState().showMs()`),
  * not through React renders.
  */
@@ -9,10 +9,12 @@ import { create } from "zustand";
 import type { QueryClient } from "@tanstack/react-query";
 import {
     VIEW3D_CLOCK_CHANNEL,
+    VIEW3D_FOCUS_CHANNEL,
     VIEW3D_HIDDEN_PROPS_CHANNEL,
     VIEW3D_INVALIDATE_CHANNEL,
     VIEW3D_SELECTION_CHANNEL,
     isView3dClock,
+    isView3dFocus,
     isView3dHiddenProps,
     isView3dInvalidate,
     isView3dSelection,
@@ -29,10 +31,16 @@ export interface View3dSyncState {
     selection: View3dSelection;
     /** `items.id` of the props hidden on the field in the editor */
     hiddenItemIds: ReadonlySet<number>;
+    /**
+     * The latest prop the editor asked to look at (its "View in 3D"). `seq` changes with every
+     * request, the same prop's too.
+     */
+    focus: { marcherId: number; seq: number } | null;
     /** Keeps `clock` unless `incoming` has a newer `seq`. */
     receiveClock: (incoming: View3dClock) => void;
     receiveSelection: (selection: View3dSelection) => void;
     receiveHiddenItemIds: (ids: readonly number[]) => void;
+    receiveFocus: (marcherId: number) => void;
     /** The show time now, in milliseconds. 0 before the first clock. */
     showMs: (nowWallMs?: number) => number;
 }
@@ -46,6 +54,7 @@ export const useView3dSyncStore = create<View3dSyncState>()((set, get) => ({
     clock: null,
     selection: EMPTY_SELECTION,
     hiddenItemIds: new Set(),
+    focus: null,
     receiveClock: (incoming) =>
         set((state) => {
             const clock = newerClock(state.clock, incoming);
@@ -53,6 +62,10 @@ export const useView3dSyncStore = create<View3dSyncState>()((set, get) => ({
         }),
     receiveSelection: (selection) => set({ selection }),
     receiveHiddenItemIds: (ids) => set({ hiddenItemIds: new Set(ids) }),
+    receiveFocus: (marcherId) =>
+        set((state) => ({
+            focus: { marcherId, seq: (state.focus?.seq ?? 0) + 1 },
+        })),
     showMs: (nowWallMs = wallNowMs()) => {
         const { clock } = get();
         return clock ? showTimeAt(clock, nowWallMs) : 0;
@@ -81,8 +94,12 @@ export function startView3dSync(
     api: Pick<Window["view3d"], "on" | "hello">,
     queryClient: QueryClient,
 ): () => void {
-    const { receiveClock, receiveSelection, receiveHiddenItemIds } =
-        useView3dSyncStore.getState();
+    const {
+        receiveClock,
+        receiveSelection,
+        receiveHiddenItemIds,
+        receiveFocus,
+    } = useView3dSyncStore.getState();
     const cleanups = [
         api.on(VIEW3D_CLOCK_CHANNEL, (payload) => {
             if (isView3dClock(payload)) receiveClock(payload);
@@ -93,6 +110,9 @@ export function startView3dSync(
         api.on(VIEW3D_HIDDEN_PROPS_CHANNEL, (payload) => {
             if (isView3dHiddenProps(payload))
                 receiveHiddenItemIds(payload.hiddenItemIds);
+        }),
+        api.on(VIEW3D_FOCUS_CHANNEL, (payload) => {
+            if (isView3dFocus(payload)) receiveFocus(payload.marcherId);
         }),
         api.on(VIEW3D_INVALIDATE_CHANNEL, (payload) => {
             if (isView3dInvalidate(payload)) {

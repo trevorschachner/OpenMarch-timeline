@@ -6,6 +6,8 @@
  *   list, else `pressBox`, the gym's `geJudge`, else the kit's first) with a
  *   fly-in; a rebuild of the same venue (new params or quality) keeps the
  *   view;
+ * - flies to a free view on `useCameraStore().lookAt(position, target)`, such
+ *   as one framing a prop the editor asked to see;
  * - flies to a listed camera (`useView3dSceneStore().cameras`) on
  *   `useCameraStore().selectCamera(id)` and on keys 1–9, over 1.1 s with an
  *   upward arc, or jumps under reduced motion;
@@ -233,6 +235,20 @@ export default function CameraRig() {
                 if (seat) flyToSeatRef.current(seat);
             }),
         [],
+    );
+
+    // lookAt() from the editor's "View in 3D".
+    useEffect(
+        () =>
+            useCameraStore.subscribe((state, prev) => {
+                if (!state._look || state._look === prev._look) return;
+                rig.flyTo(state._look.position, state._look.target, {
+                    nowMs: performance.now(),
+                    instant: prefersReducedMotion(),
+                });
+                requestDraw(INPUT_WAKE_MS);
+            }),
+        [rig],
     );
 
     // Crosshair while picking.

@@ -19,6 +19,8 @@ export const VIEW3D_INVALIDATE_CHANNEL = "view3d:invalidate";
  * local UI setting, not show data), which the window doesn't draw either.
  */
 export const VIEW3D_HIDDEN_PROPS_CHANNEL = "view3d:hidden-props";
+/** Editor → window: fly the camera to a prop (the prop editor's "View in 3D"). */
+export const VIEW3D_FOCUS_CHANNEL = "view3d:focus";
 /** Main → editor: whether a 3D View window is open (a boolean push). */
 export const VIEW3D_WINDOW_STATE_CHANNEL = "view3d:window-state";
 /**
@@ -58,6 +60,7 @@ export const VIEW3D_PUBLISH_CHANNELS = [
     VIEW3D_SELECTION_CHANNEL,
     VIEW3D_INVALIDATE_CHANNEL,
     VIEW3D_HIDDEN_PROPS_CHANNEL,
+    VIEW3D_FOCUS_CHANNEL,
 ] as const;
 export type View3dPublishChannel = (typeof VIEW3D_PUBLISH_CHANNELS)[number];
 
@@ -103,6 +106,11 @@ export function hiddenPropsOf(
             .filter(Number.isFinite)
             .sort((a, b) => a - b),
     };
+}
+
+export interface View3dFocus {
+    /** The prop's `marchers.id` */
+    marcherId: number;
 }
 
 export interface View3dInvalidate {
@@ -181,6 +189,7 @@ export interface View3dPayloads {
     [VIEW3D_SELECTION_CHANNEL]: View3dSelection;
     [VIEW3D_INVALIDATE_CHANNEL]: View3dInvalidate;
     [VIEW3D_HIDDEN_PROPS_CHANNEL]: View3dHiddenProps;
+    [VIEW3D_FOCUS_CHANNEL]: View3dFocus;
 }
 
 /**
@@ -254,6 +263,10 @@ export function isView3dInvalidate(value: unknown): value is View3dInvalidate {
         Array.isArray(value.queryKeys) &&
         value.queryKeys.every((key) => Array.isArray(key))
     );
+}
+
+export function isView3dFocus(value: unknown): value is View3dFocus {
+    return isRecord(value) && isFiniteNumber(value.marcherId);
 }
 
 export function isView3dHiddenProps(

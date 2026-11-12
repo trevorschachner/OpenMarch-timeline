@@ -73,6 +73,7 @@ import {
     type View3dPlaybackAction,
     type View3dSelection,
 } from "./protocol";
+import { flushView3dFocus } from "./view3dFocus";
 
 /** How often the clock is re-sent while playing, to correct drift. */
 export const CLOCK_HEARTBEAT_MS = 1000;
@@ -264,6 +265,7 @@ export function useView3dPublisher() {
                 sendClock();
                 sendSelection();
                 sendHiddenProps();
+                flushView3dFocus();
             }),
             electron.onView3dVenueChangeRequest((request) => {
                 if (request?.cameras !== undefined) {

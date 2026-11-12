@@ -3,12 +3,14 @@ import { describe, expect, it } from "vitest";
 import {
     hiddenPropsOf,
     isView3dClock,
+    isView3dFocus,
     isView3dHiddenProps,
     isView3dInvalidate,
     isView3dSelection,
     newerClock,
     showTimeAt,
     VIEW3D_HIDDEN_PROPS_CHANNEL,
+    VIEW3D_FOCUS_CHANNEL,
     VIEW3D_PUBLISH_CHANNELS,
     type View3dClock,
 } from "../protocol";
@@ -127,5 +129,18 @@ describe("hidden props", () => {
 
     it("is a channel the editor publishes", () => {
         expect(VIEW3D_PUBLISH_CHANNELS).toContain(VIEW3D_HIDDEN_PROPS_CHANNEL);
+    });
+});
+
+describe("focus", () => {
+    it("checks a payload the window receives", () => {
+        expect(isView3dFocus({ marcherId: 7 })).toBe(true);
+        expect(isView3dFocus({ marcherId: "7" })).toBe(false);
+        expect(isView3dFocus({})).toBe(false);
+        expect(isView3dFocus(null)).toBe(false);
+    });
+
+    it("is a channel the editor publishes", () => {
+        expect(VIEW3D_PUBLISH_CHANNELS).toContain(VIEW3D_FOCUS_CHANNEL);
     });
 });

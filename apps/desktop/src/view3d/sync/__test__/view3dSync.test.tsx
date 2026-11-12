@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
     VIEW3D_CLOCK_CHANNEL,
+    VIEW3D_FOCUS_CHANNEL,
     VIEW3D_HIDDEN_PROPS_CHANNEL,
     VIEW3D_INVALIDATE_CHANNEL,
     VIEW3D_SELECTION_CHANNEL,
@@ -26,6 +27,8 @@ import {
     startView3dSync,
     useView3dSyncStore,
 } from "../view3dSyncStore";
+import { viewPropIn3d } from "../view3dFocus";
+import { useView3dWindowStore } from "@/stores/View3dWindowStore";
 
 const flushMicrotasks = () => new Promise<void>((r) => queueMicrotask(r));
 
@@ -107,7 +110,7 @@ describe("relayInvalidations", () => {
 
 describe("view3dSyncStore", () => {
     beforeEach(() => {
-        useView3dSyncStore.setState({ clock: null });
+        useView3dSyncStore.setState({ clock: null, focus: null });
     });
 
     it("reads 0 before the first clock", () => {
@@ -148,7 +151,7 @@ describe("view3dSyncStore", () => {
         };
         const stop = startView3dSync(api, new QueryClient());
         expect(calls.at(-1)).toBe("hello");
-        expect(calls).toHaveLength(5);
+        expect(calls).toHaveLength(6);
 
         listeners.get(VIEW3D_CLOCK_CHANNEL)?.({ seq: "bad" });
         expect(useView3dSyncStore.getState().clock).toBeNull();
@@ -165,6 +168,15 @@ describe("view3dSyncStore", () => {
         expect([...useView3dSyncStore.getState().hiddenItemIds]).toEqual([
             3, 5,
         ]);
+        listeners.get(VIEW3D_FOCUS_CHANNEL)?.({ marcherId: "x" });
+        expect(useView3dSyncStore.getState().focus).toBeNull();
+        listeners.get(VIEW3D_FOCUS_CHANNEL)?.({ marcherId: 7 });
+        listeners.get(VIEW3D_FOCUS_CHANNEL)?.({ marcherId: 7 });
+        // Each request is new, the same prop's too
+        expect(useView3dSyncStore.getState().focus).toEqual({
+            marcherId: 7,
+            seq: 2,
+        });
 
         stop();
         expect(listeners.size).toBe(0);
@@ -186,6 +198,7 @@ describe("useView3dPublisher", () => {
         windowAlreadyOpen = false;
         isOpenReply = undefined;
         window.electron = {
+            openView3d: vi.fn(() => Promise.resolve(true)),
             isView3dOpen: () =>
                 isOpenReply ?? Promise.resolve(windowAlreadyOpen),
             publishToView3d: <C extends View3dPublishChannel>(
@@ -220,6 +233,32 @@ describe("useView3dPublisher", () => {
         );
         return { qc, ...renderHook(() => useView3dPublisher(), { wrapper }) };
     };
+
+    it("opens the window for View in 3D and sends the prop once it says hello", async () => {
+        useView3dWindowStore.setState({ open: false });
+        render();
+        await act(flushMicrotasks);
+        act(() => viewPropIn3d(12));
+        expect(window.electron.openView3d).toHaveBeenCalled();
+        expect(sent).toEqual([]);
+
+        act(() => onHello?.());
+        expect(sent).toContainEqual({
+            channel: VIEW3D_FOCUS_CHANNEL,
+            payload: { marcherId: 12 },
+        });
+        // Sent once: a later hello doesn't fly there again
+        sent = [];
+        act(() => onHello?.());
+        expect(sent.map((m) => m.channel)).not.toContain(VIEW3D_FOCUS_CHANNEL);
+
+        // With the window open, it goes at once
+        act(() => viewPropIn3d(12));
+        expect(sent).toContainEqual({
+            channel: VIEW3D_FOCUS_CHANNEL,
+            payload: { marcherId: 12 },
+        });
+    });
 
     it("publishes nothing while no 3D View window is open", async () => {
         const { qc } = render();
