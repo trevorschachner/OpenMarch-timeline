@@ -27,12 +27,21 @@ export async function lockedItemMarcherIdsInTransaction(
     marcherIds: readonly number[],
 ): Promise<Set<number>> {
     if (marcherIds.length === 0) return new Set();
+    const ids = [...new Set(marcherIds)];
+    // Most edits move only performers: then there is no item to ask about its lock
+    const anyItem = await tx
+        .select({ marcherId: schema.items.marcher_id })
+        .from(schema.items)
+        .where(inArray(schema.items.marcher_id, ids))
+        .limit(1)
+        .get();
+    if (!anyItem) return new Set();
     const rows = await tx
         .select({ marcherId: schema.items.marcher_id })
         .from(schema.items)
         .where(
             and(
-                inArray(schema.items.marcher_id, [...new Set(marcherIds)]),
+                inArray(schema.items.marcher_id, ids),
                 eq(schema.items.locked, true),
             ),
         )
