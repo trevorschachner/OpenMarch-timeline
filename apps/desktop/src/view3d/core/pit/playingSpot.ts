@@ -11,6 +11,7 @@
  * pit `README.md`'s axes) is plan -y before the item turns; it turns as the field turns Outlines
  * (`placeOutline`, `writePropMatrix`).
  */
+import { pitFamily } from "./catalog";
 
 /** How far past the footprint's field-side edge the player stands: about a foot */
 export const PLAYING_SPOT_STANDOFF_M = 0.3048;
@@ -19,19 +20,12 @@ export const PLAYING_SPOT_STANDOFF_M = 0.3048;
 export const PLAYING_SPOT_TOLERANCE_M = 0.3048;
 
 /**
- * Pit models nobody plays: field audio, the mixer cart, the podiums and amps. A minimal check on
- * the model id's family until the front ensemble's catalog (`pit/catalog.ts`) exists; switch to
- * the catalog's own flag then.
+ * Whether a built-in model is a pit instrument someone plays, with a playing spot: an offered
+ * variant of a family the catalog marks as played. Speakers, the mixer, podiums, amps, the
+ * standing podiums and towers, and any model the catalog doesn't offer are not.
  */
-const UNPLAYED_FAMILIES = ["speaker", "mixer-cart", "conductor-podium", "amp"];
-
-/** Whether a built-in model is a pit instrument someone plays, with a playing spot */
 export function isPlayedPitModel(model: string | null | undefined): boolean {
-    if (!model?.startsWith("pit/")) return false;
-    const name = model.slice("pit/".length);
-    return !UNPLAYED_FAMILIES.some(
-        (family) => name === family || name.startsWith(`${family}-`),
-    );
+    return pitFamily(model)?.played ?? false;
 }
 
 /** An item's footprint on the field plan */

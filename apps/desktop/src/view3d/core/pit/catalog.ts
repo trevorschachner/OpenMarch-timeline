@@ -45,6 +45,11 @@ export interface PitFamily {
     group: PitGroup;
     /** i18n key of the family's name, also a new item's name ("Marimba 2") */
     labelKey: string;
+    /**
+     * Whether someone plays it, standing on its playing spot (`pit/playingSpot.ts`): the
+     * keyboards and percussion, not the audio group's speakers, mixer and podium
+     */
+    played: boolean;
 }
 
 /** One part of a variant's label: an i18n key and its parameters */
@@ -273,7 +278,12 @@ const BY_FILE_ID: ReadonlyMap<string, PitVariant> = new Map(
 
 /** The families offered, in the order the Props panel lists them */
 export const PIT_FAMILIES: readonly PitFamily[] = FAMILY_SPECS.map(
-    ({ id, group }) => ({ id, group, labelKey: `pit.family.${id}` }),
+    ({ id, group }) => ({
+        id,
+        group,
+        labelKey: `pit.family.${id}`,
+        played: group !== "audio",
+    }),
 );
 
 /** A family's variants, smaller first */
