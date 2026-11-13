@@ -8,7 +8,8 @@
  * - A variant's footprint is the detailed model's size, in meters like an item's geometry:
  *   width along the field's x, depth toward the audience, as the models are built (+Z toward the
  *   audience).
- * - Amps are built but not offered yet.
+ * - Amps are built but not offered yet, nor are the drum major's stands, towers, rolling podium,
+ *   stepladder and scaffold (#838); the podium family is the conductor podium.
  *
  * Labels are i18n keys with parameters, so this stays free of the UI.
  */

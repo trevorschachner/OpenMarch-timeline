@@ -49,13 +49,14 @@ describe("the front ensemble catalog", () => {
         ]);
     });
 
-    it("offers every built model except the amps, each in one family", () => {
+    it("offers every built model except the amps and drum major stands, each in one family", () => {
+        const notOffered = /^(amp-|podium-|scaffold-|stepladder-)/;
         const offered = PIT_FAMILIES.flatMap((f) =>
             pitVariantsOf(f.id).map((v) => v.fileId),
         );
         expect(new Set(offered).size).toBe(offered.length);
         expect([...offered].sort()).toEqual(
-            manifestIds.filter((id) => !id.startsWith("amp-")).sort(),
+            manifestIds.filter((id) => !notOffered.test(id)).sort(),
         );
     });
 
