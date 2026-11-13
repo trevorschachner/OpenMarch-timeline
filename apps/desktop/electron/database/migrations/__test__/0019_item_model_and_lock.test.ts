@@ -39,7 +39,7 @@ describe("0019_item_model_and_lock", () => {
         vi.restoreAllMocks();
     });
 
-    it("adds the column in place to a file from before it, keeping every item as an unlocked block", async () => {
+    it("adds the column in place to a file from before it, keeping every item as an unlocked block placed by hand", async () => {
         const file = path.join(dir, "show.dots");
         await createNewTimelineShow(file);
         const fresh = withDb(file, normalizedSchema);
@@ -47,6 +47,7 @@ describe("0019_item_model_and_lock", () => {
         rollBackMigrationsFrom(file, 19);
         expect(itemColumns(file)).not.toContain("model");
         expect(itemColumns(file)).not.toContain("locked");
+        expect(itemColumns(file)).not.toContain("from_preset");
         withDb(file, (db) =>
             db.exec(`
                 INSERT INTO marchers (id, section, drill_prefix, drill_order, type) VALUES
@@ -65,7 +66,7 @@ describe("0019_item_model_and_lock", () => {
             withDb(file, (db) =>
                 db
                     .prepare(
-                        "SELECT id, marcher_id, kind, surface_type, color, model, locked FROM items ORDER BY id",
+                        "SELECT id, marcher_id, kind, surface_type, color, model, locked, from_preset FROM items ORDER BY id",
                     )
                     .all()
                     .map((row) => ({ ...row })),
@@ -79,6 +80,7 @@ describe("0019_item_model_and_lock", () => {
                 color: "rgba(1, 2, 3, 1)",
                 model: null,
                 locked: 0,
+                from_preset: 0,
             },
             {
                 id: 2,
@@ -88,6 +90,7 @@ describe("0019_item_model_and_lock", () => {
                 color: null,
                 model: null,
                 locked: 0,
+                from_preset: 0,
             },
         ]);
     });
