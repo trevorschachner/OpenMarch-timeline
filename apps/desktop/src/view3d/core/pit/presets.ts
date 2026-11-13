@@ -23,6 +23,7 @@ import {
     type PitFamilyId,
     type PitVariant,
 } from "./catalog";
+import { PLAYING_SPOT_TOLERANCE_M, playingSpotOf } from "./playingSpot";
 import { worldToPixels, type FieldProperties, type XY } from "@openmarch/core";
 
 /** One foot in meters */
@@ -129,15 +130,6 @@ const FIVE_YARDS = 15 * FEET;
 const PODIUM_STANDOFF = 3 * FEET;
 const MIXER_OFFSET_X = 16 * FEET;
 const MIXER_STANDOFF = 6 * FEET;
-
-/**
- * How far past the footprint's field-side edge a player stands, as `PLAYING_SPOT_STANDOFF_M` in
- * `pit/playingSpot.ts` (branch `3d/pit-2d`). Switch to `playingSpotOf` once both are merged.
- */
-const PLAYING_SPOT_STANDOFF = 1 * FEET;
-
-/** How near a performer must stand to a playing spot to be on it, as `PLAYING_SPOT_TOLERANCE_M` */
-const PLAYING_SPOT_REACH = 1 * FEET;
 
 const footprint = (familyId: PitFamilyId) =>
     defaultPitVariant(familyId).footprint;
@@ -254,8 +246,7 @@ export function pitPreset(size: PitPresetSize): PitPreset {
     const instruments = [...back.placed, ...keyboards.placed];
     const performers: PitPresetPerformer[] = instruments.map((e) => ({
         section: PIT_PLAYER_SECTIONS[e.familyId]!,
-        ...playingSpot(e),
-        facing: 0,
+        ...playerSpot(e),
     }));
     performers.push({
         section: DRUM_MAJOR_SECTION,
@@ -271,12 +262,20 @@ export function pitPreset(size: PitPresetSize): PitPreset {
 }
 
 /**
- * Where a player stands to play an unturned instrument: centered on its field side, a foot past
- * its footprint. The same spot as `playingSpotOf` (branch `3d/pit-2d`) for rotation 0.
+ * Where a player stands to play an instrument, and the way they face: its playing spot
+ * (`playingSpotOf`), the one the 2D field marks and the 3D View snaps a player onto. The world's
+ * z is the plan's y.
  */
-function playingSpot(e: PitPresetEquipment): { x: number; z: number } {
-    const { depth } = footprint(e.familyId);
-    return { x: e.x, z: e.z - depth / 2 - PLAYING_SPOT_STANDOFF };
+function playerSpot(
+    e: PitPresetEquipment,
+): Pick<PitPresetPerformer, "x" | "z" | "facing"> {
+    const spot = playingSpotOf(e.variantId, {
+        center: { x: e.x, y: e.z },
+        depth: footprint(e.familyId).depth,
+        rotation: e.rotation,
+    });
+    if (!spot) throw new Error(`Nobody plays ${e.variantId}`);
+    return { x: spot.x, z: spot.y, facing: spot.facing };
 }
 
 /** A preset's equipment on the canvas */
@@ -309,7 +308,7 @@ export function pitPresetOnCanvas(
         equipment: preset.equipment.map((e) => ({ ...e, home: home(e) })),
         performers: preset.performers.map((p) => ({ ...p, home: home(p) })),
         reach:
-            worldToPixels(field, { x: PLAYING_SPOT_REACH, z: 0 }).x -
+            worldToPixels(field, { x: PLAYING_SPOT_TOLERANCE_M, z: 0 }).x -
             field.centerFrontPoint.xPixels,
     };
 }

@@ -2,6 +2,7 @@
 import { describe, expect, it } from "vitest";
 import FieldPropertiesTemplates from "@/global/classes/FieldProperties.templates";
 import { pitVariant } from "../catalog";
+import { isOnPlayingSpot, playingSpotOf } from "../playingSpot";
 import {
     FEET,
     PIT_PRESET_SIZES,
@@ -353,4 +354,45 @@ describe("pitPresetOnCanvas", () => {
             preset.performers[0].section,
         );
     });
+});
+
+describe("a preset's players on the canvas", () => {
+    const field =
+        FieldPropertiesTemplates.HIGH_SCHOOL_FOOTBALL_FIELD_NO_END_ZONES;
+    const pixelsPerMeter =
+        field.pixelsPerStep / (field.stepSizeInches * 0.0254);
+
+    it.each(PIT_PRESET_SIZES)(
+        "stand on their instruments' playing spots at %s, so the 3D View snaps them",
+        (size) => {
+            const onCanvas = pitPresetOnCanvas(pitPreset(size), field);
+            const players = onCanvas.performers.filter(
+                (p) => p.section !== "Drum Major",
+            );
+            const instruments = onCanvas.equipment.flatMap((e) => {
+                const spot = playingSpotOf(
+                    e.variantId,
+                    {
+                        center: { x: e.home[0], y: e.home[1] },
+                        depth: pitVariant(e.variantId)!.footprint.depth,
+                        rotation: e.rotation,
+                    },
+                    pixelsPerMeter,
+                );
+                return spot ? [spot] : [];
+            });
+            expect(instruments).toHaveLength(players.length);
+            for (const spot of instruments) {
+                const on = players.filter((p) =>
+                    isOnPlayingSpot({ x: p.home[0], y: p.home[1] }, spot),
+                );
+                expect(on).toHaveLength(1);
+                expect(on[0].facing).toBe(spot.facing);
+                // Well inside the tolerance, not at its edge
+                expect(
+                    Math.hypot(on[0].home[0] - spot.x, on[0].home[1] - spot.y),
+                ).toBeLessThan(spot.reach / 100);
+            }
+        },
+    );
 });
