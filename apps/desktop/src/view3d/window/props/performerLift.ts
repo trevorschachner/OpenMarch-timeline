@@ -10,6 +10,7 @@ import {
     liftPlatforms,
     liftPodiums,
     writeLifts,
+    writeOnPodiums,
     writePodiumStands,
     type LiftPlatform,
     type LiftPodium,
@@ -138,6 +139,26 @@ export function writePerformerPodiumStands(
         lift,
         headings,
     );
+}
+
+/**
+ * Who stands on a podium at `ms`: writes into `out`, per performer, 1 if their dot in `dots`
+ * puts them on one (as {@link writePerformerPodiumStands} stands them) and 0 if not, so they
+ * hold the podium's stance (`PODIUM_CLIP`). A show with no podium writes 0 for everyone.
+ */
+export function findPerformersOnPodiums(
+    moment: PropsMoment,
+    dots: Float32Array,
+    placed: Uint8Array,
+    out: Uint8Array,
+): void {
+    if (!moment.props.some((p) => p.facesAcross)) {
+        out.fill(0);
+        return;
+    }
+    const at = layout(moment);
+    at.podiums ??= liftPodiums(at.solids);
+    writeOnPodiums(at.podiums, dots, placed, out);
 }
 
 const NO_SPOTS: PlayingSpot[] = [];

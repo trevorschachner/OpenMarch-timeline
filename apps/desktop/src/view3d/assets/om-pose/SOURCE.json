@@ -1,6 +1,6 @@
 {
     "source": "https://github.com/OpenMarch/om-pose",
-    "commit": "87cc16e816f0d4a074098b9cb27fdb9431c95dac",
+    "commit": "6b10f49b7d212d064a797eb6468175ec59dcbffd",
     "from": {
         "bodies": "assets/body-v4u/*.glb",
         "clips": "out/body/animations/*.glb, packed one GLB per height class",
@@ -8,25 +8,29 @@
     },
     "license": "Not under the app's license (see LICENSE): the clips are in the counsel gate (lawyer Q3); the meshes take CC0 1.0 once Q3 is answered and om-pose adopts a license upstream (ADR 0010 D-7, D-21)",
     "files": {
+        "LICENSE": {
+            "bytes": 638,
+            "sha256": "20d0cc7a82482a477fdd53f54863aecae6a5768690d075e3742714e6a50ce1e5"
+        },
         "clips/clips-h090.glb": {
-            "bytes": 5842340,
-            "sha256": "b605212f2e6b2484ffe537dbc89033b6e526406d7ad87379f73ca43fd10a3a85"
+            "bytes": 5853896,
+            "sha256": "1c3c1fe07cdaa45d8765041a05c269de404b024352ad66dee20851d449bfa698"
         },
         "clips/clips-h095.glb": {
-            "bytes": 5856648,
-            "sha256": "b6f87e4d2c11aa43fc2213791381392096ecaa730e5c64a1cc8d981984c6ec49"
+            "bytes": 5872216,
+            "sha256": "61061d11a71105e825f458a699a03794889f816be1ab1918c04e9aaafb05331e"
         },
         "clips/clips-h100.glb": {
-            "bytes": 5859460,
-            "sha256": "9d502ff0c4db6e92dda2115cbc17aed347c8bd1161394a9fbcdd8780363fda7f"
+            "bytes": 5878568,
+            "sha256": "054df9413d5908274d3785993bedf54de4a37ac94de4c50c846ba0c9b5741992"
         },
         "clips/clips-h105.glb": {
-            "bytes": 5858444,
-            "sha256": "a547c65806c075ceef05ad98712ef93c83f941f764e474da2b317a8052da2159"
+            "bytes": 5880688,
+            "sha256": "494d9a759ce30c1311a1165c9f673a55b27c796ef588d3785a6f3b903f7c4a4b"
         },
         "clips/clips-h110.glb": {
-            "bytes": 5855712,
-            "sha256": "9e22540b726d208e3234f66e16896d259354412dd5031a362bba5f1b00f776a6"
+            "bytes": 5881348,
+            "sha256": "0c5dfef18e01ef539f80b2f801bcf50988de085e20155398558602b47263f3ed"
         },
         "bodies/feminine-average.glb": {
             "bytes": 249144,
@@ -57,8 +61,8 @@
             "sha256": "e6228db3a46579bfb1ed6c3b45ee8e8fbe81466d5ee829924c06b94fffd88f77"
         },
         "manifest.json": {
-            "bytes": 1115198,
-            "sha256": "fdc3d2a5a121520173495b7370e56eb2a09235db0e3baec0e4a30e155a5cba94"
+            "bytes": 1116090,
+            "sha256": "6f47203199aff317e4dc58d7273b6ee0b1ae05c14859f07c85afddb360203abd"
         }
     }
 }

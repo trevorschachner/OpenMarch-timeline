@@ -8,6 +8,7 @@ import {
     liftPlatforms,
     liftPodiums,
     writeLifts,
+    writeOnPodiums,
     writePodiumStands,
 } from "../platformLift";
 
@@ -234,5 +235,25 @@ describe("writePodiumStands", () => {
         );
         expect([...xz, ...lift]).toEqual([0, 5, 0]);
         expect(headings[0]).toBeCloseTo(0.3);
+    });
+
+    it("marks who stands on a podium, as the stands put them there", () => {
+        const podiums = liftPodiums([podium(1, 0, 5)]);
+        const outside = 0.6 + PODIUM_REACH + 0.01;
+        const xz = new Float32Array([
+            0,
+            5, // on it
+            0.6 + PODIUM_REACH - 0.01,
+            5, // within a foot
+            outside,
+            5, // more than a foot outside
+            0,
+            5, // on it, not placed
+        ]);
+        const out = new Uint8Array(4).fill(7);
+        writeOnPodiums(podiums, xz, new Uint8Array([1, 1, 1, 0]), out);
+        expect([...out]).toEqual([1, 1, 0, 0]);
+        writeOnPodiums([], xz, new Uint8Array([1, 1, 1, 1]), out);
+        expect([...out]).toEqual([0, 0, 0, 0]);
     });
 });

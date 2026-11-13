@@ -38,6 +38,13 @@ export interface LiftPodium extends LiftPlatform {
 /** How far outside a podium's footprint a dot still puts its performer on the podium (m): 1 ft. */
 export const PODIUM_REACH = 0.3048;
 
+/**
+ * The Feet clip a performer holds while standing on a podium, by its base name (before the height
+ * class suffix): om-pose's second position, feet about shoulder width apart and the toes turned out
+ * a little, a conductor's stance. Where it isn't baked yet they stand at attention.
+ */
+export const PODIUM_CLIP = "second";
+
 const isPodium = (s: PropSolid) => s.facesAcross === true;
 
 const standsOnIt = (s: PropSolid) =>
@@ -181,29 +188,60 @@ export function writePodiumStands(
     if (podiums.length === 0) return;
     for (let i = 0; i < lift.length; i++) {
         if (!placed[i]) continue;
-        const x = xz[i * 2],
-            z = xz[i * 2 + 1];
-        let on: LiftPodium | null = null;
-        let nearest = Infinity;
-        for (const p of podiums) {
-            if (
-                x < p.minX - PODIUM_REACH ||
-                x > p.maxX + PODIUM_REACH ||
-                z < p.minZ - PODIUM_REACH ||
-                z > p.maxZ + PODIUM_REACH ||
-                signedDistance(p.ring, x, z) < -PODIUM_REACH
-            )
-                continue;
-            const d = Math.hypot(x - p.standX, z - p.standZ);
-            if (d < nearest) {
-                nearest = d;
-                on = p;
-            }
-        }
+        const on = podiumAt(podiums, xz[i * 2], xz[i * 2 + 1]);
         if (!on) continue;
         xz[i * 2] = on.standX;
         xz[i * 2 + 1] = on.standZ;
         lift[i] = on.top;
         headings[i] = podiumHeading(on.centerZ, fieldCenterZ);
     }
+}
+
+/**
+ * The podium a dot at (x, z) puts its performer on: of those whose footprint it is on, or within
+ * {@link PODIUM_REACH} outside, the one whose stand point is nearest. Null when none.
+ */
+function podiumAt(
+    podiums: readonly LiftPodium[],
+    x: number,
+    z: number,
+): LiftPodium | null {
+    let on: LiftPodium | null = null;
+    let nearest = Infinity;
+    for (const p of podiums) {
+        if (
+            x < p.minX - PODIUM_REACH ||
+            x > p.maxX + PODIUM_REACH ||
+            z < p.minZ - PODIUM_REACH ||
+            z > p.maxZ + PODIUM_REACH ||
+            signedDistance(p.ring, x, z) < -PODIUM_REACH
+        )
+            continue;
+        const d = Math.hypot(x - p.standX, z - p.standZ);
+        if (d < nearest) {
+            nearest = d;
+            on = p;
+        }
+    }
+    return on;
+}
+
+/**
+ * Writes into `out`, per performer placed at `xz`, 1 if their dot puts them on a podium (as
+ * {@link writePodiumStands} would stand them there) and 0 if not, so they can hold
+ * {@link PODIUM_CLIP} while they're on it. Allocates nothing.
+ */
+export function writeOnPodiums(
+    podiums: readonly LiftPodium[],
+    xz: Float32Array,
+    placed: Uint8Array,
+    out: Uint8Array,
+): void {
+    for (let i = 0; i < out.length; i++)
+        out[i] =
+            placed[i] &&
+            podiums.length > 0 &&
+            podiumAt(podiums, xz[i * 2], xz[i * 2 + 1])
+                ? 1
+                : 0;
 }
