@@ -20,6 +20,9 @@
  *   (docs/3d/instruments.md §6): snapped onto the spot, facing the
  *   instrument, holding still in the playing pose (`pitPlayers.ts`). Only
  *   the drawing moves; the drill keeps their dot.
+ * - A performer standing on a podium holds its stance (`PODIUM_CLIP`, second
+ *   position: feet apart) instead of their step, at attention until that
+ *   clip is baked; off the podium they march their drill again.
  *
  * Meshes and buffers are rebuilt only when the marcher set changes.
  */
@@ -71,10 +74,12 @@ import { useShowPositions } from "@/view3d/positions";
 import { useShowProps } from "@/hooks/useShowProps";
 import {
     findPerformerPlayers,
+    findPerformersOnPodiums,
     writePerformerLifts,
     writePerformerPodiumStands,
 } from "../props/performerLift";
 import { PLAYING_CLIP, writePlayers } from "@/view3d/core/pit/pitPlayers";
+import { PODIUM_CLIP } from "@/view3d/core/props/platformLift";
 import { useView3dSyncStore } from "@/view3d/sync/view3dSyncStore";
 import type { View3dSelection } from "@/view3d/sync/protocol";
 import { useView3dSceneStore } from "../sceneStore";
@@ -320,18 +325,21 @@ export default function Performers({ fieldProperties }: PerformersProps) {
         for (const h of heightClasses) {
             names.add(clipName("attention", h));
             names.add(clipName(PLAYING_CLIP, h));
+            names.add(clipName(PODIUM_CLIP, h));
         }
         // a right-foot move's rows are baked from their mirrored partners
         return clipsToLoad([...names], "left");
     }, [showPlans, heightClasses]);
     // Only the Feet rows some marcher plays: its planned clips, and
-    // attention and the pit's playing pose for its height class.
+    // attention, the pit's playing pose and the podium stance for its height
+    // class.
     const bakeRows = useMemo(() => {
         if (!marcherLooks) return undefined;
         const out = new Set<string>();
         marcherLooks.forEach((look, i) => {
             out.add(clipName("attention", look.body.heightClass));
             out.add(clipName(PLAYING_CLIP, look.body.heightClass));
+            out.add(clipName(PODIUM_CLIP, look.body.heightClass));
             const plan = showPlans?.plans[i];
             if (!plan) return;
             for (const e of plan.events)
@@ -387,6 +395,9 @@ export default function Performers({ fieldProperties }: PerformersProps) {
                       ),
                       marcherLooks.map((l) =>
                           clipName(PLAYING_CLIP, l.body.heightClass),
+                      ),
+                      marcherLooks.map((l) =>
+                          clipName(PODIUM_CLIP, l.body.heightClass),
                       ),
                   )
                 : null,
@@ -486,10 +497,12 @@ export default function Performers({ fieldProperties }: PerformersProps) {
             xz: new Float32Array(count * 2),
             placed: new Uint8Array(count),
             lift: new Float32Array(count),
-            // the dots at the show time itself, for who plays the pit
+            // the dots at the show time itself, for who plays the pit and
+            // who stands on a podium
             dots: new Float32Array(count * 2),
             dotPlaced: new Uint8Array(count),
             players: new Int32Array(count).fill(-1),
+            onPodium: new Uint8Array(count),
         };
     }, [assets, count]);
     useEffect(
@@ -637,9 +650,13 @@ export default function Performers({ fieldProperties }: PerformersProps) {
                 ms,
                 fieldProperties,
             };
-            // who plays the pit: whoever's dot is on a playing spot now
-            const { dots, dotPlaced, players } = meshes;
-            if (ahead && instruments.length > 0)
+            // who plays the pit: whoever's dot is on a playing spot now; and
+            // who stands on a podium: whoever's dot puts them on one now
+            const { dots, dotPlaced, players, onPodium } = meshes;
+            if (
+                ahead &&
+                (instruments.length > 0 || showProps.some((p) => p.facesAcross))
+            )
                 writePerformerPositions(
                     slots,
                     ms,
@@ -655,10 +672,17 @@ export default function Performers({ fieldProperties }: PerformersProps) {
                 ahead ? dotPlaced : placed,
                 players,
             );
+            findPerformersOnPodiums(
+                propsNow,
+                ahead ? dots : xz,
+                ahead ? dotPlaced : placed,
+                onPodium,
+            );
             if (marcherBodies) {
                 countRef.current = c;
-                if (closed) motion?.updateClosed(c, headings, players);
-                else motion?.update(c, xz, placed, headings, players);
+                if (closed)
+                    motion?.updateClosed(c, headings, players, onPodium);
+                else motion?.update(c, xz, placed, headings, players, onPodium);
                 // players snap onto their instrument, facing it
                 writePlayers(spots, players, xz, headings);
                 // where the bodies are now
