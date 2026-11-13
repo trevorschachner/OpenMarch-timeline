@@ -9,11 +9,18 @@ import {
 import { afterEach, beforeAll, expect, vi } from "vitest";
 import { useEffect } from "react";
 import { describeDbTests, schema, type DbConnection } from "@/test/base";
-import { harnessQueryClient, setUpFeature } from "@/test/featureHarness";
+import {
+    harnessQueryClient,
+    selectTimeline,
+    setUpFeature,
+} from "@/test/featureHarness";
 import tolgee from "@/global/singletons/Tolgee";
 import { stopTimelineResolver } from "@/timeline/timelineStore";
 import { createItems, getItemGeometry, getItems } from "@/db-functions/items";
 import { performUndo } from "@/db-functions/history";
+import { moveMarchersInTarget } from "@/db-functions/timelineMoves";
+import { createResolver } from "@openmarch/core";
+import { readTimelineTables } from "@/timeline/timelineRows";
 import { useItemDrawingStore } from "@/stores/ItemDrawingStore";
 import { usePropDrawn } from "@/field/fieldPropTool";
 import { pitVariant } from "@/view3d/core/pit/catalog";
@@ -291,6 +298,51 @@ describeDbTests("Props panel front ensemble", (it) => {
         );
         await performUndo(db);
         expect((await getItems({ db }))[0].locked).toBe(true);
+    });
+
+    it("locks an item with moves where it is at the playhead, not at its home", async ({
+        db,
+        marchersAndPages,
+    }) => {
+        expect(marchersAndPages).toBeDefined();
+        const [prop] = await createItems({
+            db,
+            newItems: [
+                {
+                    kind: "prop",
+                    name: "Riser",
+                    surfaceType: "obstacle",
+                    home: [100, 100],
+                    beatId: await firstBeatId(db),
+                    geometry: {
+                        outlineType: "rectangle",
+                        width: 2,
+                        depth: 1,
+                    },
+                },
+            ],
+        });
+        // Moves over pages 1 and 2 (beats 1 to 17)
+        await moveMarchersInTarget({
+            db,
+            target: { kind: "range", start: 1, end: 17 },
+            moves: [{ marcherId: prop.marcher_id, x: 300, y: 200 }],
+        });
+        const resolverOf = async () =>
+            createResolver((await readTimelineTables(db)).snapshot);
+        const at9 = (await resolverOf()).positionAt(prop.marcher_id, 9);
+        expect(at9).not.toEqual([100, 100]);
+
+        await setUpFeature(<PropEditContents itemId={prop.id} />, PAGE, []);
+        // The playhead on beat 9
+        await selectTimeline({ start: 1, end: 9 });
+        fireEvent.click(await screen.findByRole("switch", { name: "Locked" }));
+        await waitFor(async () =>
+            expect((await getItems({ db }))[0].locked).toBe(true),
+        );
+        const resolver = await resolverOf();
+        for (const beat of [0, 1, 9, 17, 30])
+            expect(resolver.positionAt(prop.marcher_id, beat)).toEqual(at9);
     });
 
     it("places a podium with the turn the tool gave it", async ({
