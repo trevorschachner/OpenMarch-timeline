@@ -1476,8 +1476,12 @@
         "other": "Other",
         "pit": {
             "auxPercussion": "Aux Percussion",
+            "drumSet": "Drum Set",
+            "glockenspiel": "Glockenspiel",
             "marimba": "Marimba",
+            "rack": "Rack",
             "synthesizer": "Synthesizer",
+            "timpani": "Timpani",
             "vibraphone": "Vibraphone",
             "xylophone": "Xylophone"
         },
