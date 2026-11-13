@@ -18,6 +18,7 @@ import { T, useTranslate } from "@tolgee/react";
 import { MENU_BUTTON_CLASS } from "@/components/ui/popupClasses";
 import { useItemDrawingStore } from "@/stores/ItemDrawingStore";
 import { useSidebarModalStore } from "@/stores/SidebarModalStore";
+import PitPresets from "./PitPresets";
 import {
     PIT_FAMILIES,
     defaultPitVariant,
@@ -68,8 +69,9 @@ const meters = (value: number) => String(Number(value.toFixed(2)));
 /**
  * The Props panel's Front ensemble (instruments.md §6): pick a family, then a variant, and place
  * it on the field with a click, as a locked equipment item named for its family ("Marimba 2").
- * A family with one model is placed straight from the list. It starts open until the show has
- * equipment, then folded, so the list of items below stays in view.
+ * A family with one model is placed straight from the list. The Small, Medium and Large presets
+ * (`PitPresets`) sit above the families. It starts open until the show has equipment, then
+ * folded, so the list of items below stays in view.
  */
 export default function FrontEnsemblePicker({
     hasEquipment,
@@ -110,10 +112,7 @@ export default function FrontEnsemblePicker({
                     />
                 </RadixCollapsible.Trigger>
                 <RadixCollapsible.Content className="flex flex-col gap-12">
-                    {/*
-                     * PRESETS SLOT: the Small, Medium and Large presets (instruments.md §6) go here, above
-                     * the families. They belong to the presets branch; this branch leaves the spot empty.
-                     */}
+                    <PitPresets />
                     {family ? (
                         <VariantList
                             family={family}

@@ -335,3 +335,68 @@ test("places a podium behind the back sideline, turned to face the field", async
     // Not held to the field
     expect(placed!.home_y as number).toBeLessThan(0);
 });
+
+test("applies a front ensemble preset with its performers in one undo step, and replaces it with another", async ({
+    show,
+}) => {
+    const { page } = show;
+    await expect.poll(() => drawnItems(page)).toHaveLength(1);
+    await page.locator("#sidebar-launcher-props").click();
+    const presets = page.getByRole("group", { name: "Presets" });
+    await presets.getByRole("radio", { name: "Medium" }).click();
+    await expect(presets.getByRole("checkbox")).toBeChecked();
+    await presets.getByRole("button", { name: "Apply" }).click();
+    await waitForIdle(page);
+
+    // 4 marimbas, 3 vibes, xylophone, glockenspiel, rack, drum set, synth, 4 speakers, podium,
+    // mixer: 18 pieces of equipment beside the riser, locked
+    await expect.poll(() => drawnItems(page)).toHaveLength(19);
+    expect(
+        await show.query(
+            "SELECT count(*) AS n, min(locked) AS locked FROM items WHERE kind = 'equipment'",
+        ),
+    ).toEqual([{ n: 18, locked: 1 }]);
+    // A player per instrument and a drum major, beside the two trumpets
+    expect(
+        await show.query(
+            "SELECT section, count(*) AS n FROM marchers WHERE type = 'marcher' GROUP BY section ORDER BY section",
+        ),
+    ).toEqual([
+        { section: "Drum Major", n: 1 },
+        { section: "Drum Set", n: 1 },
+        { section: "Glockenspiel", n: 1 },
+        { section: "Marimba", n: 4 },
+        { section: "Rack", n: 1 },
+        { section: "Synthesizer", n: 1 },
+        { section: "Trumpet", n: 2 },
+        { section: "Vibraphone", n: 3 },
+        { section: "Xylophone", n: 1 },
+    ]);
+    await expectCanvasMatchesShow(show);
+
+    // The Front ensemble folds once the show has equipment; open it again to apply another.
+    // Small replaces Medium's equipment, keeps the riser and adds no performers it already has
+    await page
+        .getByRole("region", { name: "Front ensemble" })
+        .getByRole("button", { name: "Front ensemble" })
+        .click();
+    await expect(
+        presets.getByText("Replaces the equipment the last preset added", {
+            exact: false,
+        }),
+    ).toBeVisible();
+    await presets.getByRole("radio", { name: "Small" }).click();
+    await presets.getByRole("button", { name: "Apply" }).click();
+    await waitForIdle(page);
+    await expect.poll(() => drawnItems(page)).toHaveLength(11);
+    expect(
+        await show.query(
+            "SELECT count(*) AS n FROM marchers WHERE type = 'marcher'",
+        ),
+    ).toEqual([{ n: 15 }]);
+
+    // One undo brings Medium back
+    await page.keyboard.press("ControlOrMeta+z");
+    await waitForIdle(page);
+    await expect.poll(() => drawnItems(page)).toHaveLength(19);
+});
