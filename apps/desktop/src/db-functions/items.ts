@@ -297,9 +297,17 @@ export interface ModifiedItemArgs {
     locked?: boolean;
     /** The beat a lock keeps the item's position from: the playhead. 0 (its home) by default */
     lockAtBeat?: number;
+    /**
+     * Sizes every Outline change of the item to this, in meters, keeping their turns: a new
+     * model's footprint, set with `model`
+     */
+    footprint?: { width: number; depth: number; height: number };
 }
 
-/** Renames items, changes props' surface types and colors, and sets items' models and locks. */
+/**
+ * Renames items, changes props' surface types and colors, sets items' models and locks, and
+ * resizes them to a model's footprint.
+ */
 export async function updateItemsInTransaction({
     tx,
     modifiedItems,
@@ -315,6 +323,7 @@ export async function updateItemsInTransaction({
         model,
         locked,
         lockAtBeat,
+        footprint,
     } of modifiedItems) {
         const item = await tx
             .select()
@@ -336,6 +345,16 @@ export async function updateItemsInTransaction({
                 .update(schema.items)
                 .set({ color, model, locked })
                 .where(eq(schema.items.id, itemId))
+                .run();
+        if (footprint !== undefined)
+            await tx
+                .update(schema.item_geometry)
+                .set({
+                    width: footprint.width,
+                    depth: footprint.depth,
+                    height: footprint.height,
+                })
+                .where(eq(schema.item_geometry.item_id, itemId))
                 .run();
         if (surfaceType !== undefined) {
             if (item.kind !== "prop")

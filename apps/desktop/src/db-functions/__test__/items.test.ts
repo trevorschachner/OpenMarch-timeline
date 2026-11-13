@@ -361,6 +361,78 @@ describeDbTests("items", (it) => {
             expect(await models()).toEqual(["pit/vibraphone", null]);
         });
 
+        it("resizes every Outline change to a new model's footprint, with the model, in one undo step", async ({
+            db,
+            beats,
+        }) => {
+            expect(beats).toBeDefined();
+            const [beat, later] = await firstBeatIds(db);
+            const [marimba] = await createItems({
+                db,
+                newItems: [
+                    {
+                        kind: "equipment",
+                        name: "Marimba",
+                        model: "pit/marimba-5.0",
+                        home: [0, 0],
+                        beatId: beat,
+                        geometry: {
+                            outlineType: "rectangle",
+                            width: 2.54,
+                            depth: 1.207,
+                            height: 0.982,
+                            rotation: 15,
+                        },
+                    },
+                ],
+            });
+            // Turned later in the show: the turn stays, the size follows the model
+            await setItemGeometry({
+                db,
+                itemId: marimba.id,
+                beatId: later,
+                geometry: {
+                    outlineType: "rectangle",
+                    width: 2.54,
+                    depth: 1.207,
+                    height: 0.982,
+                    rotation: 90,
+                },
+            });
+            const sizes = async () =>
+                (await getItemGeometry({ db })).map((g) => [
+                    g.width,
+                    g.depth,
+                    g.height,
+                    g.rotation,
+                ]);
+            const before = await sizes();
+
+            await updateItems({
+                db,
+                modifiedItems: [
+                    {
+                        itemId: marimba.id,
+                        model: "pit/marimba-4.3",
+                        footprint: {
+                            width: 2.129,
+                            depth: 0.899,
+                            height: 0.982,
+                        },
+                    },
+                ],
+            });
+            expect(await sizes()).toEqual([
+                [2.129, 0.899, 0.982, 15],
+                [2.129, 0.899, 0.982, 90],
+            ]);
+            expect((await getItems({ db }))[0].model).toBe("pit/marimba-4.3");
+
+            await performUndo(db);
+            expect(await sizes()).toEqual(before);
+            expect((await getItems({ db }))[0].model).toBe("pit/marimba-5.0");
+        });
+
         it("locks equipment by default, and locks and unlocks items in one undo step", async ({
             db,
             beats,
